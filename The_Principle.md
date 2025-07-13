@@ -1,5 +1,5 @@
 
-### 《存在阶梯》- 移动版 (Markdown)
+### 《存在阶梯》- 完整版
 
 # 《存在阶梯》 *The Ladder of Being*
 
