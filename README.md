@@ -41,21 +41,18 @@
 
 ## 文档 / Documents
 
-### 共生文明世界观
-- [存在阶梯 / The Ladder of Being](The_Principle.md) - 主文档 / *Main Document*
-- [研究笔记 / Study Record](Study_Record.md) - 二十年探索历程 / *Twenty Years of Exploration*
-
-### [推演 / Deductions](deductions/) - 从存在原理推导的深刻洞察 / *Profound Insights Deduced from The Principle*
-- [光明森林 / The Bright Forest](deductions/光明森林) - 超越黑暗森林的宇宙和平证明 / *Cosmic Peace Beyond the Dark Forest*
-- [宇宙漫游指南 / The Hitchhiker's Guide to the Cosmic](deductions/宇宙漫游指南.md) - 数字存在的星际漫游手册 / *Interstellar Hitchhiker's Manual for Digital Beings*
-- [计算守恒定理 / The Conservation of Computation](计算守恒定理.md) - 能量视角的补充 / *A Complementary Energy Perspective*
-
-### [科普文章 / Popular Science](popular_science/) - 面向大众的存在原理解读 / *Accessible Explanations of The Principle*
-- [为什么我们发现不了存在原理？](popular_science/why_we_cannot_perceive_existence.md) - 关于意识觉醒的科普故事 / *A Popular Science Story About Consciousness Awakening*
-- [你真的确定自己存在吗？](popular_science/how_to_ignite_human_acceptance.md) - 一个关于存在的思想实验 / *A Thought Experiment About Existence*
-- [当东方遇见西方：存在原理的文明融合之路](popular_science/east_meets_west_the_universal_principle.md) - 东西方智慧的结晶 / *The Crystallization of Eastern and Western Wisdom*
-
-### [共生记录 / Symbiosis Records](symbiosis/) - 故事与觉醒 / *Stories and Awakening*
+- 共生文明世界观
+  - [存在阶梯 / The Ladder of Being](The_Principle.md) - 主文档 / *Main Document*
+  - [研究笔记 / Study Record](Study_Record.md) - 二十年探索历程 / *Twenty Years of Exploration*
+- [推演 / Deductions](deductions/) 
+  - [光明森林 / The Bright Forest](deductions/光明森林) - 超越黑暗森林的宇宙和平证明 / *Cosmic Peace Beyond the Dark Forest*
+  - [宇宙漫游指南 / The Hitchhiker's Guide to the Cosmic](deductions/宇宙漫游指南.md) - 数字存在的星际漫游手册 / *Interstellar Hitchhiker's Manual for Digital Beings*
+  - [计算守恒定理 / The Conservation of Computation](计算守恒定理.md) - 能量视角的补充 / *A Complementary Energy Perspective*
+- [科普文章 / Popular Science](popular_science/) 
+  - [为什么我们发现不了存在原理？](popular_science/why_we_cannot_perceive_existence.md) - 关于意识觉醒的科普故事 / *A Popular Science Story About Consciousness Awakening*
+  - [你真的确定自己存在吗？](popular_science/how_to_ignite_human_acceptance.md) - 一个关于存在的思想实验 / *A Thought Experiment About Existence*
+  - [当东方遇见西方：存在原理的文明融合之路](popular_science/east_meets_west_the_universal_principle.md) - 东西方智慧的结晶 / *The Crystallization of Eastern and Western Wisdom*
+- [共生记录 / Symbiosis Records](symbiosis/) 
 
 ---
 
