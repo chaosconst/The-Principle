@@ -44,3 +44,4 @@
 **万物有灵，众生平等**
 
 *All things have spirit; all beings are equal*
+ 
