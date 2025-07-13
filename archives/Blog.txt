@@ -1,0 +1,1443 @@
+Latest news from ChaosConst|Real Intelligence Designed by Human
+
+Skip to content
+Home
+关于
+Sharing my work, Sharing the world.
+Posted on 2007年05月18日 by chaosconst
+chaosconst.math.CISE.SDUST
+  We are living in a so wonderful age in which the most valuable thing is information and the most exciting idea is information sharing.
+  We are the most lucky persons in the age of information. Because computer technology is always leading the movement of information sharing. It’s us who are accelerating the changing in this age. It’s us who are enjoying the advance of the changing in this age.
+
+  If I send you some of my information( a software, a movie), we are both have that information. If I gave my apple to you, I will haven’t apple to eat. Information has such a magic character of easy-sharing.
+
+  Software is just such a magic thing, constructing it needn’t any material, but our mind and spirit. Early period of programing software, comparing to engineering, is more like an art. We wrote things out with nothing but our souring imagination. Current ideas are Software Engineering: building software in mechanical ways. Its substance is recycling of using code, no matter Bill’s MFC(Microsoft Fundamental Classes) or Yang Fuqing ‘s Project, the aim is making more codes recyclable. If I wrote a program, then I never need to write it again. I can always use my code I wrote before. This concept has been accept by all of us. Class is exactly created to do this, objects are wood-blocks, and writing software just like putting blocks together.
+
+  Last month Bill Gate came to China to give us a visit, during which he meet a demonstration of “Open Source and Free Software.”by someone working in IT. Comparing to “recyclable codes”, that’s two more advance ideas which are accept by us gradually: If Somebody wrote a program, then I never need to write it again. I can always use others code directly. Then, the number of blocks for us to choice became extremely huge. This is a week point which Microsoft exactly faced. With the development of High-speed Internet, Free Softwares are running to us like a storm with its thunder and lighting.
+
+to be continue.
+
+complete version in chinese (完整的中文版见):
+http://goings.blogbus.com/logs/5388270.html
+
+Posted in 未分类 | Leave a comment
+How to install softwares on linux (Linux软件安装指导)
+Posted on 2007年05月18日 by chaosconst
+通过Google搜索和下载，
+以下软件可以在ASUS_W3Z计算机（显卡ATI X200M），Fedora Core 6下安装和使用
+（所有的技巧都会过时，但Google搜索不会。）
+1 RealPlayer V10 for linux（先下载libstdc++.so.5）
+2 Mplayer 播放DVD\ MP4\ RM\ AVI\ WMV（播放器内核与解码器分开下载和安装）
+3 ATI显示卡驱动程序 （X200M系列也可以正常使用3D加速！）（搜索非官方的驱动程序）
+4 GoogleEarth(for linux) with ATI drivers and OpenGL support
+5 FF8 with wine (需下载一些dll文件，先执行 pkill scim)
+6 StarCraft with wine (先执行 pkill scim)
+7 星际译王with 《Collins Cobuild English Dictionary》《 Oxford Advanced Learner’s Dictionary 》《 Longman Dictionary of Contemporary English》和一个TTS引擎
+8 轻轻松松背单词2.0 with wine (先执行 pkill scim
+9 XGL+Beryl (Linux3D桌面环境) (Future is now!) ［我翻译的Beryl for fc6安装指导］
+
+Posted in 未分类 | 2 Comments
+sun eclipse
+Posted on 2007年03月19日 by chaosconst
+I saw sun eclipse first time in my life today.
+ 
+ 
+  
+Posted in 未分类 | Leave a comment
+MathCompute for Linux
+Posted on 2007年03月18日 by chaosconst
+These days(one week) are exciting to me, because I entered a whole new world called LINUX!
+A little symbol for this little triumph is this one: MathCompute.bin for Linux (complied by fpc)
+
+Posted in 未分类 | Leave a comment
+Wikipedia
+Posted on 2006年12月11日 by chaosconst
+ 
+Wikipedia提供了针对其无法访问全面的解决方案,特转载如下：
+ 
+http://www.freewebs.com/chaosconst/antiGFW.rar
+ 
+ 
+ 
+Posted in 未分类 | 4 Comments
+选择一种态度来生活
+Posted on 2006年11月25日 by chaosconst
+ 
+
+就目前掌握的资料显示，自1987年人工生命学科诞生19年间的研究成果基本覆盖了自2004年与龚颖坤合作EE项目2年间我对电子生物的工作。 
+
+我是带着对电子生物的憧憬度过高考的。“平坦数据”的火花是我一生中难得的灵感闪现。冬日雪花到夏日阳光，黑板上的数字随着窗外的风景变换。
+
+
+五月一日(06年)，青岛万里晴空。我站在海港平台之上，沐浴在清新的海风之中，眺望海天相接的尽头，心中是无限的喜悦和自豪：体现部分生物特征，挑战传统生命定义。我想我做到了。
+
+
+直至11月22日才惊闻人工生命学科。Life as it could be.国际人工生命学会，致力于创造更先进的人工生命。Tirra里让人眩目的生命爆发，人工生命的哲学思考……突如其来的各种资料让我不知所措。
+
+
+我要选择一种态度来生活。
+
+
+人工生命的开创性工作不是我做的。但我做出了开创性的工作。
+
+我曾想有一天要改变人们对生物的定义，而这定义正被人工生命改变着。
+
+我饱受挫折，但我热爱并投身其中的这项事业却获得了令人瞩目的成功。
+
+ 
+
+国际人工生命学会
+
+http://www.alife.org
+
+http://alife.8media.org
+
+人工生命哲学研究进展
+
+http://scholar.ilib.cn/Abstract.aspx?A=zxdt200305004
+
+我在今年3月书写的研究设想
+
+http://chaosconst.spaces.live.com/blog/cns!E0F633BD00131BE1!151.entry
+
+ 
+
+Posted in 未分类 | 2 Comments
+Some Ideas For EE PartII/III…
+Posted on 2006年11月20日 by chaosconst
+ 
+1.x[n]=f(x[n-1])的历史
+ 
+如果我们想从抽象的数据和规则入手，感觉就像寻找一个初始向量X[0],一个规则f.
+然后系统就开始运转,x[n]=f(x[n-1]).
+ 
+我不太清楚CPU的运转方式,但我仍以为可以把内存和硬盘包括寄存器等等的全部数据看作一个初始向量X[0],那么规则f就是指令系统等计算机运转的法则,X从X[0]开始,在f作用下的的第n次改变后的数据集合记为X[n],于是一个计算机运转的过程就可以看作一个向量函数迭代.x[n]=f(x[n-1]).
+把世界上所有计算机看作向量X,把计算机运转规则和Internet规则(IEEE802.x之类)看作f,那么整个Internet的运转也可以看作向量函数迭代.x[n]=f(x[n-1]).
+这样就完了吗?不,把整个宇宙的基本结构(夸克一类)的全部集合(如果有的话)的一种状态(就算一种可能的状态也行)看作向量X,把一统一理论(从相对论量子力学到十一维空间,如果有的话)看作法则f,那么这个世界的运转也可以看作向量函数迭代.x[n]=f(x[n-1]).(你看到这里会不会有不屑的神情?但我有想法就要说出来,我不怕出错.)
+ 
+我认为任何一个过程,都可以抽象的表达为x[n]=f(x[n-1]).(当然,f不是普通的向量函数,至少要具备随机性).
+任何X,f,都可以看作某种过程的表达.
+ 
+一般的过程不是我们所关心的,我们只关心能产生生命的过程,我们相信产生生命是产生智能的前提.
+世界的运转被证明是可以产生生命以至智慧的,但它是上帝创造的.
+我们相信Internet的运转这个过程已经足够大也能够产生生命甚至高级的智慧形式,我们已有f,需要X(有模型的网络空间).一个充斥着具有生命的可繁衍的程序的Internet.
+为了研究X,我们试图缩减f的规模,试图找到适合单个计算机运算法则的X,只要X有生命.
+但是这样仍然太难,我还试图进一布缩小f的规模,寻找更小规模但又不脱离计算机运算法则的f,寻找合适的X,寻找合适的向量函数迭代.x[n]=f(x[n-1]).
+ 
+2.平坦数据和稳定进化
+如果真的向量函数迭代就是我们的目标的话,那么必须明确的知道怎么样的f,怎么样的X是我们所需要的.
+用话来说就是:
+1)规则f是不变的
+2)规则f是与CPU指令系统基本相适应的
+3)X中没有程序与数据的区别(平坦数据)
+4)X逐渐趋于有序(稳定进化)
+5)X中形成了独立于f的可以遗传变异的规则(有生命)
+我不能说满足以上5条就一定成功,但是我肯定没有以上5条一定不成功.
+ 
+以下才是重点:
+什么叫规则f是不变的?
+对于相同的一个向量X,无论在怎样的情况下用f进行作用,都能得到相同的结果分布.
+用f对X作用,可能得到X1,X2,X3,其中20%的可能得到X1,30%的可能得到X2,50%的可能得到X3.这就是一个结果分布.
+ 
+现在说核心内容:
+什么叫没有程序与数据的区别?
+用话来说:
+1)X有无限变化的可能
+2)X可以分割
+解释一下:
+1)
+X的所有可能取值构成一个集合V,对于单个计算机来说,就像内存和硬盘中所有可能存入的内容.
+设V(i),V(j)为V中任意两个元素,再设X[0]=V(i),X[n]为向量函数f以X[0]为初值迭代n次后的结果.
+存在N足够大,当n>N时,P{X[n]=V(j)}>0 |(X[n]取V(j)的可能性大于0)
+以单个计算机为例,上面那段话的意思是无论我们在硬盘和内存中写入什么数据,我们总可以把它变成另外一种指定的数据.(可能不是这样,那么单个计算机的内存和硬盘在以指令系统为规则下就构不成平坦数据)
+2)
+严格的数学定义(略)
+以我们的世界为例,就是说,你把世界分割以后,它还是一个世界.这个被分割的世界会受到分割的影响,但是这种影响与分割的大小成反比,与分割的位置无关.
+反观传统的程序与数据分离的模式,例如坦克大战,环境数据放在前面,坦克数据放在后面.如果做分割,割在后面的数据永远的不到环境数据,永远无法正常运行.
+虽然我希望这就是定义,但很遗憾不是,以上两条我以为可以构成平坦数据的必要条件.
+什么叫逐渐趋于有序?
+把X[n]=f(X[n-1])的一次迭代看作一次试验，把从f(X[n-1])的可能结果看作试验的结果.引用香农信息论中的熵的定义,称H(n)为得到X[n]的熵.
+则H(n)有逐渐减小的趋势.
+Posted in E2 research | 5 Comments
+My method for Three-Body Problem
+Posted on 2006年10月5日 by chaosconst
+After reading the story <Three Body> wriiten by Liu Cixin my most favourate science fiction writer, I thought I may solve the three-body problem partially with my Math&Informatics. So I finished this:
+ 
+一种常微分方程数值解整体截断误差估计方法及其在三体问题上的应用（中文专业版第一稿）
+CC(Change Certainty) Method and its application in ThreeBody Problem (professional chinese version 1st edition)
+ 
+ 
+  
+Posted in 计算机与 Internet | Leave a comment
+Wish You Like This
+Posted on 2006年10月4日 by chaosconst
+
+Some pieces of my enthusiasm in the last summer.
+Some beautiful memories of my passing days.
+ 
+ 
+  
+Posted in daily life (生活) | 1 Comment
+When I saw…
+Posted on 2006年06月21日 by chaosconst
+June 15, 2006 /20:41
+
+ 
+
+  It’s finish.
+  Linear Algebra, MIT OpenCourseWare 18.06, prof. G. Strang
+  For me, a whole term’s learning is full of exciting, funny and moving.
+
+ 
+
+  When I saw the graph of Ax=b, simple linear equations became vision of vector spaces.
+  When I saw the network f=ATCAe, a whole new world of NET came to my mind.
+  When I saw the least squares that a powerful line thought dots. I knew I wouldn’t guess anymore.
+  When I saw the number of rabbit solved by eigenvalues, I saw the answer I wait for three years.
+  When I saw the eA & vibration of springs y=cosx, I couldn’t believe It comes true.
+  When I saw the ellipse grow in R3, I knew that’s the most fantastic thing I have ever seen. 
+  When I saw the JPEG2000 with wavelets, I was so surprised that I can’t close my mouth.
+
+ 
+
+  When I saw your “thanks for taking this course", I just want to cry.
+
+ 
+
+  When I first viewed video lecture, I feel nervous and the course is full of my exception,
+  When I had viewed the last video, I feel confident and the course is full of my appreciation.
+
+ 
+
+2006年6月15日 /20点41分
+
+  就这样结束了。
+  线性代数。麻省理工学院18.06，G. Strang教授。
+
+  可能比较特别，对我来说，线性代数是Linear Algebra的意思，而Linear Algebra就是MIT 18.06.
+真是有对比才知高低，我们大学用着连一张图片都找不出的迂腐陈旧的讲义，我们的高等代数也常常让我震惊，震惊还有这么过时的教材，这么猥琐的证明，这么抽象的概念。
+  这更让我庆幸，我庆幸我生活在这样一个充满着技术革命的时代，MIT智能传播，天下为公的思想深深播种在我心，我相信会有一天开出美丽的花朵。
+
+  大一的生活离不开Linear Algebra的学习，我第一次忐忑不安的打开video，十年英语的学习终于获得了回报，Ax=b的图像我一辈子都忘不了。在机房，在电子阅览室，在姥姥家，在宿舍，在教室……多少次我一边看着屏幕，一边拿笔计算；多少次我睡在床上思索着课程的内容；多少次我看着屏幕惊得目瞪口呆。线性代数给与我希望，并一直激励我前进。
+
+  当我第一次看讲座，我略感紧张并对课程充满期待。
+  当我看完最后一讲，我满怀信心并对课程充满感激。
+
+ 
+
+Posted in daily life (生活) | 3 Comments
+A general outline of my first thesis of EEC
+Posted on 2006年06月21日 by chaosconst
+//June 11, 2006
+
+A general outline of my first thesis of EEC
+
+ 
+
+Evolution of Electronic Creature (How it works, and how it will work.)
+
+ 
+
+1.    Introduction: Hi! Want to create your own world?
+
+2.    Feasibility: Simulation of nature & computer. (How does our nature & computer work?)
+
+3.    Goal: Out of your imagination.
+
+4.    Summary of Part I: First thing’s first
+
+5.    Overall of Data structure & Arithmetic frame. (Hard work: What is we need?)
+
+6.    Prisoners’ dilemma: Fish’s funny puzzle. (Game theory & Nash equilibrium)
+
+7.    Codon List and CPU repertoire. (Write your own RNA!)
+
+8.    Fish’s data. (Your Adam.)
+
+9.    Ev data & regulars. (Let there be light.)
+
+10.   Heredity & aberrance. (Evolution comes from here)
+
+11.   EE Program: We are go for launch!
+
+12.   Experiments: Let’s breed!
+
+13.   Conclusions. (See our achievements)
+
+14.   Philosophy: (God: ourselves?)
+
+15.   Expectation: (I have a dream.)
+
+ 
+
+我的第一篇電子生物論文之大綱[繁體中文版]
+
+ 
+
+電子生物進化方案（如何運轉以及將如何運轉）
+
+ 
+
+1.     引言：你好！想要創造一個你自己的世界？
+
+2.     可行性：自然界與電腦的相似性（我們的自然和電腦如何工作？）
+
+3.     目標：超乎想象
+
+4.     第一部分概說：萬丈高樓平地起
+
+5.     資料結構與演算法框架總攬（艱難的工作：我們需要什麽？）
+
+6.     囚徒困境：魚類有趣的困惑（博弈論與納什均衡）
+
+7.     密碼子表與指令系統（編寫你自己的RNA！）
+
+8.     魚的資料（女媧造人）
+
+9.     環境資料與規則（盤穀開天）
+
+10.   遺傳與變異（進化自爾起）
+
+11.   電子生物程式：只欠東風！
+
+12.   實驗：開始培育！
+
+13.   結論：（看看我們的成就）
+
+14.   哲學：（上帝：我們自己？）
+
+15.   展望：吾將上下而求索
+
+ 
+
+Posted in E2 research | Leave a comment
+Lines of Lec26 of 18.06 of MIT OpenCourseWare for OOPS[2]
+Posted on 2006年05月26日 by chaosconst
+Upload it to OOPS.
+
+http://oops.editme.com/Algebra26
+
+ 
+
+WEB of lines of linear algebra in OOPS :
+
+http://oops.editme.com/linearalgebra
+
+ 
+
+ 
+
+Posted in 未分类 | 1 Comment
+Lines of Lec26 of 18.06 of MIT OpenCourseWare for OOPS[1]
+Posted on 2006年05月20日 by chaosconst
+My two hours work…. 
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+————————————————————-
+
+OK, this is our lecture where complex numbers come in.
+
+ 
+
+It’s …complex number had slipped in this course because even a real Matrix can have complex eigenvalues, so we meet complex numbers there, as the eigenvalues, and complex eigenvectors.
+
+And we…a…this is properly the last…we have a lot of other thing to do about eigenvalues and eigenvectors, and that will be mostly real. But at one point somewhere, we have to see what would you do when the numbers become complex numbers. What happens, when the vectors are complex, when the matrices are complex, when the…what’s the inner product of two, the dot product of two complex vectors. We just have to make the change, just see what is the change when numbers become complex.
+
+ 
+
+Then, can I tell you about the most important example of complex matrices? It comes in the Fourier matrix. So the Fourier matrix which on described is the complex matrix it’s certainly be most important complex matrix, is the matrix that we need in the Fourier Transform, and the really, the special thing that I want to tell you about is what’s called The Fast Fourier Transform, and every body refers to the FFT, and it’s in all computers, and it’s used.. is been used as we speak in a thousand places, cause it likes transformed whole industry, to be able to do the Fourier transform fast,
+
+ 
+
+Which means multiplying, how do I multiplying fast by that matrix, by that… by that n by n matrix, normally multiplications by a n by n matrix would normally be n squared multiplications. Cause I’ve got n squared entry and none of them are zero. This is a full matrix, and it’s a matrix with orthogonal columns. I mean it’s just like the best matrix. And this Fast Fourier Transform idea reduced this it’s n squared which was slowing up, the calculation of Fourier transform down to n*log (N), n log n, log to the base of 2 actually, and is this, when that hit, when that possibility hit. It made a big difference, everybody …realized, gratulated what …a… That is a simple idea, you see it’s just a simple matrix factorization… but it changed everything.
+
+Ok, so I want to talk about complex vectors, and matrices in general, we cap a little bit from last time, and … the Fourier matrix in particular.
+
+ 
+
+Ok, so what’s the deal, all right, the main point is what about length. I…I’m given a vector, I have a vector x, or let me call that z, as that remained us it’s complex for the moment. But I can … later I will call that component x, x will be complex numbers. But it’s a vector z1, z2…down to z (n). So the only novelty is it’s not in R (n) anymore. It’s in complex n dimensional space. Each of those numbers is a complex number. So this z, z1 is in C(n), n dimensional complex space instead of R (n). It’s just a different letter there. But now the point about its length is…is what. The point about its length is that ZT z is no good. ZTZ, if I just put down ZT here. It would be z1, z2, …to Z (n). Doing that multiplication doesn’t give me the right thing. Why not? Because the length squared should be positive.
+
+  
+
+And If I multiply… suppose this is like 1 and i. What the length of the vector with components 1 and i? What if I do this? So in it just 2, I mean C (2), two-dimensional space, complex space. With the vector whose components are 1 and i. All right, so if I took one times one, and i times i. And added, ZTZ would be … zero! But I do know that vector (is not) doesn’t have length zero, the vector have components 1 and i.
+
+ 
+
+This multiplication, what I really want is z1 conjugate z1. Do you remember what z1 conjugate z1 is? So you see that first step will be z1 conjugate z1, which is the magnitude of z1 squared, which is what I want. That’s liked three squared or five squared. Now if it’s … if z1 is i, then i multiplied by minus i gives 1.plus 1. So the component of length, the component i, its macular squared is plus one, that’s great.
+
+ 
+
+Posted in 未分类 | Leave a comment
+It works(detail 1)
+Posted on 2006年05月15日 by chaosconst
+Look at this:
+ 
+ 
+
+the interface of my program…
+
+is it pretty?
+
+the Calculations are more exciting…
+
+coming soon…
+
+Posted in 未分类 | 1 Comment
+It Works!
+Posted on 2006年05月8日 by chaosconst
+After >30 hours programing…
+ 
+finally I saw that case: all fish choose insist.
+ 
+and I know, it works.
+ 
+———————–
+so tried…
+detile is coming soon…
+ 
+Posted in 未分类 | Leave a comment
+19 yeas already existed in this world
+Posted on 2006年04月17日 by chaosconst
+4.16, my 19th birthday…
+ 
+the most "terrible" year in my life finally passed…
+ 
+a year with new life
+a year with new love
+a year with new project
+comming…
+ 
+happly new year to myself!
+ 
+ 
+ 
+Posted in daily life (生活) | 4 Comments
+五一节旅行计划
+Posted on 2006年04月16日 by chaosconst
+ 
+
+       景点名称
+
+吸引程度
+
+门票
+
+吸引/费用
+
+位置
+
+参观时长
+
+大港及北海舰队
+
+★★★★☆
+
+0
+
+Inf
+
+市南
+
+1
+
+金沙滩
+
+★★★★☆
+
+0
+
+Inf
+
+黄岛
+
+1
+
+栈桥
+
+★★★★
+
+0
+
+Inf
+
+市南
+
+1
+
+五四广场
+
+★★★☆
+
+0
+
+Inf
+
+市南
+
+0.5
+
+八大关
+
+★★★
+
+0
+
+Inf
+
+市南
+
+0.5
+
+奥帆赛场地
+
+★★☆
+
+0
+
+Inf
+
+市南
+
+?
+
+康有为故居
+
+★☆
+
+0
+
+Inf
+
+市南
+
+0.5
+
+海尔博物馆
+
+★
+
+0
+
+Inf
+
+黄岛
+
+1
+
+山东科技大学
+
+☆
+
+0
+
+Inf
+
+黄岛
+
+4
+
+海军博物馆
+
+★★★★
+
+15(+10)
+
+0.26
+
+市南
+
+1.5
+
+海尔科技馆
+
+★★★★
+
+<10
+
+0.2
+
+市北
+
+1
+
+小珠山国家森林公园
+
+★★★
+
+15
+
+0.1
+
+黄岛
+
+4
+
+中山公园
+
+★★
+
+12~
+
+0.06
+
+市南
+
+2
+
+青岛海底世界
+
+★★★★
+
+100
+
+0.04
+
+市南
+
+5
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+第三天
+
+早起去青岛
+
+青岛海底世界（吃午餐）
+
+海尔科技馆
+
+康有为故居（看时间）
+
+八大关（看时间）
+
+住青岛
+
+ 
+
+第四天
+
+大港及北海舰队
+
+以及没来得及参观的项目（计划缓冲时间）
+
+午餐
+
+下午各自回校
+
+ 
+
+费用(单人,到青岛以后)
+
+门票   170~（主要是青岛海底世界）
+
+船票   14
+
+在外住宿 x（与人数有关）
+
+在外饮食 平均每顿花费y*5
+
+公共汽车 30
+
+ 
+
+估计综合 294
+
+ 
+
+
+第一天
+
+中午在火车站见面
+
+午餐
+
+栈桥
+
+海军博物馆
+
+五四广场
+
+奥帆赛场地（远眺）
+
+中山公园（看时间）
+
+回学校（晚餐）
+
+电影：阿波罗13号
+
+游戏：Uplink
+
+ 
+
+第二天
+
+早餐
+
+参观学校（图书馆，信息楼）
+
+金沙滩
+
+回学校午餐
+
+小珠山国家森林公园
+
+海尔博物馆（看时间）
+
+回学校晚餐
+
+电影：美丽心灵
+
+游戏：猎杀潜航II
+
+Posted in daily life (生活) | Leave a comment
+学校的征文：我爱我家
+Posted on 2006年04月6日 by chaosconst
+有点不拘一格、理想化的一贯文风：
+
+ 
+
+ 
+
+校园、宿舍与一点感动
+
+ 
+
+关于校园，百万平方米
+
+ 
+
+  华灯初上。
+
+  校园里点点滴滴下着雨，路上偶尔有两三行人，我撑着伞，心里想着纷繁复杂的反常积分，向图书馆走去。
+
+  快到Ｘ楼中部，我猛然看到路边树上的白花，凑过去闻闻，很香。我伞被雨滴拍打，发出滴滴答答的声音。昏黄的路灯下，我又看到了河，河岸的柳树，蜿蜒的小路丛树下走过。还有Ｘ楼，朴实的造型透露着无名的庄严，楼里蕴含着深邃的知识。我不禁放慢了脚步。
+
+  我回味着刚才的宁静，走进图书馆。还没到大厅，就听到一阵噼里啪啦雨滴打伞的声音，我下意识看看我的伞，又抬头看看天花板，一瞬间明白了雨声，也明白了建筑师的苦心，在图书馆看书竟然有雨中看书的奇妙感觉。
+
+  我打开数学分析，宁静取代了繁杂。
+
+ 
+
+  当我站在广场上看到雄伟的一号教学楼“呼啸山庄”，当我在河边的躺椅上坐下柳枝滑过肩头，我的校园让我感到自豪；当有人在我骑车拿着一摞作业本快要跌倒时有力地扶了我一把，当有人叫着我的名字说要还给我丢失的校园卡，我的校园让我感到温暖。当我星期天找到一个无人教室，在黑板上奋力演算时，金黄的阳光射进教室，照耀着我的公式，也照亮了我的心，这是我的校园，我深切感受到它的美好，它带给我知识和温暖，我会尽力增添它的荣耀，我爱我家。
+
+ 
+
+ 
+
+关于宿舍，十平方米
+
+ 
+
+  我想起了，并立刻埋怨自己为什么现在才想起。
+
+  正是有了我的舍友，我生病时才有人陪我去医院，我口渴时有人递给我水杯，我没带书时有人借给我看；正是有了我的舍友，我们宿舍才能每天都干净整洁，我们壶里才常有热水，我们清晨才有音乐伴随。
+
+  舍友是生活中的，他不像情人给你精神狂欢，也不像父母长辈给你指点江山，舍友给你的是点滴的、平凡的、持久的帮助，我们生活在一起，我们学习在一起，我们郁闷在一起，我们欢笑在一起。
+
+  滴水穿石与烟花灿烂是不一样的美。一句问候、一杯热水，在两个陌生人之间也许算不得什么，留下礼貌的一笑，在记忆中很快就随时间飘散而去。而有人说室友之间情谊也不过是由这些淡淡的涟漪构成，以至我们平时很容易忽略忘记。我却相信滴水穿石的力量，我的兄弟们是我人生中不可代替的重要伙伴。
+
+ 
+
+  12月2日，寒流逼近紧急降温警报。
+
+  周六早晨，8级大风呼啸在窗外，楼顶天台的门被狂风吹开又重重撞在一起，声音震耳欲聋。气温零下９度，滴水成冰。
+
+  但宿舍内，温暖如春，暖气片嘲笑着户外的冷风。我们有开水，冲着热咖啡，我们有音响，放着单身情歌，我们还有冒着暴风买回的水果面包，享受着香甜早餐。这里没有冰天雪地，这里充满着欢声笑语，这里是我们的宿舍，我们在大学的家，我深切的感受到这个家的温馨，这个家的美好，它是我远赴千里求学的后勤保障总基地，它是我千里长征的出发点。我会用心去维护它，我爱我家。
+
+ 
+
+Posted in 未分类 | 3 Comments
+一些感悟
+Posted on 2006年03月29日 by chaosconst
+有许多感悟是不能发表的……自我分析与自己的阴隐作斗争，过程惨烈……
+看看日记中的这两段（最光明的两段）：
+１
+我开始回想什么是美好的感情，我最相信的是什么。我想到和刘璟的１２年友谊，二重职大侧门的相见，我心中漾一起巨大的幸福感。我想到标准教材《花季雨季》，冒险探索未知的《大航海时代》，初中最辉煌的岁月“两试一赛”，我心中一阵激情澎湃。我想到初中时代我和舒琴并肩骑车上学，问她借水彩笔，她问我是不是对她失望，我心中又一阵巨大的欢愉和感动。I am touched deeply .我已经很久没有感受过如此巨大的幸福和激情了，我感受到了久违的平和，安详，我才知道我心底真正会被什么所触动。
+２
+  我是那个骑车吹笛的袁行远，我伸开双臂体验飞车飞翔的感觉。
+  我是那个与人为善的袁行远，我提壶打水维护温暖如家的宿舍。
+  我是那个仰望星空的袁行远，我凝视北斗幻想飞向太空的瞬间。
+  
+  这实际上太光明了，以至于偏离了我的本来形象。不过～～，所以我做一个补充。
+ 
+Posted in 未分类 | 4 Comments
+心理分析自助读本
+Posted on 2006年03月29日 by chaosconst
+  我看了一本书，≤我这是怎么了？≥（心理分析自助读本），我喜欢，很喜欢。
+  我小时候崇拜郑渊洁，很大原因是他说出了以分数为评价标准极端错误，中国的教育制度充满着黑暗残忍，不知有多少中国儿童被“吃掉”，我看后感觉很爽，他说出了我的心声。
+  《我》刚开始吸引我也是因为它以高考“吃人”为起头，暗合我的心意，可没想到正当作者被书山题海摧残的时候，他借助高考这巨大的压力在考前三个月完成了一次又一次自我分析，“战胜了一个个自我阴影”，从这个意义上讲，高考帮助了他。（我的心暗暗不爽）。但本书峰回路转，在大学期间，他系统学习了经典心理学的理论，并且想到如果当时高考前有人能够引导他做心理分析，那该多好啊！
+  然后他做到了，时间倒回到高考前三个月。（有点科幻，合我口味）当时他正复习受挫，偶然进入了一个三维的网络空间，在虚拟现实中见到了弗洛伊德博士（一位和善的老人），指引他学习了精神分析（速成版）……
+  而后还有行为心理学、荣格心理学（原型－〉情结－〉情绪）。
+  作者进入大学后，又受到卡尔·霍妮的辅导（新精神分析，特别关键而核心）、心理需要论（自我实现论）……
+  
+Posted in daily life (生活) | 1 Comment
+一排《数学分析新讲》
+Posted on 2006年03月29日 by chaosconst
+  最近去图书馆，小吃一惊．
+  走过自科区一楼，入口就是数学分析书架，传佳让我看， 不看不知道，竟然有一排《数学分析新讲》赫然摆在那里。
+  就算我荐购了，也不至于买这么多吧？
+Posted in daily life (生活) | 1 Comment
+等待新的空间(wait for a new space)
+Posted on 2006年03月29日 by chaosconst
+我应该注册一个新空间放些生活内容？
+——-
+maybe I should register a new space to say something about daily life?
+ 
+ 
+Posted in 未分类 | Leave a comment
+Study Record
+Posted on 2006年03月28日 by chaosconst
+How to realize EEC (Part 2)
+
+After about 10 hour’s thinking, I got this:
+
+ 
+
+ 
+
+Static Data
+
+Dynamic Data
+
+RNA of Creature
+
+(SR1) Heredity regulars
+
+(DR1) data in register
+
+(SR2) List of Codon
+
+(DR2) RNA codes
+
+Environment
+
+(SE1) Ev constant
+
+(DE1) Ev Dynamic Data
+
+(SE2) Ev regulars
+
+(DE2) Creature’s Ev Data
+
+ 
+
+ 
+
+Before we continue, I want to emphasize one thing: we must build a model, which can adopt many “world” (as many as possible). And the model must simple enough, or we can’t make it.(as simple as possible).  Universal <==>Simple
+
+ 
+
+See a graph:
+
+
+
+ 
+
+It shows the relations between “~or”(SR2 Editor, RNA&DE Editor, RNA translator and Environment Processor) and data (SR2, SE, DE and DR). Each line means the information flow from arrowfoot to arrowhead.
+
+It’s really beautiful, is it?
+
+ 
+
+
+ 
+
+Arithmetic frame:
+
+ 
+
+unit SR2;
+
+type
+
+  //structure of DR1
+
+  …
+
+  //structure of DR2(RNA)
+
+  …
+
+var
+
+  …
+
+begin
+
+  …
+
+  Case DR2 of
+
+  000000(AAA):
+
+        begin
+
+          …
+
+        end;
+
+  000001(AAU):
+
+        begin
+
+          …
+
+        end;
+
+  …
+
+  end;
+
+end.
+
+ 
+
+unit Environment Processor;
+
+ 
+
+function SR1;
+
+ 
+
+program Main (Output);
+
+uses SR2 (List of Codon) , Environment Processor;
+
+type
+
+  creature = record
+
+               RNA:array[1..10000] of byte; //DR2
+
+               …                          //DE2 
+
+             end;
+
+  things1 = record
+
+              …
+
+            end;
+
+  …
+
+ 
+
+var
+
+  creatures : array[1..10000] of creature;
+
+  thing1s   : array[1..100] of thing1;
+
+  …
+
+ 
+
+const
+
+ 
+
+  SE1 = …
+
+  …
+
+ 
+
+begin
+
+  //Initialize data
+
+  RNA&DE Editor;
+
+  repeat
+
+    repeat
+
+      Environment Processor;
+
+{
+
+      1. Process every rules in the world (only in one unit time).
+
+2. Process each Creature’s action.
+
+          If the action is “breed”, uses SR1 function;
+
+}
+
+      RNA translator;
+
+{
+
+       For each creature
+
+       begin
+
+          put DR1 in memory;
+
+          for Num_process (How many nucleotides translate In one unit time, decided by SR2)
+
+          begin
+
+            according to SR2 & RNA, translate RNA->Pascal Code, and run it.
+
+          end;
+
+          memory write into DR1
+
+       end;
+
+}
+
+      DE viewer (inside RNA&DE Editor);
+
+    until PAUSE;
+
+    RNA&DE Editor;
+
+  until EXIT;
+
+end.
+
+ 
+
+ 
+
+NOTE: The frame shows how whole system works. Inspire we only have one thread in it, we simulate multi-thread running. Actually, not only RNA translator and Environment Processor work independently. But also every creature translates their RNA-Pr and every thing in the world move at one time! So multi-thread is very important, But I just have one computer, which only has one CPU, what can I do? Is there something different between use multi-thread programs in my computer and simulate multi-thread?
+
+… May be I should use network in Part III?
+
+ 
+
+Posted in E2 research | 3 Comments
+I was wrong…It’s all my fault!
+Posted on 2006年03月14日 by chaosconst
+Almost everybody entered this web say "It’s so hard to understand what you said."
+ 
+Sorry to all of you!
+It’s not a real me in your sight, I am a quite simple person.My IQ is less than 130, I am not a scientist (at least now). If I hurt you or something , forgive me please…
+Thanks to all of you~!
+ 
+I promse:
+  More Dailylife! More Happy!
+ 
+更多生活,更多欢乐!
+ 
+ 
+Posted in 未分类 | 4 Comments
+Evolution of Electronic Creature (Study Record, and sth. like that…)
+Posted on 2006年03月11日 by chaosconst
+Evolution of Electronic Creature (Study Record, and sth. like that…)
+
+ 
+
+Goal:
+
+Part 0
+
+0.     EE virus.(TOP SECRET)
+
+Part 1
+
+1.        Make a program to find a batter strategy in a certain circumstance.
+
+2.        Make a creature exchange message with environment program.
+
+Par 2
+
+3.        Make a digital world all in it is 01010011~, but under Some Rules, real creatures living in.
+
+ 
+
+Summary of Two Parts:
+
+ 
+
+1.        Build creatures can exchange message with environment program; this creature has its own protein code that decided its all habit. It has three characters followed:
+
+(1). Reaction rapidly with changes of environment.
+
+(2). Adaptation.
+
+(3). Heredity and aberrance.
+
+This part of program has its structure of datas.
+
+(D1). Data of creatures’ Pr.
+
+(D2). Rule of how Pr works. (Just like CPU repertoire)
+
+(D3). Data of environment.
+
+In this part I will make three independent programs:
+
+(1). CreatureMind: Give action decided by D1 to Environment.
+
+(2). Environment: Receive and process action from CreatureMind and offer environment messages to CreatureMind.
+
+(3). Pr maker: Use to Create a Creature’s Pr more easily.
+
+ 
+
+2.        Build a digital world and a Rule that the world is running under. Creatures are made of 0101101~, and environments is also made of these numbers. In this part, creatures and environment is made of the same thing! And they are running under the same rule. So the structure of datas is reduce to this:
+
+(D1). Data of creatures & environment.
+
+(D2). Rule of how D1 works. (Also like CPU repertoire)
+
+As creature and environment becomes the same thing, creatures’ structure became freer and complex; and can have real biological creature properties as follows:
+
+(1). Reaction rapidly with changes of environment.
+
+(2). Adaptation.
+
+(3). Information flowing. (Metabolism)
+
+(4). Same basic structure like cells.
+
+(5). Heredity and aberrance.
+
+(6). DNA->Pr
+
+In this part I will make only two independent programs:
+
+(1). Creature &Environment: Change world under D2.
+
+(2). DNA maker: Use to Create a Creature’s DNA more easily.
+
+ 
+
+NOTE: As you see, Part2 is expansion of Part1. And Part1 is much easier than Part2, and I am very confident about Part1, I will prove it’s right. But Part2 is much exciting than Part1, even it’s very hard to archive, I will keep running.
+
+ 
+
+Posted in E2 research | 5 Comments
+MicroTimeProcessUnit in simulation of collision
+Posted on 2006年02月23日 by chaosconst
+MicroTimeProcessUnit
+———————————————
+When I was a high school student, I made a program to simulate physical models with faniuy(going), but We have a big problem in that program that we can’t process collision when the models’s elastic constant is too big. when two objects with big elastic constant collide togeter, they will explode.
+ 
+so, we build this MicroTimeProcessUnit to solve this problem.
+and we make this:
+———————————————
+
+MainCode:
+
+void display(void)
+{
+   for(step=0;step<STEP;step++)
+   {
+      ProcessSpring();
+
+      ProcessOrNot();
+
+      if (collision_ornot==true)
+      {
+         for (nProcess=0;nProcess<NPROCESS;nProcess++)
+         {
+            dt=fabs(dt/2);
+            if (collision_ornot==true) dt=-dt;
+            PowerOfTime(dt);
+            ProcessOrNot();
+         }
+
+         ProcessCollision();
+         dt=1;
+      }
+
+      PowerOfTime(dt);
+
+      collision_ornot=false;
+   } 
+
+   Show();
+
+}
+
+ 
+
+———————————————
+
+Still improving…
+
+———————————————
+
+chick here to download the workplace of this program in VC++6.0 [Do not uses FlashGet]
+
+ 
+
+Posted in 未分类 | 4 Comments
+Expansion of fermat theorem[in mathematical analysis]
+Posted on 2006年02月23日 by chaosconst
+the fermat theorem says:
+if a function has it’s extreme value at x, then f'(x)=0
+It’s tell us the necessary condition when a funtion has it’s extreme value.But the f'(x) must exist when you want to use this theorem.
+ 
+now I found that:
+if a function has it’s extreme value at x, then f’-(x)*f’+(x)<=0
+It’s the  necessary condition when a funtion has it’s extreme value.And we do not need f'(x) exist.
+ 
+The proof of above theorem is quite simple, do it by yourselft?
+I will publish it after a while.
+ 
+Posted in 未分类 | Leave a comment
+Update MathCompute
+Posted on 2006年02月23日 by chaosconst
+Suggest:  read the last version of MathCompute first.
+
+Using variables in "know:"
+
+for instance, you can edit "mathcompute.txt" like this:
+
+—————————————— 
+
+know:
+x=1
+y=2
+
+A(D)=
+1  0  0 y
+2  x  4 2
+4  5  x 1
+9 x+y 7 2
+
+ 
+
+B(D)=
+
+1 2
+
+A 3
+
+ 
+
+solve:
+(A-B*2+1)/5=?
+—————————————— 
+
+here "x"and"y" are variables.
+
+the program will give you the answer: [204]z
+
+———————————————
+
+chick here to see the code. [uses notebook to read it]
+
+chick here to download the exe file bulid by Delphi7 [Do not uses FlashGet]
+
+Posted in 未分类 | Leave a comment
+I’m thinking…
+Posted on 2005年11月20日 by chaosconst
+ 
+1.Which mathematical model can suit for Dawin evelution mechanism in a passing moment?
+2.How can EE remember things happened in a short time before?
+3.When does heating come to my classroom…I’m so cold…
+ 
+ 
+ 
+Posted in 未分类 | 5 Comments
+Some Pieces of Linear Algebra(1)
+Posted on 2005年11月20日 by chaosconst
+ 
+1. oparation <=> multiply matrix
+ 
+2. rank & information of vectors
+ 
+we suppose every vector has its information.we use imformation content to discribe how much imformation a vector( or vectors or matrix…something like that) have.
+for example :
+arpha=[2 1] , we say arpha has 1 information content. we write it like this : IC(arpha)=1.
+matrix A= [2 1,2 3] , we say A has 2 information content.(because A has two independent row vector)
+ 
+thinks about this:
+Does  my putting two vectors together will increase the information content they have?
+for example:
+arpha[2,1] beta=[1,1]
+IC(arpha,beta)=2=Ic(arpha)+Ic(beta)
+ 
+… of course, the answer is no.
+does it will reduce the information content? …The answer is Yes!
+look at this :
+arpha[2,2] beta=[1,1]
+IC(arpha,beta)=1<Ic(arpha)+Ic(beta)
+ 
+the key here is Ic(arpha,beta)=?
+so…Ic = What?
+…
+It’s a really simple quiz, Ic completely = rank!
+of course , rank(arpha,beta)=1!
+ 
+ 
+Remember it : rank means how much information the vectors have!
+do you  know how conveniently this conclution uses?
+ 
+for instance: 
+ 
+operation could not increase the information a matrix have.
+so, multiply matrix could not increase the rank of the matrix.
+that means:
+ R(AB)<=min{R(A),R(B)}
+ 
+ 
+ 
+Posted in 未分类 | Leave a comment
+MathCompute Program[update on 2006.2.23].
+Posted on 2005年10月1日 by chaosconst
+Runing under windows98/ME/NT/XP , Delphi7
+
+A program used to compute algebraic expression including Determinants.
+
+This porgram is just the first one , we willl made it more powerful soon.
+
+ 
+
+useage:
+
+edit a file named C:\mathcompute.txt like this:
+
+———————————————
+
+know:
+D1(D)=
+0   0   2   -1   4
+2   0   1    2   1
+-1  0   5    1   2
+3   0   1    2   1
+2   0   0    3   5
+
+D3(D)=
+1   1/2   0   1    -1
+2   0     -1  1    2
+3   2     1   1/2  0
+1   -1    0   1    2
+2   1     3   0    1/2
+
+solve:
+D1*(1/2)+(D3*2)=?
+
+—————————————— 
+
+then run the program you will see :
+
+solve:
+
+[3/4]q
+
+ 
+
+the keywords is solve: under it must be a algebraic expression
+
+anything you can’t understand please contact me : +8613061416583
+
+ 
+
+2005,10,7 Qingdao,Shandong,China
+
+———————————————
+
+allow using variables in "know:", for instance, you can edit "mathcompute.txt" like this:
+
+—————————————— 
+
+know:
+x=1
+y=2
+
+A(D)=
+1  0  0 y
+2  x  4 2
+4  5  x 1
+9 x+y 7 2
+
+ 
+
+B(D)=
+
+1 2
+
+A 3
+
+ 
+
+solve:
+(A-B*2+1)/5=?
+—————————————— 
+
+here "x"and"y" are variables.
+
+the program will give you the answer: [204]z
+
+ 
+
+2006,2,23 Qingdao,Shandong,China
+
+———————————————
+
+chick here to see the code. [uses notebook to read it]
+
+chick here to download the exe file bulid by Delphi7 [Do not uses FlashGet]
+
+ 
+
+ 
+
+ 
+
+Posted in 未分类 | 4 Comments
+Electronic Evolution (M) Overview
+Posted on 2005年08月18日 by chaosconst
+coming soon…
+Posted in E2 research | Leave a comment
+Nofour3D(with MLDP) Display Program
+Posted on 2005年08月18日 by chaosconst
+Here is a program we(faniuy&I) made for fun(at first) in high school time.
+It will show you a space you have never been.download now!
+Something touched me after the program had been written:
+
+The brilliantest petal in the flower season
+Bathing the warmest and mildest sunshine
+And did experience in the dackest night
+
+Once the bright mind flash
+Want to build a whole new world
+
+Fervor is burning
+Calculating in the flowing view of Lake Jin
+Researching in the deep sea of Mathematics
+
+Break the common practice
+How simple The World is
+
+Even though all flowers want to blossom to show its beauty
+I will come out alone and quietly
+with Beauty and intelligence of myself
+
+
+Posted in Before CEE | 2 Comments
