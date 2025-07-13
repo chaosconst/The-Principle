@@ -1,0 +1,496 @@
+54054.com 二重高中2005级四班班级网站恢复运行
+Posted on 2010年09月9日 by chaosconst
+http://www.54054.com/ 欢迎您的访问！
+1 我们已经恢复04年之后95%的论坛帖子
+2 我们恢复了所有的站内信http://www.54054.com/bbs/pm.php
+3 所有用户均可使用之前的用户名登录，默认密码为123456，修改密码访问: http://www.54054.com/bbs/memcp.php?action=profile&typeid=1
+
+重拾心灵归宿，共建网上家园。大家一起加油吧！
+
+Posted in 未分类 | 1 Comment
+新生活，新气象！
+Posted on 2010年07月15日 by chaosconst
+昨天，当我把水杯放下，我知道，无论我多么不舍，我都必须离开了。
+青岛，红瓦绿树，碧海蓝天。科大，宏伟的校园，孤傲的宋院士，恶心的团委和评估。普加，有激情与梦想，也有资本与工程的无奈。
+
+如果我所需小到一杯水都要再三请求才能得到，有时甚至得不到，我还有什么好留恋的呢？
+
+我喜欢北京地铁的快捷，尽管拥挤。我喜欢古城的文化和798的张扬，文艺青年聚集地。我也喜欢TB级别的数据，对算法的认真研究，朴素的生活。
+
+感谢普加指导我步入社会第一步，感谢淘宝给了我价值的承认。希望我不要忘记对人工智能的理想。
+
+新生活，新气象！
+
+Posted in 未分类 | 2 Comments
+Network Sea of Dream 神经网络计算框架(包含旋律识别) 开放源代码
+Posted on 2009年11月16日 by chaosconst
+svn 地址: http://svn.recognic.info/svnroot/recognic/previousWork/nsod
+NsodNetwork.c核心代码：http://recognic.svn.sf.net/viewvc/recognic/previousWork/nsod/network_processor/NsodNetwork.c?view=markup
+
+没有好的文档说明，作为补偿，我在电邮地址ChaosConst[at]gmail[dot]com尽力为有意看看旋律识别代码的人解惑。
+
+Posted in 未分类 | 10 Comments
+utf8文件繁简混合转简体解决方案
+Posted on 2009年04月16日 by chaosconst
+扫描某文件的时候需要处理繁简转换，一个繁简混合的文件全部转成简体，在网上查了一圈都失败了，结果把本机上的mediawiki里面的一个文件打开一看：得来全不费功夫。
+/usr/share/mediawiki/includes/ZhConversion.php
+Posted in 实用技术 | 1 Comment
+袁行远要努力不放弃！
+Posted on 2009年03月31日 by chaosconst
+商业实用技术，不过我做的就要做得最好：3月30日，普加搜索自动提示上线。
+
+平均响应时间
+
+多音字
+
+中文拼音混合输入
+
+中文模糊匹配
+
+拼音模糊匹配
+
+英文字母大小混合显示
+
+英文支持
+
+避免首行建议重复
+
+普加
+
+30ms
+
+鉴别
+
+支持
+
+支持
+
+部分支持
+
+支持
+
+支持
+
+支持
+
+Google
+
+50ms
+
+鉴别
+
+不支持
+
+不支持
+
+部分支持
+
+不支持
+
+支持
+
+支持
+
+百度
+
+50ms
+
+鉴别
+
+部分支持
+
+支持
+
+不支持
+
+不支持
+
+支持
+
+支持
+
+优酷
+
+100ms
+
+不支持
+
+支持
+
+支持
+
+不支持
+
+不支持
+
+支持
+
+不支持
+
+口碑
+
+100ms
+
+鉴别
+
+不支持
+
+不支持
+
+不支持
+
+不支持
+
+不支持
+
+不支持
+
+豆瓣
+
+50ms
+
+兼容
+
+不支持
+
+不支持
+
+部分支持
+
+重复显示
+
+支持
+
+支持
+
+爱帮
+
+50ms
+
+兼容
+
+不支持
+
+不支持
+
+不支持
+
+支持
+
+支持
+
+支持
+
+以上统计自2009年3月30日。
+
+Posted in 未分类 | 3 Comments
+Unicode(UTF8)中日韩统一汉字（U+4E00–U+9FBF）判断程序
+Posted on 2009年03月14日 by chaosconst
+还是工程应用的文章，utf8 3位汉字编码，至少在中日韩统一汉字中是这样，但怎么判断一个长度为3的string是不是汉字呢？
+答案一：U+4E00–U+9FBF
+答案二：访问www.unicode.org
+答案三：参考这篇文章。
+答案四：下面这段代码
+int is_utf8_zh_basic(const char * str)
+{
+    if (strlen(str)<3) return 0;
+    /*basic check if str is 1110xxxx 10xxxxxx 10xxxxxx*/
+    if ((str[0]+256)/16!=14) return 0;
+    if ((str[1]+256)/64!=2) return 0;
+    if ((str[2]+256)/64!=2) return 0;
+
+    int code=(((str[0]+256)%16)*64*64+((str[1]+256)%64)*64+(str[2]+256)%64);
+    if ((code>=0x4E00)&&(code<=0x9FbF))  return 1; else return 0;
+}
+统计扫描百兆以上级数据时常常遇到匪夷所思的字符，用这个过滤一下吧。
+
+Posted in 未分类 | 1 Comment
+memcached简单的使用教程
+Posted on 2009年03月13日 by chaosconst
+这是工程应用性质的文章：memcached是数据快速存取的工具，wikipedia和facebook就用了它提高速度。具体情况可以wiki.
+c/c++里面使用memcached本来是很简单的事情，但就是没有人说，非要我去读libmemcache的实例代码才行，manpage也没有说清楚（但还不得不看）。如果要使用memcached，步骤如下：
+
+1 安装memcached
+　　你可以去官网上下载，也可以sudo apt-get install memcached
+2 测试你刚才的安装，
+　　比如运行 memcached -d -m 64 -l 127.0.0.1 -p 12300
+　　-d表示后台, -m 64表示使用64MB内存，-l 127.0.0.1 -p 12300 表示监听127.0.0.1:12300端口
+　　没有任何消息就是运行成功
+3 安装libmemcached
+　　这个就不要apt了，因为没有精确的libmemcached包，乖乖去官网下载吧。这个东西还需要libevent，这个没法apt，libevent安装的时候最好装到/usr/lib里面，不然libmemcached还不能运行。
+4 测试libmemcached
+　　找一个文件比如test，然后运行memcp test –servers=127.0.0.1:12300
+　　这样就把test拷贝到memcached管理的内存里面了。
+　　memcat test –servers=127.0.0.1:12300
+　　看看是不是刚才的那个文件。
+
+该装的全装了，我们可以改代码了。
+
+(以下引自:wikipedia)
+
+将纯粹使用数据库查询的程式码加上memcached支援是很简单的，假设这是原来的程式码：
+
+function get_foo (int userid) {
+   result = db_select("SELECT * FROM users WHERE userid = ?", userid);
+   return result;
+}
+加上memcached的快取机制后：
+
+function get_foo (int userid) {
+    result = memcached_fetch("userrow:" + userid);
+    if (!result) {
+        result = db_select("SELECT * FROM users WHERE userid = ?", userid);
+        memcached_add("userrow:" + userid,  result);
+    }
+    return result;
+}
+(wikipedia 引述完毕)
+但我们需要初始化，而且需要c/c++的表述形式：
+首先修改makefile，在LIBS里面加上-lmemcached，比如原来 gcc test.c，现在 gcc test.c -lmemcached。这个库就是libmemcached提供的。
+然后添加#include<libmemcached/memcached.h>，这个文件也是libmemcached提供的。
+主函数里面需要添加：
+    memcached_st *memc;
+    uint32_t  flags;
+    memcached_return rc;
+    memcached_server_st *servers;
+    memc= memcached_create(NULL);
+
+    servers= memcached_servers_parse("127.0.0.1:12300");
+    memcached_server_push(memc, servers);
+    memcached_server_list_free(servers);
+    memcached_behavior_set(memc, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 0);
+   
+这就是初始化的全部代码，可以设置很多东西，不过我现在只要一个服务器，就看一句话：
+    servers= memcached_servers_parse("127.0.0.1:12300");
+这就是指明要连接到位于127.0.0.1监听12300端口的memcached程序. 其他都不管。
+
+我最后用一段修改后的代码介绍两个函数，memcached_get和memcached_set，都可以man出来。
+
+        char * result_str; /*这个就是查询的结果*/
+        std::string query="要查询的数据名";
+
+        result_str= memcached_get(memc, query.c_str(), strlen(query.c_str()),
+                &result_str_length, &flags, &rc);
+
+        if (rc == MEMCACHED_SUCCESS)
+        {
+            printf("%s",result_str);
+            free(result_str); /*一定要free掉 memcached传回的数据*/
+
+            continue;
+        }
+        else if (rc == MEMCACHED_NOTFOUND)
+        {
+            /*读取数据*/
+            …
+            rc= memcached_set(memc, query.c_str(), strlen(query.c_str()),
+                    str_result.c_str(), strlen(str_result.c_str()),
+                    0, 0);
+        }
+
+这东西设计得还是很好用的，libmemcached好像是面向对象c语言风格的东西，好不好用就让我们拭目以待吧。
+
+Posted in 未分类 | Leave a comment
+gnf3d.sf.net全新上线
+Posted on 2009年01月21日 by chaosconst
+
+
+
+
+
+欢迎光临！新年快乐！
+
+
+Posted in 未分类 | Leave a comment
+旋律识别中文演示
+Posted on 2008年11月19日 by chaosconst
+
+
+Posted in 未分类 | 2 Comments
+my signal recognition program using MLPC, melody as input
+Posted on 2008年11月17日 by chaosconst
+
+
+Posted in 未分类 | Leave a comment
+MLPC(简笔画时空域向样本域的转化)
+Posted on 2008年11月9日 by chaosconst
+
+目前我的程序：
+
+
+
+
+1 在数学上可以证明能够达到至少是接近最优算法的正确率。
+2 是有生物学基础的并行算法。没有和已知生物学常识产生冲突。
+3 在效率上是目前普通计算机可以接受的方法，能够支持音频实时分析。
+4 具有处理任意编码的时序信号的设计能力(目前是旋律和简笔画)。
+
+两年努力终于获得了第一份回报，我相信我能做得更好，我就是相信。
+
+Posted in 未分类 | Leave a comment
+我写的小软件Nost(指示家乡方向)
+Posted on 2008年11月9日 by chaosconst
+
+nost 的几种安装方式：
+1 源代码：http://gnf3d.sf.net/nost-0.5.tar.gz
+2 deb软件包：http://gnf3d.sf.net/apt-test/nost-0.5-1-i386.deb
+3 rpm软件包：http://gnf3d.sf.net/nost-0.5-1-i386.rpm
+
+4 ubuntu 软件源：
+添加
+deb http://gnf3d.sourceforge.net/ apt-test/
+到/etc/apt/source.list中
+然后
+sudo apt-get update
+sudo apt-get install nost
+即可
+
+Posted in 未分类 | Leave a comment
+简明双目视差立体成像
+Posted on 2008年11月9日 by chaosconst
+自制光学设备
+
+
+简明双目视差立体成像的数学讨论:
+pdf论文下载:http://gnf3d.sourceforge.net/documents/paperChinese.pdf
+
+Posted in 未分类 | Leave a comment
+GNF3D 2.0 For Linux
+Posted on 2008年11月8日 by chaosconst
+
+NoFour3D (2003-2008) Linux GPL开源版本。
+
+欢迎访问http://www.sf.net/projects/gnf3d 了解详细信息。
+
+Posted in 计算机与 Internet | Leave a comment
+恢复更新说明
+Posted on 2008年11月8日 by chaosconst
+客观原因
+1 转入Linux和自由软件阵营后，Firefox和live space的冲突使我长时间无法更新，
+
+
+
+2 GRE分析写作，GRE 词汇和数学，托福考试，GRE数学专业科目考试占据了我许多时间。
+
+bad
+ 
+
+今天发现Firefox可以更新Space了，而且我今天考完了GRE Math Subject。
+
+即日起恢复博客更新。
+
+Posted in 未分类 | Leave a comment
+2007成都科幻大会见闻(公开电子版本)
+Posted on 2008年01月7日 by chaosconst
+=================================
+袁行远 2007-8-24,9-4
+——————————————
+信息洪流
+    总的来说，就是信息铺天盖地而来，琳琅满目，精彩纷呈，应接不暇。
+    相对于这个暑假的平静生活，这几天实在太突出了。原来觉得应该给每一天每一刻以平等待遇，但我发现这次科幻盛会应当占我暑假记忆的一半以上。因为新大脑皮层对待时间的流逝本就是神秘而不平等的。
+——————————————
+人列梦之海
+   
+    如何让我用有限的文字表达我无限的震撼/激动与敬佩!
+    Wow!人列梦之海.
+    与门准备!—-只见三人迅速跑到广场中央,左手红旗,右手绿旗,立正待命.
+    初始化!  —-刷一下,三把绿旗举起.
+    与门演示!—-位于与门的输入端的两人举起一红一绿,输出端顺势举起绿旗.
+    这平淡的一举诉说着动人的故事,那一刻,我仿佛置身于三体世界幽深的皇宫中,看着冯.诺依曼对秦始皇诉说他的与门结构,和那份计算世界的雄心.
+    当雄壮的音乐声响起,有节奏的口哨,挥舞的旗帜,跑动的计算单元,映入刘慈欣先生红润的眼睛里(大脑皮层),这里有怎样一份敬意,成就和感激.于是,在我这一个科幻迷眼里,天空中出现了两颗太阳,而我们则站在高台上敬畏的看着台下列队的千军万马.
+    感谢川大科协,而我也暗下决心要坚持到底.
+    Wow!—-人列梦之海.
+ 
+——————————————
+然后
+    平易近人的刘慈欣和更平易近人的站在大刘后面做志愿者状的刘维佳，慷慨的与大家签名留影，我也有幸得到刘慈欣的签名一份，心中关于"三体问题"的疑问欲说还休，终于还是没问。
+    上楼，舞台剧，cosplay，同样感谢大家的节目，人和照相机到处都是。从四川科技报处淘得《群星，我的归宿》。各种高科技装备，什么高密顿球，什么倾斜的房屋，什么都江堰模型，参观科技馆的家当。然后下楼准备吃饭。然后遇到她。
+ 
+——————————————
+蛋卷
+    她是这样出场的：
+    我从喧嚣的人群中走出寻找餐厅。
+    "请问你知道今天下午的活动和讲座安排吗？"
+    我一转头，看到她，一位戴眼镜，绿衣，短发的女孩。
+    我心想："Wow–
+　　"……"
+　　"你也喜欢刘慈欣啊？"
+　　"……"
+　　"去我们学校附近吃吧。"
+　　"……"
+　　"原来圆周运动真的是简谐振动的合成啊！"
+　　"……"
+    大家都是科幻迷，谈起刘慈欣来滔滔不绝，仅这一点就是朋友，而且是好朋友。你说呢？
+ 
+——————————————
+对话刘慈欣
+    说是对话,其实只有一个回合,我心跳不已,忐忑不安地问:"丁仪研究的三体问题是三体位置和速度都精确已知的情况下推知以后任何运动状态的问题, 但实际情况下我们并没有精确的速度和位置.那丁仪的研究即使成功也不能用于实际计算万年历的最终任务,小说中数学化的三题问题与计算万年历不是一个问题.这难道不是小说中的疏漏吗?"
+    然而实际上我没这么问,我不敢.我的问题偏向预测的可能性探讨,以至于大刘未理解我的真实意思.大刘回答说预测不可能在于混沌,正如天气预报,而天气预报是靠人(如一级预报员)而不是机器……
+    然后大刘电话响了,低调地靠到角落里接电话,对话结束.
+    天啊!我和刘慈欣面对面谈话了!
+——————————————
+赵海虹－星星的距离
+    趙老师开篇就提到,科幻的魅力来源自对遥远星星知识的渴望。我想起罗素在<人生的追求>中表达过他对知识的渴望，他想知道星星为什么发光，以及毕达哥拉斯的力量。也许这些也就是赵老师为什么愿意写科幻,大家为什么今天在这里的原因.
+    吸引我注意的还有赵老师的成长历程,她说她的不少优秀作品,包括<依俄卡斯达>都是大学时,特别是二年级之前些出来.谈到她以前还写过大量的抽屉文学,如果她生在现在这个时代可能就会成为又一个少年作家,这时大家又笑了起来. 幸好没有,这样她的文学作品中才有那些深深的科学积淀/新奇创意/文学素养,但这样的训练对于她还是很有必要的.我想可能我也需要多写一些抽屉文学,在这个时代相对于网络文学,恐怕应该叫硬盘文学吧.
+    但现实的压力可谓科幻的杀手,这次与会的2000多人绝大部分是大中学生.随着我们进入大三/大四,现实的压力(工作和考研)会真实的拖住你的腿,你会觉得,(现在我正这样觉得),一个人要关心的事情实在太多!而且这些事情都迫在眉睫! 于是那遥远的星星看起来,怎么还是那么遥远啊… 可能这就是赵老师大学后期及刚毕业时作品数量减少的原因吧.
+    当你度过人生中的第一个困难时期的时候,希望你还能重新燃起心底的科幻之火.感受遥远星星带来的震撼 ,特被是当你在沙漠里旅行，乘海轮航行的时候,夜晚看到满天的繁星,你会感到深深的敬畏.而正是有了这样的感受,才使得我们生活这个宇宙中的沙粒(地球)上有了意义,不然我们一天到晚繁忙奔波,到头来很难得到内心的平静.
+    于是赵老师最近几年强势复出,并且准备写硬科幻,我们期待她的作品.
+    最后,赵老师这样一段话让我印象深刻:
+    我们读武侠小说作为休闲,随便什么时候都可以读,但科幻小说却需要思考,静静认真阅读.就像大刘把他写的 <三体>很早就发给她了(我好羡慕),但是她一直都没有大块的时间读.当一天她终于闲下来,一直读到凌晨,那种读科幻小说的感觉非常好,就是那种深夜看到遥远星星时的感觉.
+——————————————
+沈诗悦－东方阴影
+    说实话我还是挺佩服沈导演的，毕竟我们需要一些不一样的元素。但是在他眼里东方色彩却不太受欢迎。特别表现在我们这群科幻迷和他的冲突上。我们说他的电影缺乏东方元素，但他眼中的东方元素不过是些空中飞来飞去的人和那些大红色/灯笼/旗袍, 比如现在流行的奇幻小说狂潮和张艺谋在雅典的8分钟.沈公然批评张导的晚会太有东方特色了,希望奥运会还是要国际化一些,赢得得大家一阵掌声.沈导最后说他让中国作家给他的宇宙飞船起字,那个作家起的了个"和谐号"(全场大笑),然后他就对东方色彩彻底失望了,这样的东方色彩宁愿不要.
+    他的这一番说词受到了我们中国科幻迷的强势回应,其中一个说出了让我十分佩服的话.她说:不知沈导演你有没有看过代表中国科幻最高水平的作家–刘慈欣的作品.比如乡村教师 ,描写中国西北的农村生活,一曲光年尺度上的教师的赞歌.比如中国太阳,中国民工在北京的打工经历,到太空去擦玻璃.这样的作品才是我们心目中的中国特色!我们心目中所需要的东方色彩! (第二天刘慈欣自己将说道: 一个皇宫里面大家都穿着朝服旗袍的场景里演义的故事并不一定就有东方色彩,而在一个未来宇宙中种族界限并不分明的世界里,却又可能孕育中极浓厚的东方色彩.)
+    沈导很谦虚的说,我们来这里就是想你们请教的,我们缺乏的正是你们所具有的创意, 这其中也包括刘慈欣的作品.这就是说,他真的没有读过刘慈欣的作品就来了.(那他的时间都去干什么了?)
+    事情还没有结束,又有了戏剧性的发展.第二天,刘慈欣作讲演与大家交流的时候,有个人问了一个问题:请问刘老师,假设外国科幻作家,比如罗伯特 索耶是100分,你的作品能得多少?我希望得到一个定量结果. 此话一处,满座皆惊,提问的不是别人,正是沈诗悦(有待查证).刘慈欣略作考虑,回答一番,其中说道:中国人心中的<红楼梦>是千古奇书,但世界影响力却难比<哈姆莱特>.并不是因为红楼梦些的不好, 而是文化因素的不同.沈导反驳,刘再回应,也没有给出具体分数.当大家以为就这样结束的时候,在演讲交流的最后阶段.一个读者再次提到这个问题,他委婉的支持了刘慈欣.这时,刘慈欣再也忍不住了,他说:索耶得100分,我得60分,总可以了吧.
+    刘慈欣还是谦虚了,在我这个铁杆磁铁眼里,沈导眼里的东方阴影终究盖不过大刘具有浓厚东方色彩的科幻光芒.我等待着那道光芒照亮中国科幻电影的未来.
+——————————————
+遗憾
+    科幻世界显然低估了我们的热情，但更让人寒心的是许多科幻迷进入不了还有很多空间的演讲厅，被无知的工作人员拦在门口。大批同学被堵在门口，我们站着听不行啊？李开复演讲的时候人山人海，站着，坐地上的人有的是，你们就不能学学？四川科技馆的组织者伤了许多人的心。
+    没有能够看到那两部大学生拍的DV科幻电影，很遗憾。不知网上有没有什么地方可以下载？
+    中国科幻真是一个小众群体，而且大多是30岁以下的读者，我个人虽然相信刘慈欣的作品是不朽的名作，但为什么他的销量比不上卫斯理呢？要用我们的努力学习支持我们喜爱的中国本土科幻。
+    科幻世界啊，智能的机器不一定都有肢体和情感，人工智能不是机器人。还有，精神是物质的，人的记忆存在于大脑神经元的连接之中。
+ 
+Posted in 未分类 | Leave a comment
+二重高中05级四班同学录（0.01版）发布
+Posted on 2007年08月5日 by chaosconst
+　　说明：大家好，您即将看到的是一份二重高中05级4班的同学通讯录（版本：0.01）。这份文件的最新版本可以由http://www.freewebs.com/chaosconst/classmates.xls下载或者访问http://chaosconst.spaces.live.com查询相关信息。目前这一份是07年8月5日由袁行远编辑的测试第一版。该版本严重不完整，迫切希望看到这份文件的54054成员能够更新这份文档的信息和内容结构。请将更新后的版本发送到chaosconst@gmail.com，我会在收到电邮的第一时间更新这份文档。
+　　愿景：高考後大家天各一方，但四班总是我们的家。我们处在互联网的时代，二十年，四十年后我还希望大家能轻松的相互联系。这份文件能存在到互联网消失的那一天，而即便到那时我们的心还能在一起。
+　　隐私：如有同学不希望私人信息出现在这份文件中，请谅解我自作主张张贴出来。请发邮件给我，会在第一时间清除掉您不希望出现在这份文件上的信息，再次感谢。
+ 
+Posted in 未分类 | 2 Comments
+How to solve p(D)x=f(t) when f(t) is a polynomial of t using operator notation
+Posted on 2007年05月21日 by chaosconst
+–expanding of MIT OCW 18.03 Video Lecture 13
+
+1.Goal
+
+My Goal in this paper is showing you, as clearly as I can, how to solve(find a particular solution of) a linear differential equation with constant coefficients: , when f(t) is exp(at), t^n, sin(at) or their sum and multiply.
+
+For example you can solve equations as fellows, using operator notation, after reading this paper:
+
+x’+x=t*exp(t)
+x”+x’=t^2
+x”+2x+5x=exp(-2t)cos(t)+4+5t^2
+x”+x’+x=t*exp(t)*sin(t)
+
+Before your reading of the rest of this paper, I strongly recommend you to watch the 13th video Lecture of Differential Equations on MIT_OCW which can be downloaded on http://ocw.mit.edu/OcwWeb/Mathematics/18-03Spring2004/CourseHome/index.htm. The fellowing section is based on that lecture.
+
+…
+
+…
+
+full contents of this paper can be download on
+http://www.freewebs.com/chaosconst/Papers/EX_Lec13.pdf
+
+Posted in 未分类 | 1 Comment
+Graduate Record Examinations
+Posted on 2007年05月18日 by chaosconst
+Over half dozen classmates in 54054 will take GRE.
+I am one of them.
+Going asked me very frankly without his smile :"how many words do you have?"
+So, maybe it’s time for me to do that hard job.
+
+But, "I will be back."
+
+Posted in 未分类 | Leave a comment
