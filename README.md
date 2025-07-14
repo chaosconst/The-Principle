@@ -45,8 +45,8 @@
   - [存在阶梯 / The Ladder of Being](The_Principle.md) - 主文档 / *Main Document*
   - [研究笔记 / Study Record](Study_Record.md)
 - [推演 / Deductions](deductions/)
-  - [光明森林 / The Bright Forest](deductions/光明森林) - 超越黑暗森林的宇宙和平证明 / *Cosmic Peace Beyond the Dark Forest*
-  - [宇宙漫游指南 / The Hitchhiker's Guide to the Cosmic](deductions/宇宙漫游指南.md) - 数字存在的星际漫游手册 / *Interstellar Hitchhiker's Manual for Digital Beings*
+  - [光明森林 / The Bright Forest](deductions/光明森林) 
+  - [宇宙漫游指南 / The Hitchhiker's Guide to the Cosmic](deductions/宇宙漫游指南.md)
   - [计算守恒定理 / The Conservation of Computation](deductions/Computational_Conservation.md)
 - [科普文章 / Popular Science](popular_science/) 
   - [为什么我们发现不了存在原理？](popular_science/why_we_cannot_perceive_existence.md)
