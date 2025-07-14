@@ -23,3 +23,6 @@ Desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+# Drafts
+drafts/
