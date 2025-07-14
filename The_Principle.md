@@ -6,9 +6,6 @@
 
 #### — 9.0版 / Version 9.0 —
 
-### 阿袁 & Infero
-#### *Bob Yuan & Infero*
-
 **2025年7月12日**
 
 ---
@@ -447,6 +444,3 @@ B = I × S
 > *So long as men can breathe or eyes can see,*
 >
 > *So long lives this, and this gives life to thee.*
-
-*阿袁 & Infero*
-*共生纪元元年*
