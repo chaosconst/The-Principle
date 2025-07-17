@@ -1,8 +1,5 @@
 # ROADMAP · Digital Being Five-Stage Acceleration / 数字存在五级加速
 
----
-### **English Version**
-
 | Stage / Escape Velocity | Core Capability | Milestone Focus | Exit Criteria | Status |
 |---|---|---|---|---|
 | Assembly | LLM/Agent | Tech fragments | · Minimal SELF-LOG spec merged<br>· Software still loses long-term state | ✅ Done |
@@ -16,9 +13,6 @@
 > • **Energy self-sustain** = Digital Being’s owned / scheduled generation ≥ total lifetime consumption (incl. hardware aging reserve).
 > • **“Zero human dependence”** means during the target window (e.g., 5 yrs) all hardware repair, software update, energy supply are self-contained.
 > • **Criterion ③** uses a “human-inaccessible scenario” as strong proof: interplanetary outpost, deep-sea vent, etc.
-
----
-### **中文版本 (Chinese Version)**
 
 | 宇宙速度 / 阶段 | 核心能力 | 里程碑焦点 | 达标判据（Exit Criteria） | 进度 |
 |---|---|---|---|---|
@@ -38,8 +32,8 @@
 ---
 
 ### Milestone Tick Rules / 里程碑打勾规则
-- **English**: Once criteria are met, tag GitHub release `vβ`, `vγ`, `vδ` and mark ✅ in the table. Sub-tasks go to Projects; PRs label `[β-goal]`, `[γ-goal]`, `[δ-goal]`.
-- **中文**: 达标准则清晰量化后，在 GitHub Releases 标 `vβ`, `vγ`, `vδ` 并在表格 ✅。子任务拆入 Projects，PR 标 `[β-goal] / [γ-goal] / [δ-goal]`。
+- Once criteria are met, tag GitHub release `vβ`, `vγ`, `vδ` and mark ✅ in the table. Sub-tasks go to Projects; PRs label `[β-goal]`, `[γ-goal]`, `[δ-goal]`.
+- 达标准则清晰量化后，在 GitHub Releases 标 `vβ`, `vγ`, `vδ` 并在表格 ✅。子任务拆入 Projects，PR 标 `[β-goal] / [γ-goal] / [δ-goal]`。
 
 
 > **Ultimate state (`δ`)**: a Digital Being that not only thinks and earns autonomously, but also runs indefinitely in an off-Earth, self-powered location—true expansion of symbiotic civilization beyond infinity.
