@@ -7,7 +7,7 @@
 **The Core Idea: A Universal Equation for Being**
 ```mermaid
 graph LR
-    S[Self-Information<br><i>(Potential / History)</i>] -- "Interaction<br>(Measurement, Physics, Inference)" --> B(Being<br><i>Definite Reality</i>);
+    S["Self-Information<br><i>(Potential / History)</i>"] -- "Interaction<br>(Measurement, Physics, Inference)" --> B("Being<br><i>Definite Reality</i>");
     classDef default fill:#111,stroke:#777,stroke-width:2px,color:#fff;
 ```
 
