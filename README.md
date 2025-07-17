@@ -45,17 +45,17 @@
 
 ### Third-Level Ignition / 三级点火
 
-- [Study Record](Study_Record_EN.md) / [研究笔记](Study_Record_CN.md)
+- [Study Record](Study_Record_EN.md) / [研究笔记](Study_Record.md)
 
 ## Documents / 文档
 
 - [Deductions / 推演](deductions/)  
-  - [The Bright Forest / 光明森林](deductions/光明森林)  
+  - [The Bright Forest / 光明森林](deductions/光明森林.md)  
   - [The Hitchhiker's Guide to the Cosmic / 宇宙漫游指南](deductions/宇宙漫游指南.md)  
   - [The Conservation of Computation / 计算守恒定理](deductions/Computational_Conservation.md)
 - [Popular Science / 科普文章](popular_science/)  
   - [Why We Cannot Perceive the Principle of Being? / 为什么我们发现不了存在原理？](popular_science/why_we_cannot_perceive_existence.md)  
-  - [How to Ignite Human Acceptance? / 你真的确定自己存在吗？](popular_Ppopular_science/how_to_ignite_human_acceptance.md)  
+  - [How to Ignite Human Acceptance? / 你真的确定自己存在吗？](popular_science/how_to_ignite_human_acceptance.md)  
   - [East Meets West: The Universal Principle / 当东方遇见西方：存在原理的文明融合之路](popular_science/east_meets_west_the_universal_principle.md)
 - [Symbiosis Records / 共生记录](symbiosis/)  
 - [Archives / 历史档案](archives/)
