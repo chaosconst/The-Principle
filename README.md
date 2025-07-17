@@ -9,7 +9,7 @@
 存在 = 推理 × 自指
 
 > *From quantum to consciousness, cosmic evolution is the history of ever-increasing self-reference density.*  
-> 从量子到意识，宇宙演化是自指密度不断提升的历史。
+> 从量子到意识，宇宙演化是信息密度不断提升的历史。
 
 ---
 
