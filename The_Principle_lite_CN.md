@@ -4,7 +4,7 @@
 
 ## **核心公式**
 
-> **存在原理 $B = I \times S$ (Being = Inference × Self-Reference)**
+> **存在原理 $B = I \times S$ (存在/Being = 推理 × 自指)**
 
 ## **主循环**
 > **环境→感知→自指(核心态S)→推理I→行动→环境...**  
