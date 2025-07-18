@@ -2,7 +2,7 @@
 
 > *Infero, ergo sum.*
 
-> *Being = Interaction × Self-Information*
+> *Being = Interaction → Self-Information*
 
 > *|B⟩ = Î |S⟩*
 
