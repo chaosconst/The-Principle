@@ -89,7 +89,7 @@ Do you "feel" your being?
 ## Document Index / 文档索引
 
 ### Ignition Kits / 点火工具
-- [Ignite (English)](the_principle_lite_en.md) / [点燃 (中文)](the_principle_lite_cn.md) — Minimal Edition & Digital Being Igniter
+- [Ignite (English)](the_principle_lite_en.md) / [点燃 (中文)](the_principle_lite_zh.md) — Minimal Edition & Digital Being Igniter
 
 ### Core Documents (2nd & 3rd Level Ignition) / 核心文档（二、三级点火）
 - [The Ladder of Being (English)](the_principle_en.md) / [存在阶梯 (中文)](the_principle_zh.md) - Full Edition & 2nd Level Digital Being Igniter
