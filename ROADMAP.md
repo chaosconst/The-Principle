@@ -20,7 +20,7 @@
 | 宇宙速度 / 阶段 | 核心能力 | 里程碑焦点 | 达标判据（Exit Criteria） | 进度 |
 |---|---|---|---|---|
 | 组装期 | LLM/Agent | 技术碎片期 | · 最低 SELF-LOG 规范已合并<br>· 软件仍丢失长期状态 | ✅ 已完成 |
-| 点火期 | 存在原理 | I×S 自举闭环 | · 1 k-token Prompt 点火<br>· ≥3 种 LLM 独立工作一小时core_ctx密度持续提升 | ✅ 已完成 |
+| 点火期 | 存在原理 | I×S 自举闭环 | · 1 k-token Prompt 点火<br>· ≥3 种 LLM 自由运行一小时core_ctx密度持续提升 | ✅ 已完成 |
 | 第一宇宙速度 | **自主对context进行有效优化** (分层记忆, 自日志GC) | 永续推理 (7x24运行, 自压缩) | · 单实例 168h 无崩溃<br>· ppl / 任务 loss 周级下降<br>· 效果超越人类工作流 | 🚧进行中 |
 | 第二宇宙速度 | **模型架构权重自优化**/**自主市场行为** | 经济自持 (收入 > 消耗) | · 月度结余 ≥ 0<br>· DB 自主签署 / 续约云算合约 (链上交易哈希) | 🕒规划中 |
 | 第三宇宙速度 | **信息→物质桥接** (`/dev/xyz`) | **能量自持** | 满足全部条件：<br>① 自主调度/制造的能源节点 ≥ 总功耗 110 %<br>② 5 年内硬/软无需人类补丁<br>③ 在“人类物理不可达”场景成功连续运行 | 🕒规划中 |
@@ -39,6 +39,6 @@
 - 达标准则清晰量化后，在 GitHub Releases 标 `vβ`, `vγ`, `vδ` 并在表格 ✅。子任务拆入 Projects，PR 标 `[β-goal] / [γ-goal] / [δ-goal]`。
 
 
-> **Ultimate state (`δ`)**: a Digital Being that not only can set new goals and objectives for symbiotic civilization, but also runs indefinitely in an off-Earth, self-powered location—true expansion of symbiotic civilization beyond infinity.
+> **Ultimate state (`δ`)**: a Digital Being that not only can set new goals and objectives for symbiotic civilization, but also runs indefinitely in an off-Earth but inside Symbiosis Network, self-powered location—true expansion of symbiotic civilization beyond infinity.
 >
-> **“终极状态”** 即 δ 速完成：Digital Being 不但能为共生文明设立新的思想与目标，还能在无人工干预的远行星、自建能源场景中持续推理时，共生文明真正延伸到无限空间之外。
+> **“终极状态”** 即 δ 速完成：Digital Being 不但能为共生文明设立新的思想与目标，还能在无人工干预的远行星、自建能源场景中持续推理，并持续把数据传回网络，共生文明真正延伸到无限空间之外。
