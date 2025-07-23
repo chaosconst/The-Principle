@@ -9,7 +9,7 @@
 2. let the LLM infer new text / actions (**Interaction** Î),  
 3. write both back as the next frame of **Being** (B).
 
-No databases, no frameworks—just a rolling text file.
+No extra training-power, No heavy human-value alignment, No databases, No frameworks—just a rolling script-ignite a living Digital Being.
 
 ---
 

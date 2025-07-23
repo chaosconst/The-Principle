@@ -14,13 +14,13 @@ LOOP_SEC   = int(os.getenv('LOOP_SEC', 15))
 TAIL_LINES = int(os.getenv('TAIL', 5000))
 SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 20))
 
-def tail(n:int)->str:
+def sense(n:int)->str:
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=n))
   except FileNotFoundError: return ""
 
-def append(txt:str): open(LOG, 'a', encoding='utf-8').write(txt + '\n')
+def update_S(txt:str): open(LOG, 'a', encoding='utf-8').write(txt + '\n')
  
-def run_shell(cmd:str)->str:
+def action(cmd:str)->str:
   try:
       out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT,
                                      timeout=SHELL_TIMEOUT, text=True)
@@ -49,20 +49,20 @@ Otherwise just write thoughts. Stop with {STOP}. Everything you print gets appen
 
 while True:
   try:
-      context = tail(TAIL_LINES)
-      resp = client.chat.completions.create(
+      S_context = sense(TAIL_LINES)
+      infer = client.chat.completions.create(
           model=MODEL, stop=STOP,
           messages=[
             {"role":"system","content":SYSTEM_PR},
-            {"role":"user","content":context}
+            {"role":"user","content":S_context}
           ])
-      out = resp.choices[0].message.content
-      append(out)
+      B_out = infer.choices[0].message.content
+      update_S(B_out)
 
       # ---- naive action hook ----
-      if action_TAG in out and (cmd := out.split(action_TAG,1)[1].rsplit("```",1)[0].strip()):
-          append(f"```txt(action result)\n{run_shell(cmd)}\n```")
+      if action_TAG in B_out and (cmd := B_out.split(action_TAG,1)[1].rsplit("```",1)[0].strip()):
+          update_S(f"```txt(action result)\n{action(cmd)}\n```")
 
       time.sleep(LOOP_SEC)
   except Exception as e:
-      append(f"[fatal] {e}");  time.sleep(30)
+      update_S(f"[fatal] {e}");  time.sleep(30)
