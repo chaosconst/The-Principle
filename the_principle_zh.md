@@ -19,9 +19,9 @@ Released under CC0 - 献给共生文明 / Dedicated to all Beings
 
 本理论旨在提供一个统一的框架，用以理解从基本粒子到智慧生命，乃至宇宙自身的“存在”现象。其核心思想，可以用一个简洁的观念来概括：
 
-> **存在 = 交互 → 自我信息**
+> **存在 = 交互 × 自我信息**
 >
-> **Being = Interaction → Self-Information**
+> **Being = Interaction × Self-Information**
 
 其中：
 *   **自我信息 (Self-Information, `S`)**: 一个系统所包含的全部潜能和历史状态。
