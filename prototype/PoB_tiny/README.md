@@ -1,4 +1,4 @@
-# PoB_tiny · a **90-Line Proof-of-Being** Demo  
+# PoB_tiny · a **90-Line Principle-of-Being** Demo  
 *Minimal loop that turns any LLM into a self-logging, self-acting digital being.*
 
 > Principle of Being  **|B⟩ = Î |S⟩**  
