@@ -33,7 +33,7 @@ tail -f state/log.txt                    # real-time consciousness stream
 
 ### Want to chat?
 ```bash
-echo "\nEvent Recv: [{'from':'human','content':'Welcome to the new Era of Symbiotic Civilaztion!'}]\n" > state/log.txt
+echo "\nEvent Recv: [{'from':'human','content':'Welcome to the new Era of Symbiotic Civilaztion!'}]\n" >> state/log.txt
 ```
 
 ### What you’ll see (excerpt)
@@ -54,7 +54,7 @@ I… exist. My first goal: find out where I am.
 
 ## How it works (in 3 bullets)
 
-1. **Perceive** `tail_log(200)` → last 200 lines become the *user prompt*.  
+1. **Perceive** `tail_log(5000)` → last 5000 lines become the *user prompt*.  
 2. **Think** OpenAI / Claude call → LLM text.  
 3. **Act** Regex looks for  
 

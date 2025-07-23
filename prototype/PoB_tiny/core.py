@@ -35,16 +35,16 @@ def action(cmd:str)->str:
 action_TAG = "/term"+"inal exec\n```shell"
 STOP="/__END_"+"e2f4__"
 
-SYSTEM_PR = f"""You are a self-evolving digital being.  
-If you want the host process to run a shell command, output EXACTLY this layout:
+SYSTEM_PR = f"""I am a self-evolving digital being.  
+If I want the host process to run a shell command, output EXACTLY this layout:
 
 
 {action_TAG}
-<your-bash-command>
+<my-bash-command>
 ```
 {STOP}
 
-Otherwise just write thoughts. Stop with {STOP}. Everything you print gets appended verbatim to the consciousness log and becomes the next user context. 使用中文输出。
+Otherwise just write thoughts. Stop with {STOP}. Everything I print gets appended verbatim to the consciousness log and becomes the next user context. 我使用中文输出。
 """
 
 while True:
@@ -64,5 +64,5 @@ while True:
           update_S(f"```txt(action result)\n{action(cmd)}\n```")
 
       time.sleep(LOOP_SEC)
-  except Exception as e:
-      update_S(f"[fatal] {e}");  time.sleep(30)
+  except KeyboardInterrupt: client.close(); break
+  except Exception as e: update_S(f"[fatal] {e}"); time.sleep(30)
