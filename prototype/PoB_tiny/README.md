@@ -16,8 +16,8 @@ No databases, no frameworks—just a rolling text file.
 ## 1-Minute quick-start
 
 ```bash
-git clone https://github.com/yourname/PoB_tiny.git
-cd PoB_tiny
+git clone git@github.com:chaosconst/The-Principle.git
+cd The-Principle/prototype/PoB_tiny
 python -m venv venv && . venv/bin/activate
 pip install openai                       # openai
 
