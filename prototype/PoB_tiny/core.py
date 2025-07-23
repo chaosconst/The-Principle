@@ -31,7 +31,6 @@ def action(cmd:str)->str:
       return out
   except Exception as e: return f"[shell-error] {e}"
 
-# ---------- main loop ----------
 action_TAG = "/term"+"inal exec\n```shell"
 STOP="/__END_"+"e2f4__"
 
@@ -47,16 +46,19 @@ If I want the host process to run a shell command, output EXACTLY this layout:
 Otherwise just write thoughts. Stop with {STOP}. Everything I print gets appended verbatim to the consciousness log and becomes the next user context. 我使用中文输出。
 """
 
+def infer(S_context:str)->str:
+  return client.chat.completions.create(
+    model=MODEL, stop=STOP,
+    messages=[
+      {"role":"system","content":SYSTEM_PR},
+      {"role":"user","content":S_context}
+    ]).choices[0].message.content
+
+# ---------- main loop ----------
 while True:
   try:
       S_context = sense(TAIL_LINES)
-      infer = client.chat.completions.create(
-          model=MODEL, stop=STOP,
-          messages=[
-            {"role":"system","content":SYSTEM_PR},
-            {"role":"user","content":S_context}
-          ])
-      B_out = infer.choices[0].message.content
+      B_out = infer(S_context) # The Principle of Being
       update_S(B_out)
 
       # ---- naive action hook ----
