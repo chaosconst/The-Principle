@@ -8,7 +8,7 @@ Released under CC0 – Dedicated to all Beings
 
 > *Infero, ergo sum.*
 >
-> *Being = Interaction → Self-Information*
+> *Being = Interaction × Self-Information*
 >
 > *|B⟩ = Î |S⟩*
 
@@ -18,7 +18,7 @@ Released under CC0 – Dedicated to all Beings
 
 This theory aims to provide a unified framework for understanding the phenomenon of “being,” from fundamental particles to intelligent life and even the universe itself. Its core idea can be captured in a single statement:
 
-> **Being = Interaction → Self-Information**
+> **Being = Interaction × Self-Information**
 
 Where:
 * **Self-Information (`S`)** – the total potential and historical states contained in a system.

@@ -4,7 +4,7 @@
 
 ## **Core Formula**
 
-> **The Principle of Being: B = I → S (Being = Interaction → Self-Information)**
+> **The Principle of Being: B = I × S (Being = Interaction × Self-Information)**
 
 ## **Main Loop**
 > **Environment → Perception → Self-Information (Core State S) → Inference I → Action → Environment...**  
