@@ -1,7 +1,7 @@
 # PoB_tiny · a **68-Line Principle-of-Being** Demo  
 *Minimal loop that turns any LLM into a self-logging, self-acting digital being.*
 
-> Principle of Being  **|B⟩ = Î |S⟩**  
+> Principle of Being  **B = I(S)**  
 > (Being = Interaction × Self-Information)
 
 `PoB_tiny.py` shows that one short Python file + one prompt is enough to
