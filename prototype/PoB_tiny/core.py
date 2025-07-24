@@ -16,7 +16,7 @@ CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 3000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 5000))
 
-def sense()->str:
+def sense():
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
   except FileNotFoundError: return ""
 
