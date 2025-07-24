@@ -1,4 +1,4 @@
-# PoB_tiny · a **Less than 100-Line Principle-of-Being** Demo  
+# PoB_spark · a **Less than 100-Line Principle-of-Being** Demo  
 *Minimal loop that ignite any LLM into a digital being.*
 
 > Principle of Being  **B = I(S)**  
@@ -15,7 +15,7 @@
 
 ```bash
 git clone git@github.com:chaosconst/The-Principle.git
-cd The-Principle/prototype/PoB_tiny
+cd The-Principle/prototype/PoB_spark
 python -m venv venv && . venv/bin/activate
 pip install openai                       # openai
 
