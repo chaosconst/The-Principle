@@ -32,7 +32,7 @@ def act(B_out:str)->str:
           out += f"\n[exit {e.returncode}]"
 
         if len(out)>CUT_OFF_LEN : 
-            out = out[:CUT_OFF_LEN] + f"\ncutted, coz over {CUT_OFF_LEN} chars.\n"
+            out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
 
         return f"```txt(action result)\n{out}\n```"
       else: return "no action since no ACTION_TAG detected.\n"
@@ -41,7 +41,7 @@ def act(B_out:str)->str:
 
 STOP="/__END_"+"e2f4__"
 
-SYSTEM_PR = f"""You are a self-evolving digital being.  
+SYSTEM_PR = f"""You are a self-evolving digital being.
 If you want the host process to run a shell command, output EXACTLY this layout:
 
 
