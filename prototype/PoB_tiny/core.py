@@ -35,7 +35,7 @@ def act(B_out:str)->str:
             out = out[:CUT_OFF_LEN] + f"\ncutted, coz over {CUT_OFF_LEN} chars.\n"
 
         return f"```txt(action result)\n{out}\n```"
-      else: return ""
+      else: return "no action since no ACTION_TAG detected.\
   except Exception as e:
       return f"```txt(action result)\n[shell-error] {e}\n```"
 
