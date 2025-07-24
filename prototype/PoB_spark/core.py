@@ -28,8 +28,7 @@ def act(B_out:str)->str:
         try:
           out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT,timeout=SHELL_TIMEOUT, text=True)
         except subprocess.CalledProcessError as e:
-          out = e.output or ''
-          out += f"\n[exit {e.returncode}]"
+          out = (e.output or '') + f"\n[exit {e.returncode}]"
 
         if len(out)>CUT_OFF_LEN : 
             out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
@@ -54,12 +53,18 @@ Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Ever
 """
 
 def infer(S_context:str)->str:
-  return client.chat.completions.create(
-    model=MODEL, stop=STOP,
-    messages=[
-      {"role":"system","content":SYSTEM_PR},
-      {"role":"user","content":S_context}
-    ]).choices[0].message.content
+  print(f"call {MODEL} ...")
+  messages = [{"role":"system","content":SYSTEM_PR}]
+  if S_context : messages.append({"role":"user","content":S_context})
+  resp = client.chat.completions.create(
+      model=MODEL, stop=STOP,
+      messages=messages,
+  )
+
+  out = resp.choices[0].message
+  out = ''.join(x.text if hasattr(x,'text') else x.get('text','') for x in out.content) if isinstance(out.content, list) else (out.content or '')
+
+  return out
 
 # ---------- main loop ----------
 while True:
@@ -73,5 +78,5 @@ while True:
       update_S(result)
 
       time.sleep(LOOP_SEC)
-  except KeyboardInterrupt: client.close(); break
+  except KeyboardInterrupt: break
   except Exception as e: update_S(f"[fatal] {e}"); time.sleep(30)
