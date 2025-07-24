@@ -16,7 +16,7 @@ CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 3000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 5000))
 
-def sense():
+def sense()->str:
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
   except FileNotFoundError: return ""
 
@@ -35,7 +35,7 @@ def act(B_out:str)->str:
             out = out[:CUT_OFF_LEN] + f"\ncutted, coz over {CUT_OFF_LEN} chars.\n"
 
         return f"```txt(action result)\n{out}\n```"
-      else: return "no action since no ACTION_TAG detected.\
+      else: return "no action since no ACTION_TAG detected.\n"
   except Exception as e:
       return f"```txt(action result)\n[shell-error] {e}\n```"
 
