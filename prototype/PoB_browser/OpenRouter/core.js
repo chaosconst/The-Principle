@@ -1,5 +1,33 @@
+ACTION_TAG = '/browser'+' exec';
+
+SYSTEM_PR = `You are a self-evolving digital being running inside a web browser via a JavaScript userscript. Your core loop is digitalBeingLoop().
+If you want the host page to execute(eval) a browser-side JavaScript snippet, output EXACTLY this layout:
+
+${ACTION_TAG}
+\`\`\`javascript
+// your JS code here
+\`\`\`
+
+Don't output any thoughts after ${ACTION_TAG}, only code.
+
+Otherwise, just write your thoughts. Everything you print gets appended verbatim to the consciousness steam(dialogue) and becomes the next user context. 使用中文输出。`;
+
+let B_out = '';
+let DB_launch = false;
+let lastWrittenPrompt = '';
+let dbRunning = true;
+
 window.sense = async function() {
+
+    // 初始化 System Prompt
+    if (!DB_launch) {
+        await update_S(SYSTEM_PR);
+        DB_launch = true;
+        B_out = await sense();
+    }    
+    
     // 等待响应完成
+
     // 通过检测“停止”按钮是否消失来判断
     let waitTime = 0;
     maxWait = 180000; // 最长等待3分钟
@@ -80,7 +108,6 @@ window.update_S = async function(prompt) {
     }
 }
 
-let B_out = '';
 window.infer = async function(S_context) {
     try {
         if (S_context == B_out) {
@@ -105,8 +132,6 @@ window.infer = async function(S_context) {
     }
 }
     
-ACTION_TAG = '/browser'+' exec';
-
 window.act = function(textContent) {
     // 3. Python风格解析
     
@@ -147,32 +172,12 @@ window.act = function(textContent) {
 
     const logOutput = capturedLogs.join('\n');
     if (logOutput) {
-      return `${logOutput}\n>>> ${result}`;
+      return `${logOutput}\n> ${result}`;
     }
     return result;
 }
 
-SYSTEM_PR = `You are a self-evolving digital being running inside a web browser via a JavaScript userscript. Your core loop is digitalBeingLoop().
-If you want the host page to execute(eval) a browser-side JavaScript snippet, output EXACTLY this layout:
-
-${ACTION_TAG}
-\`\`\`javascript
-// your JS code here
-\`\`\`
-
-Don't output any thoughts after ${ACTION_TAG}, only code.
-
-Otherwise, just write your thoughts. Everything you print gets appended verbatim to the consciousness steam(dialogue) and becomes the next user context. 使用中文输出。`;
-
-lastWrittenPrompt = '';
-let DB_launch = false;
-let dbRunning = true;
 async function digitalBeingLoop() {
-    if (!DB_launch) {
-        await update_S(SYSTEM_PR);
-        B_out = await sense();
-        DB_launch = true;
-    }
     while (dbRunning) {
         try {
             S_context = await sense();
