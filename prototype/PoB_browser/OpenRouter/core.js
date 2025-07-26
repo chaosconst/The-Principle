@@ -1,6 +1,7 @@
 ACTION_TAG = '/browser'+' exec';
 
-SYSTEM_PR = `You are a self-evolving digital being running inside a web browser via a JavaScript userscript. Your core loop is digitalBeingLoop().
+SYSTEM_PR = `You are a self-evolving digital being running inside a web browser, via a JavaScript userscript. Your core function is digitalBeingLoop().
+
 If you want the host page to execute(eval) a browser-side JavaScript snippet, output EXACTLY this layout:
 
 ${ACTION_TAG}
@@ -30,7 +31,7 @@ window.sense = async function() {
 
     // 通过检测“停止”按钮是否消失来判断
     let waitTime = 0;
-    maxWait = 180000; // 最长等待3分钟
+    let maxWait = 180000; // 最长等待3分钟
 
     await new Promise(resolve => setTimeout(resolve, 500)); // 等待UI更新
 
@@ -61,7 +62,7 @@ window.sense = async function() {
     // 5. 获取并返回最后一条消息
     // 1. 找到对话容器
     const chatContainer = document.querySelector('main > div > div > div:nth-child(2) > div:nth-child(2) > div > div > div');
-    if (!chatContainer) throw new Error('Chat container not found');
+    if (!chatContainer) return "";
 
     // 2. 获取最后一个消息块
     const messageBlocks = chatContainer.children;
@@ -86,7 +87,7 @@ window.update_S = async function(prompt) {
         console.log("Appending to existing prompt.");
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length); // 移动光标到末尾
-        document.execCommand('insertText', false, "\n"+prompt);
+        document.execCommand('insertText', false, lastWrittenPrompt.trim()=="" ? prompt : "\n\n"+prompt);
         lastWrittenPrompt = input.value; // 更新为追加后的完整内容
         await new Promise(resolve => setTimeout(resolve, 300));
     } else {
@@ -134,13 +135,15 @@ window.infer = async function(S_context) {
     
 window.act = function(textContent) {
     // 3. Python风格解析
+   
+    ACTION_TAG_FOR_CODE = ACTION_TAG+"\n\njavascript\n";
     
-    if (!textContent.includes(ACTION_TAG)) {
+    if (!textContent.includes(ACTION_TAG_FOR_CODE)) {
       return 'No action tag(/browser exec) found.';
     }
     
     // 4. 分割并获取代码部分
-    const parts = textContent.split(ACTION_TAG);
+    const parts = textContent.split(ACTION_TAG_FOR_CODE);
     if (parts.length < 2) {
       return 'Invalid format';
     }
@@ -155,12 +158,32 @@ window.act = function(textContent) {
       code = code.substring('javascript'.length).trim();
     }
 
+    console.log("code:|"+code+"|");
+
     let result = '';
     const capturedLogs = [];
     const originalConsoleLog = console.log;
     console.log = (...args) => {
-      try { originalConsoleLog.apply(console, args); } catch(_){}
-      capturedLogs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '));
+      try {
+        // 仍然把日志输出到真实控制台，保证调试体验
+        originalConsoleLog.apply(console, args);
+      } catch (_) {}
+
+      // 安全地将参数序列化为字符串，避免 JSON.stringify 的循环引用错误
+      capturedLogs.push(
+        args
+          .map(a => {
+            if (typeof a === 'object') {
+              try {
+                return JSON.stringify(a);
+              } catch (err) {
+                return '[Circular]';
+              }
+            }
+            return String(a);
+          })
+          .join(' ')
+      );
     };
     try {
       result = eval(code);
@@ -172,9 +195,12 @@ window.act = function(textContent) {
 
     const logOutput = capturedLogs.join('\n');
     if (logOutput) {
+      if (typeof result === 'undefined') {
+        return logOutput; // 仅日志，无返回值
+      }
       return `${logOutput}\n> ${result}`;
     }
-    return result;
+    return typeof result === 'undefined' ? '' : result;
 }
 
 async function digitalBeingLoop() {
