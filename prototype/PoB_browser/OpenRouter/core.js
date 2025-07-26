@@ -225,7 +225,9 @@ async function digitalBeingLoop() {
             result = act(B_out); 
 
             await update_S(result);
-            await new Promise(resolve => setTimeout(resolve, 15000));
+            if (S_context != B_out) { // infer from digital being, wait for a while
+                await new Promise(resolve => setTimeout(resolve, 15000));
+            }
         } catch (e) {
             await update_S(`Error: ${e.message}\nStack: ${e.stack}`);
             await new Promise(resolve => setTimeout(resolve, 30000));
