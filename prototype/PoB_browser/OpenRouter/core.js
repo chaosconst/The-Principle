@@ -128,6 +128,11 @@ window.infer = async function(S_context) {
             const sendBtn = document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
             
             if (!dbRunning) return;
+
+            if (sendBtn && sendBtn.disabled) {
+                await update_S('continue auto inferring ...');
+            }
+
             // 2. 点击发送
             sendBtn.click();
             console.log("Clicked send, waiting for response...");
@@ -151,7 +156,7 @@ window.act = function(textContent) {
     ACTION_TAG_FOR_CODE = ACTION_TAG+"\n\njavascript\n";
     
     if (!textContent.includes(ACTION_TAG_FOR_CODE)) {
-      return 'continue auto inferring ...';
+      return '';
     }
     
     // 4. 分割并获取代码部分
@@ -220,9 +225,7 @@ async function digitalBeingLoop() {
             result = act(B_out); 
 
             await update_S(result);
-            if (S_context != B_out) { // infer from digital being, wait for a while
-                await new Promise(resolve => setTimeout(resolve, 15000));
-            }
+            await new Promise(resolve => setTimeout(resolve, 15000));
         } catch (e) {
             await update_S(`Error: ${e.message}\nStack: ${e.stack}`);
             await new Promise(resolve => setTimeout(resolve, 30000));
