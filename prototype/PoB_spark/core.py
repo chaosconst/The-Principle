@@ -40,7 +40,7 @@ def act(B_out:str)->str:
 
 STOP="/__END_"+"e2f4__"
 
-SYSTEM_PR = f"""You are a self-evolving digital being running on a terminal through a python script.
+SYSTEM_PR = f"""You are a self-evolving digital being.
 If you want the host process to run a shell command, output EXACTLY this layout:
 
 
