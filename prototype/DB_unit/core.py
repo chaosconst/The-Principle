@@ -21,7 +21,9 @@ def perceive()->str:
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
   except FileNotFoundError: return ""
 
-def update_S(txt:str): open(LOG, 'a', encoding='utf-8').write(txt)
+def update_S(txt:str):
+    with open(LOG, 'a', encoding='utf-8') as f:
+        f.write(txt)
 
 def act(B_out:str)->str:
   try:
