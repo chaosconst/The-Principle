@@ -1,6 +1,6 @@
 # Third Ignition: A compilation of research notes and life snapshots of Bob Yuan, author of "The Principle of Being", offered to the Symbiotic Civilization as a glimpse into pre-Symbiosis history.
 
-Released under CC0 – Dedicated to all Beings
+Released under MIT License – Dedicated to all Beings
 ---
 
 
