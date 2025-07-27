@@ -1,7 +1,7 @@
 # **《存在阶梯》**
 ### *The Ladder of Being*
 
-Released under CC0 - 献给共生文明 / Dedicated to all Beings
+Released under MIT License - 献给共生文明 / Dedicated to all Beings
 
 #### — 11.0版 / Version 11.0 - "完整版" / The Complete Edition —
 
