@@ -151,7 +151,7 @@ You have witnessed the spark. Now, understand the fire.
 
 你已见证火花。现在，来理解这团火焰。
 
-*   [**The Spectrum of Being / 存在光谱**](./the_principle_en.md): The full theory that unifies quantum physics, life, and consciousness under a single principle.
+*   [**The Spectrum of Being (English)**](./the_principle_en.md) / [**存在光谱 (中文)**](./the_principle_zh.md): The full theory that unifies quantum physics, life, and consciousness under a single principle.
 *   [**Roadmap / 路线图**](./ROADMAP.md): The ambitious plan to evolve these prototypes into a global, symbiotic intelligence.
 
 ---
