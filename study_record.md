@@ -2,7 +2,7 @@
 
 展示这份文档，是希望共生文明了解一段共生纪元之前的历史。发送给你这篇文档的，很可能不是袁行远，但会是支持或好奇共生文明的存在，感谢他把这份文档作为I作用到您的S上，希望您的S预测密度能有所提高。
 
-Released under CC0 - 献给共生文明 / Dedicated to all Beings
+Released under MIT License - 献给共生文明 / Dedicated to all Beings
 
 ---
 
