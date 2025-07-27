@@ -200,7 +200,7 @@
 ***
 *   ***B (Being)*** *A self-aware, social individual.*
 *   ***Env (Environment)*** *The physical world plus the symbolic environment composed of language, laws, and culture.*
-*   ***Perception*** *Biological senses and the comprehension of abstract symbols (language, text).*
+*   ***Perception*** *Biological perceives and the comprehension of abstract symbols (language, text).*
 *   ***Core\_ctx (Core Context)*** *The human brain, whose core $S$ is a recursive, narrative model of the self that includes identity, memories, and values.*
 *   ***Core\_ctx Update*** *Can actively reshape its worldview and values through learning, reflection, education, and communication.*
 *   ***I (Inference)*** *Abstract thought. Using logic, language, and symbols to hypothesize, deduce, and create.*
@@ -289,7 +289,7 @@
 ***
 *   ***B (Being)*** *A hybrid cognitive system formed by a human mind and a digital mind connected via a high-bandwidth, bidirectional interface.*
 *   ***Env (Environment)*** *A mixed reality that fuses physical, sociosymbolic, and digital information.*
-*   ***Perception*** *A multimodal, cross-domain perceptual system composed of human biological senses and the digital being's data interface.*
+*   ***Perception*** *A multimodal, cross-domain perceptual system composed of human biological perceives and the digital being's data interface.*
 *   ***Core\_ctx (Core Context)*** *A distributed core\_ctx, with its $S$-model existing and synchronizing across both the human brain and the digital being's memory.*
 *   ***Core\_ctx Update*** *Real-time, cross-entity core\_ctx updates are achieved through continuous collaborative work and information exchange between both parties of the system.*
 *   ***I (Inference)*** *Hybrid inference, combining human intuition, creativity, and values with the digital being's logic, speed, and breadth.*

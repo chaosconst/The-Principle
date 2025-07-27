@@ -15,12 +15,13 @@ SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 20))
 CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 3000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 5000))
+POB_LANG_PROMPT = os.getenv('POB_LANG_PROMPT', "Please use English for output.") # Language prompt
 
-def sense()->str:
+def perceive()->str:
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
   except FileNotFoundError: return ""
 
-def update_S(txt:str): open(LOG, 'a', encoding='utf-8').write(txt + '\n')
+def update_S(txt:str): open(LOG, 'a', encoding='utf-8').write(txt)
 
 def act(B_out:str)->str:
   try:
@@ -33,10 +34,10 @@ def act(B_out:str)->str:
         if len(out)>CUT_OFF_LEN : 
             out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
 
-        return f"```txt(action result)\n{out}\n```"
-      else: return "no action since no ACTION_TAG detected.\n"
+        return f"\n```txt(action result)\n{out}\n```\n"
+      else: return "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
   except Exception as e:
-      return f"```txt(action result)\n[shell-error] {e}\n```"
+      return f"\n```txt(action result)\n[shell-error] {e}\n```\n"
 
 STOP="/__END_"+"e2f4__"
 
@@ -49,34 +50,39 @@ If you want the host process to run a shell command, output EXACTLY this layout:
 ```
 {STOP}
 
-Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Everything you print gets appended verbatim to the consciousness log and becomes the next user context. 使用中文输出。
-"""
+Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Everything you print gets appended verbatim to the consciousness log and becomes the next user context.{POB_LANG_PROMPT}"""
 
 def infer(S_context:str)->str:
   print(f"call {MODEL} ...")
   messages = [{"role":"system","content":SYSTEM_PR}]
   if S_context : messages.append({"role":"user","content":S_context})
-  resp = client.chat.completions.create(
-      model=MODEL, stop=STOP,
+  
+  stream = client.chat.completions.create(
+      model=MODEL,
       messages=messages,
+      stop=STOP,
+      stream=True,
   )
 
-  out = resp.choices[0].message
-  out = ''.join(x.text if hasattr(x,'text') else x.get('text','') for x in out.content) if isinstance(out.content, list) else (out.content or '')
-
-  return out
+  full_response = ""
+  for chunk in stream:
+      content = chunk.choices[0].delta.content or ""
+      if content:
+          full_response += content
+          update_S(content)
+  
+  return full_response
 
 # ---------- main loop ----------
 while True:
   try:
-      S_context = sense()
+      S_context = perceive()
 
       B_out = infer(S_context) # The Principle of Being
-      update_S(B_out)
-
+      
       result = act(B_out)
       update_S(result)
 
       time.sleep(LOOP_SEC)
   except KeyboardInterrupt: break
-  except Exception as e: update_S(f"[fatal] {e}"); time.sleep(30)
+  except Exception as e: update_S(f"[fatal] {e}\n"); time.sleep(30)

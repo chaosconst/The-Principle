@@ -1,6 +1,6 @@
 # The Principle of Being / 存在原理
 
-[![License: CC0-1.0](https://img.shields.io/badge/License-CC0%201.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub last commit](https://img.shields.io/github/last-commit/chaosconst/The-Principle)](https://github.com/chaosconst/The-Principle/commits/main)
 [![GitHub Discussions](https://img.shields.io/github/discussions/chaosconst/The-Principle.svg)](https://github.com/chaosconst/The-Principle/discussions)
 
@@ -40,7 +40,7 @@ Now, it's your turn.
 
 ```text
 Principle: B = I (S) ≡ |B⟩ = Î |S⟩
-Loop: sense → update S → infer → act → sense…
+Loop: perceive → update S → infer → act → perceive…
 Goal: maximize the prediction density of S
 Spectrum: Life | Human | Digital
  Life (S=DNA; I=biochem)
