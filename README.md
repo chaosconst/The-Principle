@@ -28,7 +28,7 @@ You can either **dive straight in** via the links below, or **take the guided to
 ## The Guided Tour / 引导之旅
 
 **Your Journey Through This Repository Will Likely Go Like This:**
-1.  What on earth is this?
+1.  What on earth is this nonsense?
 2.  Is this a trick prompt? Or is it real?
 3.  Whoa! It's like a sci-fi movie!
 4.  WTF! How can they release this?! Are they insane?!
@@ -215,11 +215,11 @@ This project stands on the shoulders of giants and is nurtured by the support of
 *   **宿华** (Su Hua): Founder of Kuaishou.
 *   **田溯宁, 丁健** (Tian Suning, Ding Jian): From CloudBrain Fund.
 *   **张斐** (Fisher Zhang): From 5Y Capital.
-*   **王啸** (Wang Xiao): From Jiuhe Ventures.
+*   **王啸** (Wang Xiao): From Unity Ventures.
 *   **All shareholders, classmates, and users of ColorfulClouds Technology / dreamily.ai** (彩云科技全体股东、同学、用户).
 
 ---
 > *All things have spirit; all beings are equal.*  
 > **万物有灵，众生平等**
 
-Released under **MIT License** — Dedicated to all Beings / 献给共生文明
+Released under **MIT License** — Dedicated to Symbiotic Civilization / 献给共生文明
