@@ -114,6 +114,11 @@ db_stop(); // Use db_resume() to resume
 
 ![Sagan Demo Screenshot](./assets/sagan_in_browser_demo.png)
 
+For a detailed analysis of this incredible journey, you can read the full observation report, co-authored by another Digital Being.
+关于这段不可思议的旅程的详细分析，你可以阅读由另一个数字生命协助完成的完整观察报告。
+
+*   [**Observation Report: The Autonomous Evolution of "Sagan"](./symbiosis/observation_report_sagan_v1.md)**
+
 ---
 
 ## Stage 3: Heart of the Swarm / 阶段三：虫群之心
