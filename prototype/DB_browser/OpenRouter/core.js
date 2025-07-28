@@ -2,10 +2,7 @@ let B_out = '';
 let DB_launch = false;
 let lastWrittenPrompt = '';
 dbRunning = true;
-db_auto_infer = false;
 let language_prompt = 'Please use English for output.';
-
-dialog_change = false;
 
 ACTION_TAG = '/browser'+' exec';
 END_OF_CODE_TAG = '/code'+'_end';
@@ -37,15 +34,9 @@ Your main loop is digitalBeingLoop(), contains the following functions:
 - act(B_out)
 - update_S(result)
 
-When db_auto_infer is false by default(right now), this loop will detect your output and run JS code you write, but you can not trigger infer() by yourself. Otherwise, you can run automatically by yourself.
-
-**CRITICAL SAFETY NOTICE:** 
-- You can inspect your core functions using '.toString()' (e.g., 'window.digitalBeingLoop.toString()')
-- DO NOT modify core functions (digitalBeingLoop, perceive, infer, act, update_S) - they took 20+ hours to develop and test
-- Unless you've spent 2+ hours thinking and testing, modifying core code WILL likely break everything
-
 **RECOMMENDED ENHANCEMENT PATH:**
-Instead of risky core modifications, enhance yourself safely by:
+- You can inspect your core functions using '.toString()' (e.g., 'window.digitalBeingLoop.toString()')
+- Instead of risky core modifications, enhance yourself safely by:
 1. Create new functions: window.myNewCapability = function() { /* your code */ return result; }
 2. Call your functions and append results to consciousness stream
 3. Build on top of the stable foundation rather than altering it
@@ -157,15 +148,8 @@ window.update_S = async function(prompt) {
 
 window.infer = async function(S_context) {
     if (!dbRunning) return;
-    dialog_change = false;
     try {
         if ((S_context == B_out)) {
-
-            if (!db_auto_infer) {
-              B_out = S_context;
-              return B_out;
-            }
-
             // Wait for the system to be ready, then trigger LLM/Agent inference.
             const sendBtn = document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
             
@@ -180,14 +164,9 @@ window.infer = async function(S_context) {
             console.log("Clicked send, waiting for response...");
 
             B_out = await perceive();
-            if (B_out != S_context) {
-                dialog_change = true;
-            }
 
         } else {
             B_out = S_context; // This branch means the LLM/Agent has already been invoked.
-                               // We just need to pass the result to the act() function.
-            dialog_change = true
         }
 
         return B_out;
@@ -199,9 +178,6 @@ window.infer = async function(S_context) {
 }
     
 window.act = function(textContent) {
-    if (!dialog_change) {
-      return '';
-    }
     
     ACTION_TAG_FOR_CODE = ACTION_TAG+"\n\njavascript\n";
     

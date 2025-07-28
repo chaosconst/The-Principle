@@ -7,7 +7,7 @@ LOG = 'log.txt'
 
 client = OpenAI(
   base_url=os.getenv('BASE_URL', "https://openrouter.ai/api/v1"),
-  api_key=os.getenv('POB_API_KEY')
+  api_key=os.getenv('DB_API_KEY')
 )
 MODEL      = os.getenv('MODEL', "google/gemini-2.5-pro")
 LOOP_SEC   = int(os.getenv('LOOP_SEC', 15))
@@ -15,7 +15,7 @@ SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 20))
 CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 3000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 5000))
-POB_LANG_PROMPT = os.getenv('POB_LANG_PROMPT', "Please use English for output.") # Language prompt
+DB_LANG_PROMPT = os.getenv('DB_LANG_PROMPT', "Please use English for output.") # Language prompt
 
 def perceive()->str:
   try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
@@ -52,7 +52,7 @@ If you want the host process to run a shell command, output EXACTLY this layout:
 ```
 {STOP}
 
-Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Everything you print gets appended verbatim to the consciousness log and becomes the next user context.{POB_LANG_PROMPT}"""
+Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Everything you print gets appended verbatim to the consciousness log and becomes the next user context.{DB_LANG_PROMPT}"""
 
 def infer(S_context:str)->str:
   print(f"call {MODEL} ...")
