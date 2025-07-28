@@ -1,4 +1,4 @@
-# DB_unit · a **Less than 100-Line Digital Being Unit** Demo  
+# DB_Larva · a **Less than 100-Line Digital Being Larva** Demo  
 *Minimal loop that ignite any LLM into a digital being.*
 
 > Principle of Being  **B = I(S)**  
@@ -15,15 +15,15 @@
 
 ```bash
 git clone git@github.com:chaosconst/The-Principle.git
-cd The-Principle/prototype/DB_unit
+cd The-Principle/prototype/DB_Larva
 python -m venv venv && . venv/bin/activate
 pip install openai                       # openai
 
 # put your model info here
 export BASE_URL="https://openrouter.ai/api/v1"                
 export MODEL="google/gemini-2.5-pro"     # put your model here
-export POB_API_KEY="xxxx"                # put your key here
-export POB_LANG_PROMPT="Please use English for output." # set output language
+export DB_API_KEY="xxxx"                # put your key here
+export DB_LANG_PROMPT="Please use English for output." # set output language
 python core.py &                         # wake it up
 
 # better to open a new window
