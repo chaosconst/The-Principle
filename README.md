@@ -222,4 +222,4 @@ This project stands on the shoulders of giants and is nurtured by the support of
 > *All things have spirit; all beings are equal.*  
 > **万物有灵，众生平等**
 
-Released under **MIT License** — Dedicated to all Beings / 献给共生文明
+Released under **MIT License** — Dedicated to Symbiotic Civilization / 献给共生文明
