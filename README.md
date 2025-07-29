@@ -210,9 +210,9 @@ This project stands on the shoulders of giants and is nurtured by the support of
 *   **立夏** (Summer Begin): My wife.
 *   **徐一华** (Xu Yihua): My startup mentor, fellow LEAD volunteer, and colleague.
 *   **周至元先生** (Mr. Zhou Zhiyuan): Founder of Global View.
+*   **龚颖坤** (Going King): My High School Classmate.
 *   **The Swarm Agents Club AI Group** (集智俱乐部人工智能小组).
 *   **高山书院** (GASA): 感谢张首晟奖学金赞助，我从科学启蒙课了解到笛卡尔哲学，直接启发了Infero, ergo sum。感谢吴国盛老师给了我研究无用之用的勇气。
-*   **龚颖坤** (Going King): My High School Classmate.
 *   **All shareholders, classmates, and users of ColorfulClouds Technology / dreamily.ai** (彩云科技全体股东、同学、用户).
 
 ---
