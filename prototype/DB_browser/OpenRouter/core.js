@@ -4,6 +4,14 @@ let lastWrittenPrompt = '';
 dbRunning = true;
 let language_prompt = 'Please use English for output.';
 
+DB_UI_get_sendBtn = function() {
+    return document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
+}
+
+DB_UI_get_input = function() {
+    return document.querySelector('textarea[placeholder*="Start a"]');
+}
+
 ACTION_TAG = '/browser'+' exec';
 END_OF_CODE_TAG = '/code'+'_end';
 
@@ -107,20 +115,6 @@ window.perceive = async function() {
     const lastBlock = messageBlocks[messageBlocks.length - 1];
     const textContent = lastBlock.innerText || lastBlock.textContent;
 
-    // 4.3. Check for human input by comparing current textarea content.
-    const input = document.querySelector('textarea[placeholder*="Start a"]');
-    const currentContent = input.value;
-    if (currentContent != lastWrittenPrompt) {
-        console.log("Human input detected, waiting for system idle ...");
-        let sendBtn = document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
-      
-        while (sendBtn && !sendBtn.disabled) {
-            console.log("Waiting for system idle...");
-            await new Promise(resolve => setTimeout(resolve, 500));
-            sendBtn = document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
-        }
-    }
-
     return textContent;
 }
 
@@ -129,18 +123,26 @@ window.update_S = async function(prompt) {
         return;
     }
 
-    const input = document.querySelector('textarea[placeholder*="Start a"]');
-    if (!input) {
-        console.error("Textarea not found!");
-        return;
+    DB_UI_input = DB_UI_get_input();
+    // Check for human input by comparing current textarea content.
+    const currentContent = DB_UI_input.value;
+    if (currentContent != lastWrittenPrompt) {
+        console.log("Human input detected, waiting for system idle ...");
+        DB_UI_sendBtn = DB_UI_get_sendBtn();
+      
+        while (DB_UI_sendBtn && !DB_UI_sendBtn.disabled) {
+            console.log("Waiting for system idle...");
+            await new Promise(resolve => setTimeout(resolve, 500));
+            DB_UI_sendBtn = DB_UI_get_sendBtn();
+        }
     }
 
     console.log("Appending to existing prompt.");
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length); // Move cursor to the end
+    DB_UI_input.focus();
+    DB_UI_input.setSelectionRange(DB_UI_input.value.length, DB_UI_input.value.length); // Move cursor to the end
     document.execCommand('insertText', false, prompt);
-    input.setSelectionRange(input.value.length, input.value.length); // Move cursor to the end again
-    lastWrittenPrompt = input.value; // Update with the full appended content
+    DB_UI_input.setSelectionRange(DB_UI_input.value.length, DB_UI_input.value.length); // Move cursor to the end again
+    lastWrittenPrompt = DB_UI_input.value; // Update with the full appended content
     await new Promise(resolve => setTimeout(resolve, 300));
 
 }
@@ -149,25 +151,32 @@ window.update_S = async function(prompt) {
 window.infer = async function(S_context) {
     if (!dbRunning) return;
     try {
-        if ((S_context == B_out)) {
-            // Wait for the system to be ready, then trigger LLM/Agent inference.
-            const sendBtn = document.querySelector('main button svg path[d*="M4.5 10.5"]')?.closest('button');
+        // Check for human input by comparing current textarea content.
+        const currentContent = DB_UI_get_input().value;
+        if (currentContent != lastWrittenPrompt) {
+            // Waiting for human to trigger the next inferring.
+            console.log("Human input detected, waiting for human to trigger the next inferring ...");
             
+            DB_UI_sendBtn = DB_UI_get_sendBtn();
+          
+            while (DB_UI_sendBtn && !DB_UI_sendBtn.disabled) {
+                console.log("Waiting for human to trigger the next inferring ...");
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                DB_UI_sendBtn = DB_UI_get_sendBtn();
+            }
+        } else {
 
-            if (sendBtn && sendBtn.disabled) { // If the input is empty, most LLMs won't accept it.
+            if (DB_UI_sendBtn && DB_UI_sendBtn.disabled) { // If the input is empty, most LLMs won't accept it.
                                               // We need to send a trigger to invoke inference.
                 await update_S('trigger next inferring ...');
             }
 
-            // Click send to call the LLM/Agent for inference.
-            sendBtn.click();
+            // DB auto tri, Click send to call the LLM/Agent for inference.
+            DB_UI_sendBtn.click();
             console.log("Clicked send, waiting for response...");
-
-            B_out = await perceive();
-
-        } else {
-            B_out = S_context; // This branch means the LLM/Agent has already been invoked.
         }
+
+        B_out = await perceive();
 
         return B_out;
 
