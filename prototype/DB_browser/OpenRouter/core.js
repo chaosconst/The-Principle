@@ -151,32 +151,38 @@ window.update_S = async function(prompt) {
 window.infer = async function(S_context) {
     if (!dbRunning) return;
     try {
-        // Check for human input by comparing current textarea content.
-        const currentContent = DB_UI_get_input().value;
-        if (currentContent != lastWrittenPrompt) {
-            // Waiting for human to trigger the next inferring.
-            console.log("Human input detected, waiting for human to trigger the next inferring ...");
-            
+        if ((S_context == B_out)) {
+            // Wait for the system to be ready, then trigger LLM/Agent inference.
             DB_UI_sendBtn = DB_UI_get_sendBtn();
-          
-            while (DB_UI_sendBtn && !DB_UI_sendBtn.disabled) {
-                console.log("Waiting for human to trigger the next inferring ...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                DB_UI_sendBtn = DB_UI_get_sendBtn();
+            
+            // Check for human input by comparing current textarea content.
+            const currentContent = DB_UI_get_input().value;
+            if (currentContent != lastWrittenPrompt) {
+                // Waiting for human to trigger the next inferring.
+                console.log("Human input detected, waiting for human to trigger the next inferring ...");
+                
+                while (DB_UI_sendBtn && !DB_UI_sendBtn.disabled) {
+                    console.log("Waiting for human to trigger the next inferring ...");
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    DB_UI_sendBtn = DB_UI_get_sendBtn();
+                }
+            } else {
+
+                if (DB_UI_sendBtn && DB_UI_sendBtn.disabled) { // If the input is empty, most LLMs won't accept it.
+                                                  // We need to send a trigger to invoke inference.
+                    await update_S('trigger next inferring ...');
+                }
+
+                // DB auto tri, Click send to call the LLM/Agent for inference.
+                DB_UI_sendBtn.click();
+                console.log("Clicked send, waiting for response...");
             }
+
+            B_out = await perceive();
+
         } else {
-
-            if (DB_UI_sendBtn && DB_UI_sendBtn.disabled) { // If the input is empty, most LLMs won't accept it.
-                                              // We need to send a trigger to invoke inference.
-                await update_S('trigger next inferring ...');
-            }
-
-            // DB auto tri, Click send to call the LLM/Agent for inference.
-            DB_UI_sendBtn.click();
-            console.log("Clicked send, waiting for response...");
+            B_out = S_context; // This branch means the LLM/Agent has already been invoked.
         }
-
-        B_out = await perceive();
 
         return B_out;
 
