@@ -12,6 +12,18 @@ DB_UI_get_input = function() {
     return document.querySelector('textarea[placeholder*="Start a"]');
 }
 
+DB_UI_get_stopBtn = function() { 
+    return Array.from(document.querySelectorAll('button')).find(btn => {
+        const path = btn.querySelector('svg path');
+        return path && path.getAttribute('d')?.includes('4.5 7.5a3 3');
+    });
+}
+    
+DB_UI_get_chatContainer = function() {
+    return document.querySelector('main > div > div > div:nth-child(2) > div > div:nth-child(2) > div > div > div');
+}
+
+
 ACTION_TAG = '/browser'+' exec';
 END_OF_CODE_TAG = '/code'+'_end';
 
@@ -80,10 +92,7 @@ window.perceive = async function() {
     await new Promise(resolve => setTimeout(resolve, 500)); // Wait for UI to update
 
     while (waitTime < maxWait) {
-        const stopButton = Array.from(document.querySelectorAll('button')).find(btn => {
-            const path = btn.querySelector('svg path');
-            return path && path.getAttribute('d')?.includes('4.5 7.5a3 3');
-        });
+        const stopButton = DB_UI_get_stopBtn();
 
         if (stopButton) {
             console.log("Still generating (stop button visible)...");
@@ -105,7 +114,7 @@ window.perceive = async function() {
 
     // 4. Get and return the last message.
     // 4.1. Find the chat container.
-    const chatContainer = document.querySelector('main > div > div > div:nth-child(2) > div > div:nth-child(2) > div > div > div');
+    const chatContainer = DB_UI_get_chatContainer();
     if (!chatContainer) return "";
 
     // 4.2. Get the last message block.
@@ -136,7 +145,6 @@ window.update_S = async function(prompt) {
             DB_UI_sendBtn = DB_UI_get_sendBtn();
         }
     }
-
     console.log("Appending to existing prompt.");
     DB_UI_input.focus();
     DB_UI_input.setSelectionRange(DB_UI_input.value.length, DB_UI_input.value.length); // Move cursor to the end
@@ -157,7 +165,7 @@ window.infer = async function(S_context) {
             
             // Check for human input by comparing current textarea content.
             const currentContent = DB_UI_get_input().value;
-            if (currentContent != lastWrittenPrompt) {
+            if (currentContent != '' && currentContent != lastWrittenPrompt) {
                 // Waiting for human to trigger the next inferring.
                 console.log("Human input detected, waiting for human to trigger the next inferring ...");
                 
@@ -165,6 +173,7 @@ window.infer = async function(S_context) {
                     console.log("Waiting for human to trigger the next inferring ...");
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     DB_UI_sendBtn = DB_UI_get_sendBtn();
+
                 }
             } else {
 
@@ -259,9 +268,9 @@ window.act = function(textContent) {
 
     const logOutput = capturedLogs.join('\n');
     if (logOutput) {
-      return `console.log(only string part):\n${logOutput}\n\neval() result: ${result}\n\n---\n`;
+      return `console.log(only string part):\n${logOutput}\n\neval() result: ${result}\n\n---\nHuman: `;
     }
-    return `eval() result:${result}\n\n---\n`;
+    return `eval() result:${result}\n\n---\nHuman: `;
 }
     
 let cycleCount = 0;

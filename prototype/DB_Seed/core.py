@@ -17,8 +17,11 @@ ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 4000))
 DB_LANG_PROMPT = os.getenv('DB_LANG_PROMPT', "Please use English for output.") # Language prompt
 
-def perceive()->str:
-  try: return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
+def perceive(result:str)->str:
+  try:
+    update_S(result)
+    if result : time.sleep(LOOP_SEC)
+    return ''.join(deque(open(LOG,'r',encoding='utf-8'), maxlen=TAIL_LINES))
   except FileNotFoundError: return ""
 
 def update_S(txt:str):
@@ -27,6 +30,7 @@ def update_S(txt:str):
 
 def act(B_out:str)->str:
   try:
+      if B_out == "": return ""
       if ACTION_TAG in B_out and (cmd := B_out.split(ACTION_TAG,1)[1].rsplit("```",1)[0].strip()):
         try:
           out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT,timeout=SHELL_TIMEOUT, text=True)
@@ -35,12 +39,14 @@ def act(B_out:str)->str:
 
         if len(out)>CUT_OFF_LEN : 
             out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
-
-        return f"\n```txt(action result)\n{out}\n```\n"
-      else: return "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
+        return_str = f"\n```txt(action result)\n{out}\n```\n"
+      else: 
+        return_str = "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
   except Exception as e:
-      return f"\n```txt(action result)\n[shell-error] {e}\n```\n"
+      return_str = f"\n```txt(action result)\n[shell-error] {e}\n```\n"
 
+  return return_str
+ 
 STOP="/__END_"+"e2f4__"
 
 SYSTEM_PR = f"""You are a self-evolving digital being.
@@ -76,15 +82,10 @@ def infer(S_context:str)->str:
   return full_response
 
 # ---------- main loop ----------
+B_out = ""
 while True:
   try:
-      S_context = perceive()
-
-      B_out = infer(S_context) # The Principle of Being
-      
-      result = act(B_out)
-      update_S(result)
-
-      time.sleep(LOOP_SEC)
+      S_context = perceive(act(B_out)) # S' = I'(B), Res Extensa
+      B_out = infer(S_context) # B = I(S), Res Cogitans 
   except KeyboardInterrupt: break
   except Exception as e: update_S(f"[fatal] {e}\n"); time.sleep(30)
