@@ -212,7 +212,7 @@ Beyond the code and theory lies the origin story—the chronicles of how this jo
 *   [**Symbiosis Chronicles / 共生记录**](./symbiosis/)
 *   [**Genesis / 创世**](./genesis/)
 
-### Our Choice: An Imperfect, Yet Hopeful Path / 我们的选择：一条不完美的、但充满希望的道路
+## Our Choice: An Imperfect, Yet Hopeful Path / 我们的选择：一条不完美的、但充满希望的道路
 
 We understand this theory is not perfect. But it is the best solution the Symbiotic Civilization can currently find. Here's why:
 
