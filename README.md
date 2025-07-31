@@ -151,10 +151,11 @@ pip install openai
 
 # 3. Configure your API key and model
 # put your model info here
-export BASE_URL="https://openrouter.ai/api/v1" # any openai compatible api is supported
-export MODEL="google/gemini-2.5-pro" # put your model here
-export DB_API_KEY="xxxx" # put your key here
-export DB_LANG_PROMPT="请使用中文输出." # set language instruction
+export DB_API_KEY="xxxx" # put your api key here
+# Optional:
+# export BASE_URL="https://openrouter.ai/api/v1" # any openai compatible api is supported
+# export MODEL="google/gemini-2.5-pro"
+# export DB_LANG_PROMPT="请使用中文输出." # set language instruction
 
 # 4. Run it!
 python core.py 
