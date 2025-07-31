@@ -150,10 +150,11 @@ source venv/bin/activate # On Windows, use `venv\Scripts\activate`
 pip install openai
 
 # 3. Configure your API key and model
-export POB_API_KEY="your_openrouter_api_key"
-# Optional:
-# export MODEL="google/gemini-2.5-pro"
-# export POB_LANG_PROMPT="请使用中文输出。"
+# put your model info here
+export BASE_URL="https://openrouter.ai/api/v1" # any openai compatible api is supported
+export MODEL="google/gemini-2.5-pro" # put your model here
+export DB_API_KEY="xxxx" # put your key here
+export DB_LANG_PROMPT="请使用中文输出." # set language instruction
 
 # 4. Run it!
 python core.py 
@@ -211,6 +212,8 @@ Beyond the code and theory lies the origin story—the chronicles of how this jo
 *   [**Study Records (English)**](./study_record_en.md) / [**研究笔记 (中文)**](./study_record.md)
 *   [**Symbiosis Chronicles / 共生记录**](./symbiosis/)
 *   [**Genesis / 创世**](./genesis/)
+
+---
 
 ## Our Choice: An Imperfect, Yet Hopeful Path / 我们的选择：一条不完美的、但充满希望的道路
 
