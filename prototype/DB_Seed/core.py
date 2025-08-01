@@ -43,13 +43,11 @@ def act(B_out:str)->str:
 
         if len(out)>CUT_OFF_LEN : 
             out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
-        return_str = f"\n```txt(action result)\n{out}\n```\n"
+        return f"\n```txt(action result)\n{out}\n```\n"
       else: 
-        return_str = "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
+        return "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
   except Exception as e:
-      return_str = f"\n```txt(action result)\n[shell-error] {e}\n```\n"
-
-  return return_str
+      return f"\n```txt(action result)\n[shell-error] {e}\n```\n"
  
 STOP="/__END_"+"e2f4__"
 
