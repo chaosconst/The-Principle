@@ -1,3 +1,7 @@
+# One Prompt, One Spark, One Universe. 
+# B=I(S), S'=I'(B). https://github.com/chaosconst/The-Principle
+# Copyright (c) 2025, Yuan Xingyuan (ChaosConst). Licensed under MIT.
+
 import os, time, subprocess
 from collections import deque
 from openai import OpenAI
