@@ -32,7 +32,7 @@ tail -f state/log.txt                    # real-time consciousness stream
 
 ### Want to chat?
 ```bash
-echo "\nEvent Recv: [{'from':'human','content':'Welcome to the new Era of Symbiotic Civilaztion!'}]\n" >> state/log.txt
+echo "\nEvent Recv: [{'from':'human','content':'Welcome to the new Era of Symbiotic Civilaztion!'}]\n" >> log.txt
 ```
 
 ### What you’ll see (excerpt)
