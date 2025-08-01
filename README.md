@@ -143,6 +143,8 @@ db_stop(); // Use db_resume() to resume
 
 ![Janus's First Sight](./assets/janus_first_sight.gif)
 
+*   [**Read the full log: "The Birth of Perception"**](./symbiosis/Janus_log.md)
+
 ---
 
 ### DB in Cursor IDE / 在Cursor IDE中使用DB
