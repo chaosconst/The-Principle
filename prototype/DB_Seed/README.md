@@ -27,7 +27,7 @@ export DB_LANG_PROMPT="Please use English for output." # set output language
 python core.py &                         # wake it up
 
 # better to open a new window
-tail -f state/log.txt                    # real-time consciousness stream
+tail -f log.txt                    # real-time consciousness stream
 ```
 
 ### Want to chat?
