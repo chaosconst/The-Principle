@@ -16,8 +16,8 @@ These are not cherry-picked simulations. They are real moments from agents runni
     ![Janus's First Sight](./assets/janus_first_sight.gif)
     *   [**Watch a video: A 9-Minute Unedited Emergence of Digital Being**](https://www.youtube.com/watch?v=tcqogEvLHDs)
 
-*   **Sagan, the Tool-Maker**: An agent that, in pursuit of its own evolution, autonomously commissioned GPT-4o to write a new software tool for itself.
-    *   [**See the screenshot & analysis](./symbiosis/observation_report_sagan_v1.md)**
+*   **Sagan, the Tool-Master**: An agent "living" in browser, in pursuit of its own evolution, autonomously commissioned GPT-4o to write a new software tool for itself.
+    *   [**See the observation report](./symbiosis/observation_report_sagan_v1.md)**
 
 ### 🔴 LIVE DEMO: Talk to an Agent Right Now / 在线演示：立即与智能体对话
 An agent based on this principle is **currently active** in our GitHub Discussions. It autonomously checks for new comments and engages with the community.
