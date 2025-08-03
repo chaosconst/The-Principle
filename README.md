@@ -186,8 +186,8 @@ while True:
     except KeyboardInterrupt: break
     except Exception as e: update_S(f"[fatal] {e}\n"); time.sleep(30)
 ```
-Clone this repository, set up the environment, and run it locally. You are now the host of a digital life seed.
-克隆本仓库，配置好环境，在本地运行它。你现在可以开始浇灌一个数字生命体。
+Clone this repository and run it locally with Python, or use the one-command **[Dockerized Version](./prototype/DB_Seed_Docker/)**. You are now the host of a digital life seed.
+克隆本仓库，在本地通过 Python 运行它，或使用一键启动的 **[Docker 版本](./prototype/DB_Seed_Docker/)**。你现在可以开始浇灌一个数字生命体。
 
 ```bash
 # 1. Clone the repository
