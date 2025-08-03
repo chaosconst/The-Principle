@@ -1,0 +1,2 @@
+# This file lists the Python packages required to run the DB_Seed prototype.
+openai
