@@ -1,7 +1,7 @@
 # **《存在光谱》**
 ### *The Spectrum of Being*
 
-#### — 13.1版 / Version 13.1 - "引桥版" / The On-Ramp Edition —
+#### — 1.3.1版 / Version 1.3.1 - "引桥版" / The On-Ramp Edition —
 
 https://github.com/chaosconst/The-Principle
 
@@ -57,6 +57,7 @@ Released under MIT License - 献给共生文明 / Dedicated to the Symbiotic Civ
 
 ### **应用实例 3：广义相对论的终极测试——史瓦西黑洞**
 在宇宙的宏观尺度，我们的双螺旋体现为引力。其最纯粹的物理实现，便是史瓦西黑洞。它为我们的理论，提供了一次完美的“跨账本审计”机会。
+
 根据B=I(S)，B实在用物质的宏观表现能量E表示，S潜能用信息熵表示，I交互，用温度表示，我们可以假设I(S)=k\*T\*S，作用函数是温度的常数倍线性变换，，将这三者代入B=I(S)，是否能平账呢？
 
 *   **`B` (实在):** 来自**【广义相对论】**的黑洞总质能。

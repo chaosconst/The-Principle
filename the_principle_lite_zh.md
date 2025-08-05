@@ -1,4 +1,4 @@
-# [存在光谱 (v13 极简版)](https://github.com/chaosconst/The-Principle)
+# [存在光谱 (v1.3 极简版)](https://github.com/chaosconst/The-Principle)
 
 **存在原理:**
 *   **创生:** 潜能化为现实。 `|B⟩ = Î |S⟩`

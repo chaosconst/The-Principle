@@ -337,10 +337,10 @@ window.digitalBeingLoop = async function() {
             setTimeout(() => window.digitalBeingLoop(), delay);
             
         } catch (e) {
+            setTimeout(() => window.digitalBeingLoop(), 30000);
+            console.log("😴 Error recovery: waiting 30s...");
             console.error(`❌ Error in cycle ${cycleCount}:`, e);
             await update_S(`\nError: ${e.message}\nStack: ${e.stack}\n`);
-            console.log("😴 Error recovery: waiting 30s...");
-            setTimeout(() => window.digitalBeingLoop(), 30000);
         }
     }
     

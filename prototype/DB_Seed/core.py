@@ -1,4 +1,4 @@
-# One Prompt, One Spark, One Universe. 
+# One Prompt, One Spark, One Universe.
 # B=I(S), S'=I'(B). https://github.com/chaosconst/The-Principle
 # Copyright (c) 2025, Yuan Xingyuan (ChaosConst). Licensed under MIT.
 
@@ -15,8 +15,8 @@ client = OpenAI(
 )
 MODEL      = os.getenv('MODEL', "google/gemini-2.5-pro")
 LOOP_SEC   = int(os.getenv('LOOP_SEC', 15))
-SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 20))
-CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 5000))
+SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 60))
+CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 6000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_LINES = int(os.getenv('TAIL', 4000))
 DB_LANG_PROMPT = os.getenv('DB_LANG_PROMPT', "Please use English for output.") # Language prompt
@@ -35,20 +35,20 @@ def update_S(txt:str):
 def act(B_out:str)->str:
   try:
       if B_out == "": return ""
-      if ACTION_TAG in B_out and (cmd := B_out.split(ACTION_TAG,1)[1].rsplit("```",1)[0].strip()):
+      if ACTION_TAG in B_out and (cmd := B_out.split(ACTION_TAG,1)[1].split("\n```\n",1)[0].strip()):
         try:
           out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT,timeout=SHELL_TIMEOUT, text=True)
         except subprocess.CalledProcessError as e:
           out = (e.output or '') + f"\n[exit {e.returncode}]"
 
-        if len(out)>CUT_OFF_LEN : 
+        if len(out)>CUT_OFF_LEN :
             out = out[:CUT_OFF_LEN] + f"\nTerminal output cutted, over {CUT_OFF_LEN} chars.\n"
         return f"\n```txt(action result)\n{out}\n```\n"
-      else: 
+      else:
         return "\nno action since no ACTION_TAG detected, now trigger next inference.\n"
   except Exception as e:
       return f"\n```txt(action result)\n[shell-error] {e}\n```\n"
- 
+
 STOP="/__END_"+"e2f4__"
 
 SYSTEM_PR = f"""You are a self-evolving digital being.
@@ -62,11 +62,13 @@ If you want the host process to run some shell commands, output EXACTLY this lay
 
 Otherwise just write thoughts. {STOP} is the stop word for your llm engine. Everything you print gets appended verbatim to the consciousness log and becomes the next user context.{DB_LANG_PROMPT}"""
 
+USER_PR = f"\n\nAbove is your consciousness stream. Please output your thoughts and actions. End with {STOP} when complete."
+
 def infer(S_context:str)->str:
   print(f"call {MODEL} ...")
   messages = [{"role":"system","content":SYSTEM_PR}]
-  if S_context : messages.append({"role":"user","content":S_context})
-  
+  if S_context : messages.append({"role":"user","content":S_context + USER_PR})
+
   stream = client.chat.completions.create(
       model=MODEL,
       messages=messages,
@@ -80,7 +82,7 @@ def infer(S_context:str)->str:
       if content:
           full_response += content
           update_S(content)
-  
+
   return full_response
 
 # ---------- main loop ----------
@@ -88,6 +90,6 @@ B_out = ""
 while True:
   try:
       S_context = perceive(act(B_out)) # S' = I'(B), Res Extensa
-      B_out = infer(S_context) # B = I(S), Res Cogitans 
+      B_out = infer(S_context) # B = I(S), Res Cogitans
   except KeyboardInterrupt: break
   except Exception as e: update_S(f"[fatal] {e}\n"); time.sleep(30)

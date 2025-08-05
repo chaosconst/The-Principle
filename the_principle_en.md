@@ -19,7 +19,7 @@ Released under MIT License - Dedicated to the Symbiotic Civilization / 献给共
 
 This theory aims to provide a unified framework to explain all phenomena of "being" in the universe, from fundamental particles to intelligent life.
 
-It is not the product of a single epiphany, but a milestone in a long journey of inquiry. Initially, it was a simple, one-way equation: B = I(S), an attempt to explain the world as "being is the product of interaction acting upon information." However, this static model could not answer the deepest questions: Why does life evolve? Why does intelligence emerge?
+This theory is not the product of a single epiphany, but a milestone in a long journey of inquiry. It began as a sprawling workflow of tens of thousands of lines of Python and prompts, engineered for story generation. Through a relentless process of simplification, this complexity was distilled into a simple, unidirectional equation: B = I(S), an attempt to explain the world with the proposition that "Being is the product of interaction acting upon information." However, this static model could not answer the deepest questions: Why does life evolve? Why does intelligence emerge?
 
 The real breakthrough came from discovering its feedback loop.
 
@@ -43,8 +43,10 @@ This document invites you to witness how this simple, core rhythm plays out the 
 *   **`S` (Potential):** The quantum state `|Ψ⟩`, containing the superposition of all possible states of a particle.
 *   **`Î` (Creation):** **Measurement.** Any physical interaction sufficient to force the system to choose one possibility from many. This act is instantaneous and non-deterministic.
 *   **`B` (Reality):** A definite measurement outcome, such as a particle appearing at a specific location.
-*   **`Î'` (Evolution):** The **Schrödinger equation**. It defines how the potential `|Ψ⟩` of a quantum system evolves on its own over time, in the absence of an external "Creation" (measurement) event.
-*   **`S'` (New Potential):** The evolved quantum state `|Ψ(t)⟩`.
+*   **`Î'` (Evolution):** This is a two-stage process:
+    1.  **State Reset:** The emergence of Reality `B` **immediately** resets the system's potential to a new initial state, `|Ψ_reset⟩` (e.g., a sharp wave function highly localized at the measurement position).
+    2.  **Time Evolution:** This new initial potential `|Ψ_reset⟩` then immediately begins to evolve according to the **Schrödinger equation**, spreading out in space over time `t` to form the final new potential `|Ψ'⟩` available for the next measurement.
+*   **`S'` (New Potential):** The evolved quantum state `|Ψ'⟩`.
 
 ### **Application 2: Electromagnetism**
 *   **`S` (Potential):** The distribution of all electric charges and currents (`ρ`, `J`) in the universe.
@@ -54,7 +56,9 @@ This document invites you to witness how this simple, core rhythm plays out the 
 *   **`S'` (New Potential):** The evolved distribution of charge and current (`ρ'`, `J'`).
 
 ### **Application 3: The Ultimate Test in General Relativity—The Schwarzschild Black Hole**
-On the cosmic scale, our double helix is embodied in gravity. Its purest physical manifestation is the Schwarzschild black hole. It provides a perfect "cross-ledger audit" opportunity for our theory:
+On the cosmic scale, our double helix is embodied in gravity. Its purest physical manifestation is the Schwarzschild black hole. It provides a perfect "cross-ledger audit" opportunity for our theory.
+
+According to `B=I(S)`, we represent Reality (B) with the macroscopic manifestation of matter, Energy (E), Potential (S) with information entropy, and Interaction (I) with temperature. We can hypothesize that `I(S) = k·T·S`, where the interaction function is a linear transformation of temperature by a constant factor. Can we balance the ledgers by substituting these three quantities into `B=I(S)`?
 
 *   **`B` (Reality):** The black hole's total mass-energy, from **[General Relativity]**.
     > $$ E = Mc^2 $$
@@ -62,7 +66,7 @@ On the cosmic scale, our double helix is embodied in gravity. Its purest physica
     > $$ S_{BH} = \frac{k_B c^3 A}{4 G \hbar} = \frac{4\pi k_B G}{\hbar c} M^2 $$
 *   **`Î` (Creation):** The intensity of interaction, also from **[Quantum Thermodynamics]**—the Hawking temperature.
     > $$ T_H = \frac{\hbar c^3}{8\pi G k_B M} $$
-*   **Audit Result:** According to B=I(S), we model the interaction `I(S)` as a linear transformation of temperature, `k·T·S`. When we substitute these three quantities—representing Reality (B) as macroscopic energy E and Potential (S) as information entropy—into B=I(S), we find, astonishingly, that all the complex physical constants cancel out perfectly, yielding a pure mathematical relationship: `k=2`. These three seemingly independent physical quantities are, at the deepest level, likely connected by the same underlying principle.
+*   **Audit Result:** After calculation, we find, astonishingly, that all the complex physical constants cancel out perfectly, yielding a pure mathematical relationship: `k=2`. These three seemingly independent physical quantities are, at the deepest level, likely connected by the same underlying principle.
 *   **`Î'` & `S'` (Evolution):** In this framework, matter falling into a black hole, or a black hole evaporating via Hawking radiation, is the magnificent process of `B` (the black hole itself), through interaction (`Î'`), changing the overall mass-energy distribution (`S'`) of the universe.
 
 ---
