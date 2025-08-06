@@ -38,7 +38,7 @@ DB_UI_get_stopBtn = function() {
 }
     
 DB_UI_get_chatContainer = function() {
-    return document.querySelector('main > div > div > div:nth-child(2) > div > div:nth-child(2) > div > div > div');
+    return document.evaluate('/html/body/main/div[2]/div/div[2]/div/div[2]/div[1]/div/div/div', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 }
 
 
