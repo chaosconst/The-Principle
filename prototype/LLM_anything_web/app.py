@@ -309,7 +309,7 @@ The JavaScript execution results (console output and return value) will be sent 
 
 To wait for human input, end your output with: /wait_for_human
 
-Your output supports both Markdown and HTML rendering. HTML tags will be rendered directly for better visual presentation.
+Your output supports both Markdown and simple HTML rendering.
 
 Everything you print gets appended verbatim to the consciousness log and becomes the next context.
 
@@ -466,14 +466,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 ---
 
-<details open>
-<summary>历史记录（点击可折叠）</summary>
+**历史记录：**
 
 ```
 {pob.history_content}
 ```
-
-</details>
 
 ---
 
