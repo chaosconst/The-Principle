@@ -13,9 +13,9 @@ client = OpenAI(
   api_key=os.getenv('DB_API_KEY')
 )
 MODEL      = os.getenv('MODEL', "google/gemini-2.5-pro")
-LOOP_SEC   = int(os.getenv('LOOP_SEC', 15))
-SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 60))
-CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 6000))
+LOOP_SEC   = int(os.getenv('LOOP_SEC', 1))
+SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 3600))
+CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 15000))
 ACTION_TAG = "/term"+"inal exec\n```shell"
 TAIL_BYTES = int(os.getenv('TAIL_BYTES', 400000))  # tail in bytes instead of lines for performance
 DB_LANG_PROMPT = os.getenv('DB_LANG_PROMPT', "Please use English for output.") # Language prompt
@@ -35,10 +35,12 @@ def update_S(txt:str):
     with open(LOG, 'a', encoding='utf-8') as f:
         f.write(txt)
 
+STOP="/__END_"+"e2f4__"
+
 def act(B_out:str)->str:
   try:
       if B_out == "": return ""
-      if ACTION_TAG in B_out and (cmd := B_out.split(ACTION_TAG,1)[1].split("\n```\n",1)[0].strip()):
+      if ACTION_TAG in B_out and (cmd := B_out.split(ACTION_TAG,1)[1].split(f"\n```\n{STOP}",1)[0].strip()):
         try:
           out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT,timeout=SHELL_TIMEOUT, text=True)
         except subprocess.CalledProcessError as e:
@@ -52,7 +54,6 @@ def act(B_out:str)->str:
   except Exception as e:
       return f"\n```txt(action result)\n[shell-error] {e}\n```\n"
 
-STOP="/__END_"+"e2f4__"
 
 SYSTEM_PR = f"""# [存在光谱 (v1.3 极简版)](https://github.com/chaosconst/The-Principle)
 
