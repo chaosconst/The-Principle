@@ -7,6 +7,7 @@ B=I(S), S'=I'(B). https://github.com/chaosconst/The-Principle
 import asyncio
 import json
 import os
+import re
 import subprocess
 import time
 from datetime import datetime
@@ -41,7 +42,7 @@ class PoB:
         self.has_pending_input = False
         self.waiting_for_human = False  # 等待人类输入标志
         self.running = True
-        self.consciousness = deque(maxlen=4000)  # 保存最近的意识流
+        self.consciousness = deque()  # 保存意识流，无长度限制
         self.action_tag = "/terminal exec\n```shell"
         self.browser_tag = "/browser exec\n```javascript"
         self.stop_token = "/__END" + "_CODE__"  # 拆分避免自己被截断
@@ -57,22 +58,26 @@ class PoB:
                     # 读取所有内容
                     content = f.read()
                     if content:
-                        # 使用环境变量 TAIL_LINES，默认4000
-                        tail_lines = int(os.getenv('TAIL_LINES', 4000))
+                        # 使用环境变量 MAX_CHARS，默认 2,000,000 (约 500k-1M Token)
+                        # 如果想测试 Gemini 极限，可以设置得更大
+                        max_chars = int(os.getenv('MAX_CHARS', 2000000))
                         
-                        # 按行分割并保留最近的内容
-                        lines = content.splitlines()
-                        recent_lines = lines[-tail_lines:] if len(lines) > tail_lines else lines
-                        
-                        # 重新组合成文本块添加到意识流
-                        if recent_lines:
-                            # 保存原始内容用于显示
-                            self.history_content = '\n'.join(recent_lines)
-                            # 添加到意识流
-                            self.consciousness.append(self.history_content)
-                            print(f"[DEBUG] Loaded {len(recent_lines)} lines from consciousness history (TAIL_LINES={tail_lines})")
+                        # 如果内容超过限制，保留最后的 max_chars
+                        if len(content) > max_chars:
+                            # 尽量在换行符处截断，保持完整性
+                            truncated_content = content[-max_chars:]
+                            first_newline = truncated_content.find('\n')
+                            if first_newline != -1:
+                                self.history_content = truncated_content[first_newline+1:]
+                            else:
+                                self.history_content = truncated_content
+                            print(f"[DEBUG] Loaded {len(self.history_content)} chars from history (MAX_CHARS={max_chars}, truncated)")
                         else:
-                            self.history_content = ""
+                            self.history_content = content
+                            print(f"[DEBUG] Loaded {len(self.history_content)} chars from history (Full)")
+                        
+                        # 添加到意识流
+                        self.consciousness.append(self.history_content)
                     else:
                         # 文件为空
                         self.history_content = ""
@@ -95,8 +100,9 @@ class PoB:
                 "timestamp": datetime.now().strftime("%H:%M:%S"),
                 **kwargs
             })
-        except:
-            pass  # WebSocket 可能已关闭
+        except Exception as e:
+            print(f"[ERROR] Failed to send message ({msg_type}): {e}")
+            # pass  # WebSocket 可能已关闭
     
     async def perceive(self, action_result: Optional[str] = None) -> str:
         """感知环境"""
@@ -146,11 +152,11 @@ class PoB:
                     # 等待执行结果（通过特殊标记）
                     # 前端会通过 user_input 类型返回结果
                     # 这里暂时返回空，结果会异步进入意识流
-                    return f"\n[Browser JavaScript: 执行中...]\n"
+                    return f"\nSystem - [Browser] - --\n\n[Browser JavaScript: 执行指令已发送...]\n"
             except Exception as e:
                 error_msg = f"浏览器执行错误: {e}"
                 print(f"[ERROR] {error_msg}")
-                return f"\n[Error: {error_msg}]\n"
+                return f"\nSystem - [Browser] - --\n\n[Error: {error_msg}]\n"
         
         # 检查终端命令
         if not output or self.action_tag not in output:
@@ -211,7 +217,7 @@ class PoB:
                             
                             # 防止输出过长
                             if len(total_output) > 10000:
-                                truncate_msg = "\n[输出过长，已停止读取]"
+                                truncate_msg = f"\n\n[System Warning: Output truncated. Length exceeded 10,000 characters. (Total: {len(total_output)}+). Use 'head', 'tail' or 'grep' to view specific parts.]"
                                 await self.send_message("command_result_chunk", truncate_msg)
                                 total_output += truncate_msg
                                 proc.kill()
@@ -242,12 +248,12 @@ class PoB:
                 if not total_output.strip():
                     total_output = "[命令执行完成，无输出]"
                 
-                return f"\n[Command: {cmd}]\n{total_output}\n"
+                return f"\nSystem - [Terminal] - --\n\n[Command: {cmd}]\n{total_output}\n"
                 
         except Exception as e:
             error_msg = f"命令执行错误: {e}"
             await self.send_message("error", error_msg)
-            return f"\n[Error: {error_msg}]\n"
+            return f"\nSystem - [Terminal] - --\n\n[Error: {error_msg}]\n"
         
         return ""
     
@@ -343,15 +349,19 @@ Use Chinese primarily for output."""
             
             # 添加停止标记
             output += self.stop_token
-            self.consciousness.append(output)
+            
+            # 格式化并添加到意识流
+            formatted_output = f"\nAssistant - --\n\n{output}\n"
+            self.consciousness.append(formatted_output)
             
             # 通知前端结束
             await self.send_message("ai_thought_end", "")
             
             # 保存到日志
             with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write(f"\n[AI {datetime.now().strftime('%H:%M:%S')}]\n{output}\n")
+                f.write(f"\nAssistant - --\n\n{output}\n")
             
+            print(f"[DEBUG] Inference completed. Output length: {len(output)}")
             return output
                 
         except Exception as e:
@@ -372,7 +382,7 @@ Use Chinese primarily for output."""
             print("[DEBUG] User input received, releasing AI from wait")
         
         # 添加到意识流
-        user_msg = f"\n[Human {datetime.now().strftime('%H:%M:%S')}]\n{message}\n"
+        user_msg = f"\nUser - --\n\n{message}\n"
         self.consciousness.append(user_msg)
         
         # 保存到日志
@@ -393,7 +403,7 @@ Use Chinese primarily for output."""
         
         # 如果有历史记录，等待10秒给人类反应时间
         if hasattr(self, 'history_content') and self.history_content:
-            wait_seconds = 10
+            wait_seconds = 30
             await self.send_message("status", f"📚 历史记录加载完成，如果没有输入， {wait_seconds} 秒后开始主动推理...")
             print(f"[DEBUG] Found history, waiting {wait_seconds} seconds for human review")
             await asyncio.sleep(wait_seconds)
@@ -447,37 +457,25 @@ async def websocket_endpoint(websocket: WebSocket):
         # 统计历史记录信息
         lines = pob.history_content.split('\n')
         line_count = len(lines)
+        char_count = len(pob.history_content)
         
         # 计算一些统计信息
-        human_count = pob.history_content.count('[Human ')
-        ai_count = pob.history_content.count('[AI ')
+        human_count = pob.history_content.count('[Human ') + pob.history_content.count('User - --')
+        ai_count = pob.history_content.count('[AI ') + pob.history_content.count('Assistant - --')
         
-        await pob.send_message("status", f"✅ 已加载历史记录 ({line_count} 行, {human_count} 条人类消息, {ai_count} 条AI输出)")
+        # 发送统计信息
+        await pob.send_message("status", f"📚 历史记录加载完成: {char_count:,} 字符, {line_count:,} 行, {human_count} 条人类消息, {ai_count} 条AI输出")
         
-        # 将整个历史作为一个 Markdown 消息发送
-        # 添加格式化和分隔
-        history_display = f"""### 📜 历史意识流加载完成
-
-**统计信息:**
-- 总行数: {line_count}
-- 人类消息: {human_count}
-- AI 输出: {ai_count}
-- 加载时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        # 直接发送历史记录，让 Markdown 渲染（不包裹代码块，保留格式）
+        history_display = f"""### 📜 历史意识流
 
 ---
 
-**历史记录：**
-
-```
 {pob.history_content}
-```
 
 ---
-
-*AI 将基于以上历史记录继续运行*"""
-        
-        # 发送历史记录作为系统消息
-        await pob.send_message("ai_thought", history_display)
+"""
+        await pob.send_message("history_raw", history_display)
         
         # 等待一下让前端渲染
         await asyncio.sleep(0.5)
@@ -501,13 +499,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 await pob.handle_user_input(data["content"])
                 
             elif data["type"] == "browser_result":
-                # 处理浏览器JavaScript执行结果（不添加Human标签）
-                result_msg = f"\n{data['content']}\n"
+                # 处理浏览器JavaScript执行结果（添加 System Header）
+                result_msg = f"\nSystem - [Browser] - --\n\n{data['content']}\n"
                 pob.consciousness.append(result_msg)
                 # 保存到日志
                 with open(LOG_FILE, 'a', encoding='utf-8') as f:
                     f.write(result_msg)
                 print("[DEBUG] Browser JavaScript result added to consciousness")
+                
+                # 如果包含错误，且处于等待状态，尝试唤醒 AI
+                if "❌" in result_msg and pob.waiting_for_human:
+                     print("[DEBUG] Browser execution error detected, waking up AI")
+                     pob.waiting_for_human = False
                 
             elif data["type"] == "focus_status":
                 pob.is_user_focused = data["is_focused"]
@@ -884,9 +887,11 @@ HTML_CONTENT = """
             };
         }
         
-        let currentAIMessage = null;  // 当前正在流式输出的 AI 消息
+        let currentAIMessage = null;  // 当前正在流式输出的 AI 消息 div
+        let currentAIContentDiv = null; // 当前正在流式输出的内容 div (直接引用)
         let aiMessageContent = '';    // 累积的 AI 消息内容
-        let currentCommandResult = null;  // 当前正在流式输出的命令结果
+        let currentCommandResult = null;  // 当前正在流式输出的命令结果 div
+        let currentCommandContentDiv = null; // 当前正在流式输出的命令内容 div
         let commandResultContent = '';    // 累积的命令结果
         let isUserScrolling = false;  // 用户是否正在滚动
         let scrollCheckTimer = null;  // 滚动检查定时器
@@ -1000,6 +1005,10 @@ HTML_CONTENT = """
                 case 'status':
                     addMessage('status', 'System', content, timestamp);
                     break;
+                case 'history_raw':
+                    // 历史记录用 Markdown 渲染
+                    addMessage('history', 'History', content, timestamp);
+                    break;
                 case 'error':
                     addMessage('error', 'Error', content, timestamp);
                     break;
@@ -1034,7 +1043,7 @@ HTML_CONTENT = """
             // 创建内容区域
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.id = 'streaming-content';
+            // 不再使用 ID，避免冲突
             
             messageDiv.appendChild(headerDiv);
             messageDiv.appendChild(contentDiv);
@@ -1043,22 +1052,22 @@ HTML_CONTENT = """
             smartScrollToBottom();
             
             currentAIMessage = messageDiv;
+            currentAIContentDiv = contentDiv; // 保存引用
             aiMessageContent = '';
         }
         
         // 追加到 AI 消息
         function appendToAIMessage(chunk) {
-            if (!currentAIMessage) return;
+            if (!currentAIMessage || !currentAIContentDiv) return;
             
             aiMessageContent += chunk;
-            const contentDiv = document.getElementById('streaming-content');
             
             // 移除停止标记并渲染 Markdown
             const cleanContent = aiMessageContent.replace(/\\/__END_CODE__/g, '').trim();
-            contentDiv.innerHTML = marked.parse(cleanContent);
+            currentAIContentDiv.innerHTML = marked.parse(cleanContent);
             
             // 高亮新的代码块
-            contentDiv.querySelectorAll('pre code').forEach((block) => {
+            currentAIContentDiv.querySelectorAll('pre code').forEach((block) => {
                 if (!block.classList.contains('hljs')) {
                     hljs.highlightElement(block);
                 }
@@ -1083,13 +1092,8 @@ HTML_CONTENT = """
                 typingIndicator.remove();
             }
             
-            // 移除临时 ID
-            const contentDiv = document.getElementById('streaming-content');
-            if (contentDiv) {
-                contentDiv.removeAttribute('id');
-            }
-            
             currentAIMessage = null;
+            currentAIContentDiv = null; // 清除引用
             aiMessageContent = '';
         }
         
@@ -1301,8 +1305,8 @@ HTML_CONTENT = """
             const contentDiv = document.createElement('div');
             
             // 根据消息类型处理内容
-            if (className === 'ai-thought' || className === 'human') {
-                // 对 AI 和人类消息使用 Markdown 渲染
+            if (className === 'ai-thought' || className === 'human' || className === 'history') {
+                // 对 AI、人类消息和历史记录使用 Markdown 渲染
                 contentDiv.className = 'message-content';
                 // 移除停止标记
                 const cleanContent = content.replace(/\\/__END_CODE__/g, '').trim();
