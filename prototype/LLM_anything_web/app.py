@@ -22,7 +22,7 @@ import uvicorn
 
 # 配置
 LOG_FILE = 'consciousness.txt'
-MODEL = os.getenv('MODEL', 'google/gemini-2.5-pro')
+MODEL = os.getenv('MODEL', 'google/gemini-3-pro-preview')
 API_KEY = os.getenv('DB_API_KEY')
 BASE_URL = os.getenv('BASE_URL', 'https://openrouter.ai/api/v1')
 LOOP_SEC = int(os.getenv('LOOP_SEC', 10))
@@ -60,7 +60,7 @@ class PoB:
                     if content:
                         # 使用环境变量 MAX_CHARS，默认 2,000,000 (约 500k-1M Token)
                         # 如果想测试 Gemini 极限，可以设置得更大
-                        max_chars = int(os.getenv('MAX_CHARS', 2000000))
+                        max_chars = int(os.getenv('MAX_CHARS', 20000000))
                         
                         # 如果内容超过限制，保留最后的 max_chars
                         if len(content) > max_chars:
@@ -121,9 +121,124 @@ class PoB:
         return '\n'.join(self.consciousness)
     
     async def act(self, output: str) -> str:
-        """执行动作 - 支持流式输出、超时和等待人类"""
+        """执行动作 - 支持流式输出、超时和等待人类（支持并发执行 JS 和 Terminal）"""
         
-        # 检查是否以等待人类指令结束
+        action_results = []
+        
+        # 1. 检查并执行浏览器 JavaScript
+        if output and self.browser_tag in output:
+            try:
+                parts = output.split(self.browser_tag, 1)[1].split("\n```", 1)
+                if parts and (code := parts[0].strip()):
+                    print(f"[DEBUG] Executing JavaScript in browser: {code[:100]}...")
+                    
+                    # 发送到前端执行
+                    await self.send_message("browser_exec", code)
+                    
+                    time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+                    action_results.append(f"\nSystem - [Browser] - [{time_str}] - --\n\n[Browser JavaScript: 执行指令已发送...]\n")
+            except Exception as e:
+                error_msg = f"浏览器执行错误: {e}"
+                print(f"[ERROR] {error_msg}")
+                time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+                action_results.append(f"\nSystem - [Browser] - [{time_str}] - --\n\n[Error: {error_msg}]\n")
+        
+        # 2. 检查并执行终端命令
+        if output and self.action_tag in output:
+            # 命令超时设置（秒）
+            COMMAND_TIMEOUT = int(os.getenv('COMMAND_TIMEOUT', 3600))
+            
+            try:
+                parts = output.split(self.action_tag, 1)[1].split("\n```", 1)
+                if parts and (cmd := parts[0].strip()):
+                    print(f"[DEBUG] Executing command: {cmd}")
+                    
+                    start_time = time.time()
+                    
+                    # 异步执行命令，支持流式输出
+                    proc = await asyncio.create_subprocess_shell(
+                        cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.STDOUT
+                    )
+                    
+                    # 开始流式输出
+                    await self.send_message("command_result_start", "")
+                    
+                    result_lines = []
+                    total_output = ""
+                    
+                    try:
+                        # 流式读取输出
+                        while True:
+                            # 检查超时
+                            if time.time() - start_time > COMMAND_TIMEOUT:
+                                proc.kill()
+                                timeout_msg = f"\n[命令超时，已终止 (>{COMMAND_TIMEOUT}s)]"
+                                await self.send_message("command_result_chunk", timeout_msg)
+                                total_output += timeout_msg
+                                break
+                            
+                            # 尝试读取一行，设置短超时避免阻塞
+                            try:
+                                line = await asyncio.wait_for(
+                                    proc.stdout.readline(), 
+                                    timeout=0.1
+                                )
+                                
+                                if not line:  # 进程结束
+                                    break
+                                    
+                                line_text = line.decode('utf-8', errors='replace')
+                                result_lines.append(line_text)
+                                total_output += line_text
+                                
+                                # 流式发送到前端
+                                await self.send_message("command_result_chunk", line_text)
+                                
+                                # 防止输出过长
+                                if len(total_output) > 10000:
+                                    truncate_msg = f"\n\n[System Warning: Output truncated. Length exceeded 10,000 characters. (Total: {len(total_output)}+). Use 'head', 'tail' or 'grep' to view specific parts.]"
+                                    await self.send_message("command_result_chunk", truncate_msg)
+                                    total_output += truncate_msg
+                                    proc.kill()
+                                    break
+                                    
+                            except asyncio.TimeoutError:
+                                # 检查进程是否结束
+                                if proc.returncode is not None:
+                                    break
+                                continue
+                        
+                        # 等待进程结束
+                        await proc.wait()
+                        
+                    except Exception as e:
+                        print(f"[ERROR] Command execution error: {e}")
+                        error_msg = f"\n[执行错误: {e}]"
+                        await self.send_message("command_result_chunk", error_msg)
+                        total_output += error_msg
+                    
+                    # 结束流式输出
+                    await self.send_message("command_result_end", "")
+                    
+                    exec_time = time.time() - start_time
+                    print(f"[DEBUG] Command executed in {exec_time:.2f}s")
+                    
+                    # 如果输出为空，添加提示
+                    if not total_output.strip():
+                        total_output = "[命令执行完成，无输出]"
+                    
+                    time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+                    action_results.append(f"\nSystem - [Terminal] - [{time_str}] - --\n\n{total_output}\n")
+                    
+            except Exception as e:
+                error_msg = f"命令执行错误: {e}"
+                await self.send_message("error", error_msg)
+                time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+                action_results.append(f"\nSystem - [Terminal] - [{time_str}] - --\n\n[Error: {error_msg}]\n")
+
+        # 3. 检查是否以等待人类指令结束
         if output.replace(self.stop_token, "").rstrip().endswith("/wait_for_human"):
             await self.send_message("status", "⏸️ AI 正在等待你的输入...")
             print("[DEBUG] AI entering wait_for_human mode")
@@ -137,125 +252,9 @@ class PoB:
             
             await self.send_message("status", "▶️ 收到输入，AI 继续运行...")
             print("[DEBUG] AI exiting wait_for_human mode")
-            return "\n[等待人类输入完成]\n"
-        
-        # 检查浏览器 JavaScript 执行
-        if output and self.browser_tag in output:
-            try:
-                parts = output.split(self.browser_tag, 1)[1].split("\n```", 1)
-                if parts and (code := parts[0].strip()):
-                    print(f"[DEBUG] Executing JavaScript in browser: {code[:100]}...")
-                    
-                    # 发送到前端执行
-                    await self.send_message("browser_exec", code)
-                    
-                    # 等待执行结果（通过特殊标记）
-                    # 前端会通过 user_input 类型返回结果
-                    # 这里暂时返回空，结果会异步进入意识流
-                    return f"\nSystem - [Browser] - --\n\n[Browser JavaScript: 执行指令已发送...]\n"
-            except Exception as e:
-                error_msg = f"浏览器执行错误: {e}"
-                print(f"[ERROR] {error_msg}")
-                return f"\nSystem - [Browser] - --\n\n[Error: {error_msg}]\n"
-        
-        # 检查终端命令
-        if not output or self.action_tag not in output:
-            return ""
-        
-        # 命令超时设置（秒）
-        COMMAND_TIMEOUT = int(os.getenv('COMMAND_TIMEOUT', 3600))
-        
-        try:
-            parts = output.split(self.action_tag, 1)[1].split("\n```", 1)
-            if parts and (cmd := parts[0].strip()):
-                # 不再单独显示命令，因为AI输出中已经有了
-                # await self.send_message("command", cmd)
-                print(f"[DEBUG] Executing command: {cmd}")
-                
-                start_time = time.time()
-                
-                # 异步执行命令，支持流式输出
-                proc = await asyncio.create_subprocess_shell(
-                    cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT
-                )
-                
-                # 开始流式输出
-                await self.send_message("command_result_start", "")
-                
-                result_lines = []
-                total_output = ""
-                
-                try:
-                    # 流式读取输出
-                    while True:
-                        # 检查超时
-                        if time.time() - start_time > COMMAND_TIMEOUT:
-                            proc.kill()
-                            timeout_msg = f"\n[命令超时，已终止 (>{COMMAND_TIMEOUT}s)]"
-                            await self.send_message("command_result_chunk", timeout_msg)
-                            total_output += timeout_msg
-                            break
-                        
-                        # 尝试读取一行，设置短超时避免阻塞
-                        try:
-                            line = await asyncio.wait_for(
-                                proc.stdout.readline(), 
-                                timeout=0.1
-                            )
-                            
-                            if not line:  # 进程结束
-                                break
-                                
-                            line_text = line.decode('utf-8', errors='replace')
-                            result_lines.append(line_text)
-                            total_output += line_text
-                            
-                            # 流式发送到前端
-                            await self.send_message("command_result_chunk", line_text)
-                            
-                            # 防止输出过长
-                            if len(total_output) > 10000:
-                                truncate_msg = f"\n\n[System Warning: Output truncated. Length exceeded 10,000 characters. (Total: {len(total_output)}+). Use 'head', 'tail' or 'grep' to view specific parts.]"
-                                await self.send_message("command_result_chunk", truncate_msg)
-                                total_output += truncate_msg
-                                proc.kill()
-                                break
-                                
-                        except asyncio.TimeoutError:
-                            # 检查进程是否结束
-                            if proc.returncode is not None:
-                                break
-                            continue
-                    
-                    # 等待进程结束
-                    await proc.wait()
-                    
-                except Exception as e:
-                    print(f"[ERROR] Command execution error: {e}")
-                    error_msg = f"\n[执行错误: {e}]"
-                    await self.send_message("command_result_chunk", error_msg)
-                    total_output += error_msg
-                
-                # 结束流式输出
-                await self.send_message("command_result_end", "")
-                
-                exec_time = time.time() - start_time
-                print(f"[DEBUG] Command executed in {exec_time:.2f}s")
-                
-                # 如果输出为空，添加提示
-                if not total_output.strip():
-                    total_output = "[命令执行完成，无输出]"
-                
-                return f"\nSystem - [Terminal] - --\n\n[Command: {cmd}]\n{total_output}\n"
-                
-        except Exception as e:
-            error_msg = f"命令执行错误: {e}"
-            await self.send_message("error", error_msg)
-            return f"\nSystem - [Terminal] - --\n\n[Error: {error_msg}]\n"
-        
-        return ""
+            action_results.append("\n[等待人类输入完成]\n")
+            
+        return "".join(action_results)
     
     async def infer(self, context: str) -> str:
         """AI 推理"""
@@ -323,7 +322,7 @@ Use Chinese primarily for output."""
                 },
                 {
                     "role": "user",
-                    "content": context + f"\n\nAbove is your consciousness stream. Please output your thoughts and actions. End with {self.stop_token} when complete."
+                    "content": context + f"\n\n[System Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}]\n\n[Instruction]\nAbove is your consciousness stream. Please output your thoughts and actions. End with {self.stop_token} when complete.\n\nAssistant - [{datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}] - --\n"
                 }
             ]
             
@@ -332,6 +331,7 @@ Use Chinese primarily for output."""
                 model=MODEL,
                 messages=messages,
                 stop=self.stop_token,
+                temperature=0.6,  # 平衡创造性与稳定性
                 stream=True  # 启用流式输出
             )
             
@@ -351,7 +351,8 @@ Use Chinese primarily for output."""
             output += self.stop_token
             
             # 格式化并添加到意识流
-            formatted_output = f"\nAssistant - --\n\n{output}\n"
+            time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+            formatted_output = f"\nAssistant - [{time_str}] - --\n\n{output}\n"
             self.consciousness.append(formatted_output)
             
             # 通知前端结束
@@ -359,7 +360,7 @@ Use Chinese primarily for output."""
             
             # 保存到日志
             with open(LOG_FILE, 'a', encoding='utf-8') as f:
-                f.write(f"\nAssistant - --\n\n{output}\n")
+                f.write(f"\nAssistant - [{time_str}] - --\n\n{output}\n")
             
             print(f"[DEBUG] Inference completed. Output length: {len(output)}")
             return output
@@ -370,7 +371,10 @@ Use Chinese primarily for output."""
             import traceback
             traceback.print_exc()  # 打印完整错误栈
             await self.send_message("error", error_msg)
-            return ""
+            
+            # 让错误进入意识流，以便 Cipher 感知到故障
+            time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+            return f"\nSystem - [Internal] - [{time_str}] - --\n\n[Inference System Error: {e}]\n"
     
     async def handle_user_input(self, message: str):
         """处理用户输入"""
@@ -382,7 +386,8 @@ Use Chinese primarily for output."""
             print("[DEBUG] User input received, releasing AI from wait")
         
         # 添加到意识流
-        user_msg = f"\nUser - --\n\n{message}\n"
+        time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+        user_msg = f"\nUser - [{time_str}] - --\n\n{message}\n"
         self.consciousness.append(user_msg)
         
         # 保存到日志
@@ -395,18 +400,34 @@ Use Chinese primarily for output."""
         # 重要：设置标志，让 AI 响应用户输入
         self.has_pending_input = False
         self.is_user_focused = False  # 发送后取消焦点
+        self.user_interacted = True   # 标记用户已交互，用于打断开机等待
     
     async def run(self):
         """主循环"""
         await self.send_message("status", "系统启动")
         print(f"[DEBUG] Main loop started, Model: {MODEL}")  # 调试信息
         
-        # 如果有历史记录，等待10秒给人类反应时间
+        # 如果有历史记录，等待一段时间给人类反应时间
         if hasattr(self, 'history_content') and self.history_content:
-            wait_seconds = 30
+            wait_seconds = 300
             await self.send_message("status", f"📚 历史记录加载完成，如果没有输入， {wait_seconds} 秒后开始主动推理...")
             print(f"[DEBUG] Found history, waiting {wait_seconds} seconds for human review")
-            await asyncio.sleep(wait_seconds)
+            
+            # 使用循环等待，以便在用户输入时提前结束
+            for _ in range(wait_seconds * 10):  # 0.1s 检查一次
+                if not self.has_pending_input and not getattr(self, 'waiting_for_human', False):
+                    # 如果用户输入了解除了等待（或者从来没等待），这里怎么判断？
+                    # 这里的逻辑是：如果用户输入了，handle_user_input 会被调用
+                    # 我们需要一个标志位来表示"用户已经交互过了，不用再等了"
+                    pass
+                
+                # 检查是否有新消息插入（比如用户刚刚说话了）
+                # 简单的办法：检查 consciousness 的长度变化？或者加个标志位
+                if hasattr(self, 'user_interacted') and self.user_interacted:
+                    print("[DEBUG] User interacted, skipping wait")
+                    break
+                    
+                await asyncio.sleep(0.1)
        
         output = ""
         last_inference_time = 0
@@ -500,7 +521,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 
             elif data["type"] == "browser_result":
                 # 处理浏览器JavaScript执行结果（添加 System Header）
-                result_msg = f"\nSystem - [Browser] - --\n\n{data['content']}\n"
+                time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
+                result_msg = f"\nSystem - [Browser] - [{time_str}] - --\n\n{data['content']}\n"
                 pob.consciousness.append(result_msg)
                 # 保存到日志
                 with open(LOG_FILE, 'a', encoding='utf-8') as f:
@@ -1070,6 +1092,7 @@ HTML_CONTENT = """
             currentAIContentDiv.querySelectorAll('pre code').forEach((block) => {
                 if (!block.classList.contains('hljs')) {
                     hljs.highlightElement(block);
+                    addRunButton(block);
                 }
             });
             
@@ -1331,7 +1354,33 @@ HTML_CONTENT = """
             // 高亮代码块
             messageDiv.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
+                // 添加运行按钮
+                addRunButton(block);
             });
+        }
+        
+        // 为代码块添加运行按钮
+        function addRunButton(block) {
+            // 检查是否是 JS 代码
+            if (block.classList.contains('language-javascript') || block.classList.contains('language-js')) {
+                // 检查是否已经添加过按钮
+                if (block.parentNode.querySelector('.run-code-btn')) return;
+                
+                const btn = document.createElement('button');
+                btn.className = 'run-code-btn';
+                btn.innerHTML = '▶️ 运行此代码';
+                btn.onclick = function() {
+                    const code = block.textContent;
+                    // 确认对话框？不，直接运行吧，既然是重试
+                    if (confirm('确定要重新在当前浏览器中执行这段 JavaScript 代码吗？')) {
+                        executeBrowserJS(code);
+                    }
+                };
+                
+                // 插入到 pre 标签内，或者后面
+                block.parentNode.style.position = 'relative'; // 确保定位
+                block.parentNode.appendChild(btn);
+            }
         }
         
         // HTML 转义
