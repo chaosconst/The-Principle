@@ -1,6 +1,7 @@
 FROM python:3.10
 
 WORKDIR /app
+RUN mkdir -p vision uploads users
 
 # 虽然是完整版，但为了确保"豪华体验"，我们还是显式安装一套瑞士军刀
 # update 是必须的，否则找不到包
@@ -21,7 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制核心代码
 COPY app.py .
 COPY compress_memory.py .
-COPY vision/ ./vision/
 
 # 初始化空记忆
 RUN touch consciousness.txt
