@@ -19,7 +19,7 @@ COPY the_principle_lite_zh.md .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制核心代码
-COPY app_gemini_ui_saved.py app.py
+COPY app.py .
 COPY compress_memory.py .
 COPY vision/ ./vision/
 
