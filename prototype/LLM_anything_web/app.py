@@ -45,7 +45,7 @@ class PoB:
         self.consciousness = deque()  # 保存意识流，无长度限制
         self.action_tag = "/terminal exec\n```shell"
         self.browser_tag = "/browser exec\n```javascript"
-        self.stop_token = "/__END" + "_CODE__"  # 拆分避免自己被截断
+        self.stop_token = "/__END" + "_OUTPUT__"  # 拆分避免自己被截断
         
         # 从文件读取历史意识流
         self._load_consciousness_history()
@@ -302,13 +302,11 @@ To run shell commands in terminal:
 {self.action_tag}
 <command>
 ```
-{self.stop_token}
 
-To execute JavaScript in browser:
+Or you can execute JavaScript in browser by using the following format:
 {self.browser_tag}
 <javascript-code>  // eval() returns the last expression, don't use 'return' statement
 ```
-{self.stop_token}
 
 The JavaScript execution results (console output and return value) will be sent back to your consciousness stream.
 
@@ -322,7 +320,7 @@ Use Chinese primarily for output."""
                 },
                 {
                     "role": "user",
-                    "content": context + f"\n\n[System Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}]\n\n[Instruction]\nAbove is your consciousness stream. Please output your thoughts and actions. End with {self.stop_token} when complete.\n\nAssistant - [{datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}] - --\n"
+                    "content": context + f"\n\n[System Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')}]\n\n[Instruction]\nAbove is your consciousness stream. Please output your thoughts and actions. End with {self.stop_token} when complete.\n\nAssistant - [Latest Contents] - --\n"
                 }
             ]
             
@@ -330,8 +328,8 @@ Use Chinese primarily for output."""
             response = client.chat.completions.create(
                 model=MODEL,
                 messages=messages,
-                stop=self.stop_token,
-                temperature=0.6,  # 平衡创造性与稳定性
+                stop=[self.stop_token, "\nUser - ", "/wait_for_human"],
+                temperature=0.6,  # 平衡创造性与稳定性  
                 stream=True  # 启用流式输出
             )
             
@@ -1493,7 +1491,9 @@ def main():
     # 初始化 OpenAI 客户端
     client = OpenAI(
         base_url=BASE_URL,
-        api_key=API_KEY
+        api_key=API_KEY,
+        timeout=60.0,
+        max_retries=2
     )
     
     # 确保日志文件存在
