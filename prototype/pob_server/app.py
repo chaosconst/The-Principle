@@ -2320,13 +2320,21 @@ HTML_CONTENT = """
 
 def main():
     """主函数"""
-    global client
+    global client, API_KEY
     
     # 检查 API KEY
     if not API_KEY:
-        print("错误: 请设置环境变量 GOOGLE_API_KEY")
-        print("export GOOGLE_API_KEY='your-api-key'")
-        return
+        print("提示: 未检测到环境变量 GOOGLE_API_KEY")
+        try:
+            API_KEY = input("请输入您的 Google API Key: ").strip()
+            if not API_KEY:
+                print("错误: API Key 不能为空")
+                return
+            # 设置环境变量，以便后续使用
+            os.environ['GOOGLE_API_KEY'] = API_KEY
+        except (KeyboardInterrupt, EOFError):
+            print("\n操作已取消")
+            return
     
     # 初始化 Google 客户端
     client = genai.Client(
