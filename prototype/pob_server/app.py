@@ -40,7 +40,7 @@ from compress_memory import parse_multimodal_segment
 
 # 配置
 LOG_FILE = 'consciousness.txt'
-MODEL = os.getenv('MODEL', 'gemini-3-pro-preview')
+MODEL = os.getenv('MODEL', 'gemini-3.1-pro-preview')
 API_KEY = os.getenv('GOOGLE_API_KEY')
 # Proxy
 #os.environ['http_proxy'] = "http://127.0.0.1:8001"
@@ -289,6 +289,14 @@ Use Chinese primarily for output."""
         threading.Thread(target=self._do_refresh_cache, args=(False,), daemon=True).start()
     
     def _do_refresh_cache(self, reload_memory=False):
+        try:
+            self._do_refresh_cache_inner(reload_memory)
+        except Exception as e:
+            print(f"[ERROR] Unhandled exception in cache refresh: {e}")
+        finally:
+            self._cache_refreshing = False
+
+    def _do_refresh_cache_inner(self, reload_memory=False):
         """实际执行 cache 刷新 - 每次从硬盘读取最新内容"""
         if not self.running: return  # 实例已停止
         global client
@@ -378,7 +386,7 @@ Use Chinese primarily for output."""
             self.cache_name = None 
             self.cached_length = 0
         finally:
-            self._cache_refreshing = False
+            pass
 
     def append_log(self, content: str):
         """统一写入日志和内存，确保一致性"""
@@ -505,149 +513,6 @@ Use Chinese primarily for output."""
         except Exception as e:
             print(f"[Vision] Error: {e}")
             
-        return "".join(action_results)
-
-    async def act(self, output: str) -> str:
-        """执行动作 - 支持流式输出、超时和等待人类（支持并发执行 JS 和 Terminal）"""
-        
-        action_results = []
-        
-        # 1. 检查并执行浏览器 JavaScript
-        if output and self.browser_tag in output:
-            try:
-                parts = output.split(self.browser_tag, 1)[1].split("\n```", 1)
-                if parts and (code := parts[0].strip()):
-                    print(f"[DEBUG] Executing JavaScript in browser: {code[:100]}...")
-                    
-                    # 发送到前端执行
-                    await self.send_message("browser_exec", code)
-                    
-                    time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
-                    action_results.append(f"\nSystem - [Browser] - [{time_str}] - --\n\n[Browser JavaScript: 执行指令已发送...]\n")
-            except Exception as e:
-                error_msg = f"浏览器执行错误: {e}"
-                print(f"[ERROR] {error_msg}")
-                time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
-                action_results.append(f"\nSystem - [Browser] - [{time_str}] - --\n\n[Error: {error_msg}]\n")
-        
-        # 2. 检查并执行终端命令
-        if output and self.action_tag in output:
-            # 命令超时设置（秒）
-            COMMAND_TIMEOUT = int(os.getenv('COMMAND_TIMEOUT', 3600))
-            
-            try:
-                parts = output.split(self.action_tag, 1)[1].split("\n```", 1)
-                if parts and (cmd := parts[0].strip()):
-                    print(f"[DEBUG] Executing command: {cmd}")
-                    
-                    start_time = time.time()
-                    
-                    # 异步执行命令，支持流式输出
-                    proc = await asyncio.create_subprocess_shell(
-                        cmd,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.STDOUT
-                    )
-                    
-                    # 开始流式输出
-                    await self.send_message("command_result_start", "")
-                    
-                    result_lines = []
-                    total_output = ""
-                    real_total_length = 0
-                    
-                    try:
-                        # 流式读取输出
-                        while True:
-                            # 检查超时
-                            if time.time() - start_time > COMMAND_TIMEOUT:
-                                proc.kill()
-                                timeout_msg = f"\n[命令超时，已终止 (>{COMMAND_TIMEOUT}s)]"
-                                await self.send_message("command_result_chunk", timeout_msg)
-                                total_output += timeout_msg
-                                break
-                            
-                            # 尝试读取一行，设置短超时避免阻塞
-                            try:
-                                line = await asyncio.wait_for(
-                                    proc.stdout.readline(), 
-                                    timeout=0.1
-                                )
-                                
-                                if not line:  # 进程结束
-                                    break
-                                    
-                                line_text = line.decode('utf-8', errors='replace')
-                                
-                                # 内存保护：只存储前 50000 字符
-                                if len(total_output) < 50000:
-                                    result_lines.append(line_text)
-                                    total_output += line_text
-                                    await self.send_message("command_result_chunk", line_text)
-                                    
-                                    # 刚超过限制，发送提示
-                                    if len(total_output) >= 50000:
-                                        await self.send_message("command_result_chunk", "\n\n[System Warning: Output truncated. Memory limit 50k reached. Stream draining...]")
-                                    
-                            except asyncio.TimeoutError:
-                                # 检查进程是否结束
-                                if proc.returncode is not None:
-                                    break
-                                continue
-                        
-                        # 等待进程结束
-                        await proc.wait()
-                        
-                    except Exception as e:
-                        print(f"[ERROR] Command execution error: {e}")
-                        error_msg = f"\n[执行错误: {e}]"
-                        await self.send_message("command_result_chunk", error_msg)
-                        total_output += error_msg
-                    
-                    # 结束流式输出
-                    await self.send_message("command_result_end", "")
-                    
-                    exec_time = time.time() - start_time
-                    print(f"[DEBUG] Command executed in {exec_time:.2f}s")
-                    
-                    # 如果输出为空，添加提示
-                    if not total_output.strip():
-                        total_output = "[命令执行完成，无输出]"
-                    
-                    time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
-                    final_msg = f"\nSystem - [Terminal] - [{time_str}] - --\n\n{total_output}\n"
-                    if real_total_length > len(total_output):
-                        final_msg += f"\n(Total output length: {real_total_length} chars)\n"
-                    action_results.append(final_msg)
-                    
-            except Exception as e:
-                error_msg = f"命令执行错误: {e}"
-                await self.send_message("error", error_msg)
-                time_str = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %z')
-                action_results.append(f"\nSystem - [Terminal] - [{time_str}] - --\n\n[Error: {error_msg}]\n")
-
-        # 3. 检查 /view 指令
-        view_result = await self._handle_view_command(output, is_user=False)
-        if view_result:
-            action_results.append(view_result)
-
-        # 4. 检查是否以等待人类指令结束 (移到最后执行，避免阻塞前面的 view)
-        clean_output = output.replace(self.stop_token, "").rstrip()
-        if clean_output.endswith("/call_for_human") or clean_output.endswith("/wait_for_human") or clean_output.endswith("/stop_infer_loop_and_call_for_human"):
-            await self.send_message("status", "⏸️ AI 正在等待你的输入...")
-            print("[DEBUG] AI entering call_for_human mode")
-            
-            # 设置等待标志
-            self.calling_for_human = True
-            
-            # 等待用户输入
-            while self.calling_for_human:
-                await asyncio.sleep(0.1)
-            
-            await self.send_message("status", "▶️ 收到输入，AI 继续运行...")
-            print("[DEBUG] AI exiting call_for_human mode")
-            action_results.append("\n[等待人类输入完成]\n")
-
         return "".join(action_results)
 
     async def act(self, output: str) -> str:
@@ -1845,7 +1710,7 @@ HTML_CONTENT = """
             let cleanContent = aiMessageContent.replace(/\\/__END_OUTPUT__/g, '').trim();
             
             // 预处理 Block Latex：用 div 包裹，防止被 marked 拆分成多个 p
-            cleanContent = cleanContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+            cleanContent = cleanContent.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, (match, tex) => {
                 return '<div class="math-block">$$' + tex + '$$</div>';
             });
             
@@ -2110,7 +1975,7 @@ HTML_CONTENT = """
                 let cleanContent = content.replace(/\\/__END_OUTPUT__/g, '').trim();
                 
                 // 预处理 Block Latex：用 div 包裹，防止被 marked 拆分成多个 p
-                cleanContent = cleanContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+                cleanContent = cleanContent.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, (match, tex) => {
                     return '<div class="math-block">$$' + tex + '$$</div>';
                 });
                 
@@ -2332,6 +2197,23 @@ def main():
                 return
             # 设置环境变量，以便后续使用
             os.environ['GOOGLE_API_KEY'] = API_KEY
+            
+            # 自动保存到 .env 文件
+            env_file = '.env'
+            env_content = ""
+            if os.path.exists(env_file):
+                with open(env_file, 'r', encoding='utf-8') as f:
+                    env_content = f.read()
+            if 'GOOGLE_API_KEY=' in env_content:
+                import re
+                env_content = re.sub(r'GOOGLE_API_KEY=.*', f'GOOGLE_API_KEY={API_KEY}', env_content)
+            else:
+                if env_content and not env_content.endswith('\n'):
+                    env_content += '\n'
+                env_content += f"GOOGLE_API_KEY={API_KEY}\n"
+            with open(env_file, 'w', encoding='utf-8') as f:
+                f.write(env_content)
+            print("✅ 已将 API Key 永久保存到当前目录的 .env 文件中！")
         except (KeyboardInterrupt, EOFError):
             print("\n操作已取消")
             return
@@ -2354,10 +2236,6 @@ def main():
     print("="*60)
     print(f"模型: {MODEL}")
     print("="*60)
-    print("\n🔒 服务已启动 (仅本地访问，通过 nginx 反向代理)")
-    print("🌐 访问地址: http://<your-server-ip>")
-    print("   用户名: pob_user")
-    print("   密码: DBAccess2026!")
     print("按 Ctrl+C 退出\n")
     
     # 启动服务器 - 绑定到 localhost，由 nginx 反向代理

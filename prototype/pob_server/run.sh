@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # 1. Source Environment Variables (API Keys)
-if [ -f "env" ]; then
+if [ -f ".env" ]; then
     echo "Loading environment variables from env..."
     # Manually export variables from env file
     while IFS='=' read -r key value; do
       if [[ ! $key =~ ^# && -n $key ]]; then
         export "$key=$value"
       fi
-    done < env
+    done < .env
 fi
 
 # 2. Check & Install Dependencies
@@ -34,5 +34,5 @@ else
 fi
 
 # 3. Run PoB (Gemini Native Version)
-echo "Starting PoB with Gemini 3 Pro Preview..."
+echo "Starting PoB with Gemini..."
 $PYTHON_EXEC app.py
