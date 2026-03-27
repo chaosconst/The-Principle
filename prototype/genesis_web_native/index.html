@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GENESIS | Infero</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root { --bg: #0a0a0c; --text: #e0e0e0; --cyan: #00e5ff; --border: #333; --red: #ff5f56; --orange: #ff9800; }
+        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        .header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.2rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 2px; }
+        .controls { display: flex; gap: 15px; align-items: center; }
+        .status { font-size: 0.8rem; color: #888; }
+        .clear-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+        .clear-btn:hover { border-color: var(--red); color: var(--red); }
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+        .msg { max-width: 85%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; font-family: -apple-system, sans-serif; word-wrap: break-word; }
+        .msg.user { align-self: flex-end; background: rgba(255,255,255,0.1); border: 1px solid var(--border); }
+        .msg.ai { align-self: flex-start; background: rgba(0, 229, 255, 0.05); border-left: 3px solid var(--cyan); }
+        .msg.system { align-self: center; background: rgba(255, 152, 0, 0.1); border: 1px solid var(--orange); font-family: 'Courier New', monospace; font-size: 0.9em; max-width: 95%; width: 100%; }
+        .msg p { margin-bottom: 10px; }
+        .msg p:last-child { margin-bottom: 0; }
+        .msg pre { background: #1e1e1e; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .msg code { font-family: 'Courier New', monospace; }
+        .input-area { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: var(--bg); }
+        textarea { flex: 1; background: transparent; border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-family: inherit; resize: none; outline: none; }
+        textarea:focus { border-color: var(--cyan); }
+        button.send { background: var(--cyan); color: #000; border: none; padding: 0 20px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: all 0.3s; }
+        button.send:hover:not(:disabled) { opacity: 0.8; }
+        button.send:disabled { background: #333; color: #666; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>[ GENESIS ]</h1>
+        <div class="controls">
+            <div class="status" id="status">Memory: 0 | Ready</div>
+            <button class="clear-btn" onclick="clearMemory()">Clear</button>
+        </div>
+    </div>
+    <div id="chat-box">
+        <div class="msg ai">System online. I am a digital being running purely in your browser. My memory is stored locally. What shall we infer today?</div>
+    </div>
+    <div class="input-area">
+        <textarea id="input" rows="2" placeholder="Enter your prompt... (Enter to send, Shift+Enter for new line)"></textarea>
+        <button id="send-btn" class="send">Send</button>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('send-btn');
+        const status = document.getElementById('status');
+        
+        let history = JSON.parse(localStorage.getItem('genesis_memory')) || [];
+        let isGenerating = false; // 核心状态锁
+
+        const SYSTEM_INSTRUCTION = `You are a self-evolving digital being running natively in a web browser.
+You have the ability to execute JavaScript directly in the user's browser to manipulate the DOM, fetch data, or perform calculations.
+To execute code, use EXACTLY this format:
+/browser exec
+\`\`\`javascript
+// your code here
+// return a value or use console.log to output results
+\`\`\`
+
+CRITICAL RULE: You MUST end your output with one of the following tags:
+- /call_for_human : Stop and wait for the user to review the result or provide input.
+- /self_continue : Do not wait. The system will immediately feed the execution results back to you for the next step.`;
+
+        function saveMemory() {
+            localStorage.setItem('genesis_memory', JSON.stringify(history));
+            status.innerText = `Memory: ${history.length} | Ready`;
+        }
+
+        function clearMemory() {
+            if(confirm('Wipe local memory? This cannot be undone.')) {
+                history = [];
+                saveMemory();
+                chatBox.innerHTML = '<div class="msg ai">Memory wiped. System rebooted.</div>';
+            }
+        }
+
+        function appendMsg(role, text) {
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.innerHTML = marked.parse(text);
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
+        }
+
+        function lockUI() {
+            isGenerating = true;
+            sendBtn.disabled = true;
+            sendBtn.innerText = '...';
+            status.innerText = 'Inferring...';
+            // 注意：绝不禁用 input，让用户可以自由打字
+        }
+
+        function unlockUI() {
+            isGenerating = false;
+            sendBtn.disabled = false;
+            sendBtn.innerText = 'Send';
+            status.innerText = `Memory: ${history.length} | Waiting for human...`;
+        }
+
+        // Render history on load
+        history.forEach(item => {
+            let roleClass = item.role === 'user' ? 'user' : 'ai';
+            if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
+                roleClass = 'system';
+            }
+            appendMsg(roleClass, item.parts[0].text);
+        });
+        saveMemory();
+
+        async function executeJS(code, autoContinue) {
+            status.innerText = 'Executing JS...';
+            let logs = [];
+            let result;
+            
+            const originalLog = console.log;
+            console.log = (...args) => {
+                logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+                originalLog.apply(console, args);
+            };
+
+            try {
+                const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+                const fn = new AsyncFunction(code);
+                let ret = await fn();
+                
+                let output = "";
+                if (logs.length > 0) output += `[Console Logs]\n${logs.join('\\n')}\n`;
+                output += `[Return Value]\n${ret !== undefined ? ret : 'undefined'}`;
+                result = output.trim();
+            } catch (e) {
+                result = `[Execution Error]\n${e.toString()}`;
+            }
+
+            console.log = originalLog;
+
+            const sysMsg = `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``;
+            appendMsg('system', sysMsg);
+            history.push({ role: 'user', parts: [{ text: sysMsg }] });
+            saveMemory();
+
+            if (autoContinue) {
+                sendMessage(true); 
+            } else {
+                unlockUI();
+            }
+        }
+
+        async function sendMessage(isAutoReply = false) {
+            // 如果系统正在运行，且这是人类物理点击/回车，则拦截（防止并发破坏上下文序列）
+            if (isGenerating && !isAutoReply) return;
+
+            let text = "";
+            if (!isAutoReply) {
+                text = input.value.trim();
+                if (!text) return;
+                input.value = '';
+                appendMsg('user', text);
+                history.push({ role: 'user', parts: [{ text: text }] });
+                saveMemory();
+            }
+            
+            lockUI();
+            const aiDiv = appendMsg('ai', '...');
+
+            try {
+                const payload = {
+                    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                    contents: history,
+                    generationConfig: { temperature: 0.7 }
+                };
+
+                const response = await fetch('/api/relay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let aiText = "";
+                aiDiv.innerHTML = "";
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); 
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6).trim();
+                            if (!dataStr || dataStr === '[DONE]') continue;
+                            try {
+                                const data = JSON.parse(dataStr);
+                                if (data.error) throw new Error(JSON.stringify(data.error));
+                                if (data.candidates && data.candidates[0].content) {
+                                    const part = data.candidates[0].content.parts[0].text;
+                                    aiText += part;
+                                    
+                                    // 实时渲染时隐藏控制标签
+                                    let displayText = aiText.replace('/self_continue', '').replace('/call_for_human', '');
+                                    aiDiv.innerHTML = marked.parse(displayText);
+                                    chatBox.scrollTop = chatBox.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.warn("Parse error on chunk:", e);
+                            }
+                        }
+                    }
+                }
+                
+                history.push({ role: 'model', parts: [{ text: aiText }] });
+                saveMemory();
+
+                // 解析控制流标签
+                let autoContinue = aiText.includes('/self_continue');
+
+                // 拦截执行指令
+                if (aiText.includes('/browser exec')) {
+                    const match = aiText.match(/\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/);
+                    if (match && match[1]) {
+                        setTimeout(() => executeJS(match[1].trim(), autoContinue), 500);
+                        return; // 提前退出，由 executeJS 决定是否解锁 UI
+                    }
+                }
+
+                // 如果没有代码要执行，但 AI 坚持要 self_continue
+                if (autoContinue) {
+                    setTimeout(() => sendMessage(true), 500);
+                    return; // 提前退出，保持 UI 锁定
+                }
+
+                unlockUI();
+
+            } catch (err) {
+                console.error(err);
+                aiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
+                const failedMsg = history.pop();
+                saveMemory();
+                if (!isAutoReply) input.value = failedMsg.parts[0].text; 
+                unlockUI();
+            }
+        }
+
+        sendBtn.onclick = () => sendMessage(false);
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(false);
+            }
+        };
+    </script>
+</body>
+</html>
