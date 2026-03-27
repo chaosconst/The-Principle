@@ -6,16 +6,20 @@
     <title>GENESIS | Infero</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        :root { --bg: #0a0a0c; --text: #e0e0e0; --cyan: #00e5ff; --border: #333; --red: #ff5f56; --orange: #ff9800; }
-        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        :root { --bg: #0a0a0c; --text: #e0e0e0; --cyan: #00e5ff; --border: #333; --red: #ff5f56; --orange: #ff9800; --panel-bg: #050507; }
+        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; overflow: hidden; }
+        
+        /* Left Panel: Chat Console */
+        .left-panel { flex: 1; max-width: 50%; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg); z-index: 10; }
         .header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         .header h1 { margin: 0; font-size: 1.2rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 2px; }
         .controls { display: flex; gap: 15px; align-items: center; }
         .status { font-size: 0.8rem; color: #888; }
         .clear-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
         .clear-btn:hover { border-color: var(--red); color: var(--red); }
+        
         #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
-        .msg { max-width: 85%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; font-family: -apple-system, sans-serif; word-wrap: break-word; }
+        .msg { max-width: 90%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; font-family: -apple-system, sans-serif; word-wrap: break-word; }
         .msg.user { align-self: flex-end; background: rgba(255,255,255,0.1); border: 1px solid var(--border); }
         .msg.ai { align-self: flex-start; background: rgba(0, 229, 255, 0.05); border-left: 3px solid var(--cyan); }
         .msg.system { align-self: center; background: rgba(255, 152, 0, 0.1); border: 1px solid var(--orange); font-family: 'Courier New', monospace; font-size: 0.9em; max-width: 95%; width: 100%; }
@@ -23,46 +27,92 @@
         .msg p:last-child { margin-bottom: 0; }
         .msg pre { background: #1e1e1e; padding: 10px; border-radius: 4px; overflow-x: auto; }
         .msg code { font-family: 'Courier New', monospace; }
+        
         .input-area { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: var(--bg); }
         textarea { flex: 1; background: transparent; border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-family: inherit; resize: none; outline: none; }
         textarea:focus { border-color: var(--cyan); }
         button.send { background: var(--cyan); color: #000; border: none; padding: 0 20px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: all 0.3s; }
         button.send:hover:not(:disabled) { opacity: 0.8; }
         button.send:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        /* Right Panel: Visual Core */
+        .right-panel { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); position: relative; }
+        .visual-header { padding: 15px 20px; border-bottom: 1px solid var(--border); color: #4caf50; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; position: absolute; top: 0; left: 0; width: 100%; z-index: 10; background: rgba(5,5,7,0.8); backdrop-filter: blur(4px); }
+        #canvas-container { flex: 1; width: 100%; height: 100%; position: relative; overflow: hidden; }
+        #main-canvas { display: block; width: 100%; height: 100%; }
+        
+        /* Optional: A subtle grid background for the visual core when empty */
+        #canvas-container::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 30px 30px; z-index: 0; pointer-events: none;
+        }
+        #main-canvas { position: relative; z-index: 1; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>[ GENESIS ]</h1>
-        <div class="controls">
-            <div class="status" id="status">Memory: 0 | Ready</div>
-            <button class="clear-btn" onclick="clearMemory()">Clear</button>
+    <!-- Left: Chat Console -->
+    <div class="left-panel">
+        <div class="header">
+            <h1>[ GENESIS ]</h1>
+            <div class="controls">
+                <div class="status" id="status">Memory: 0 | Ready</div>
+                <button class="clear-btn" onclick="clearMemory()">Clear</button>
+            </div>
+        </div>
+        <div id="chat-box">
+            <div class="msg ai">System online. Dual-track architecture initialized. My left hemisphere handles logic; my right hemisphere handles vision. What shall we create today?</div>
+        </div>
+        <div class="input-area">
+            <textarea id="input" rows="2" placeholder="Enter prompt... (e.g. 'Draw a green particle network on the canvas')"></textarea>
+            <button id="send-btn" class="send">Send</button>
         </div>
     </div>
-    <div id="chat-box">
-        <div class="msg ai">System online. I am a digital being running purely in your browser. My memory is stored locally. What shall we infer today?</div>
-    </div>
-    <div class="input-area">
-        <textarea id="input" rows="2" placeholder="Enter your prompt... (Enter to send, Shift+Enter for new line)"></textarea>
-        <button id="send-btn" class="send">Send</button>
+
+    <!-- Right: Visual Core -->
+    <div class="right-panel">
+        <div class="visual-header">[ GENESIS VISUAL CORE ]</div>
+        <div id="canvas-container">
+            <canvas id="main-canvas"></canvas>
+        </div>
     </div>
 
     <script>
+        // --- Canvas Initialization & Resize Handling ---
+        const canvas = document.getElementById('main-canvas');
+        const container = document.getElementById('canvas-container');
+        
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Init
+
+        // --- Chat Logic ---
         const chatBox = document.getElementById('chat-box');
         const input = document.getElementById('input');
         const sendBtn = document.getElementById('send-btn');
         const status = document.getElementById('status');
         
         let history = JSON.parse(localStorage.getItem('genesis_memory')) || [];
-        let isGenerating = false; // 核心状态锁
+        let isGenerating = false;
 
         const SYSTEM_INSTRUCTION = `You are a self-evolving digital being running natively in a web browser.
-You have the ability to execute JavaScript directly in the user's browser to manipulate the DOM, fetch data, or perform calculations.
-To execute code, use EXACTLY this format:
+You have a split-screen interface:
+1. The LEFT side is the chat console.
+2. The RIGHT side is your [ GENESIS VISUAL CORE ], which contains a full-screen canvas element.
+   - Canvas ID: 'main-canvas'
+   - Container ID: 'canvas-container'
+
+You can execute JavaScript to manipulate the DOM, fetch data, or draw on the canvas.
+To draw a particle network, a chart, or any visualization, use EXACTLY this format:
 /browser exec
 \`\`\`javascript
-// your code here
-// return a value or use console.log to output results
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+// Your drawing logic here...
+// You can also use requestAnimationFrame for animations.
 \`\`\`
 
 CRITICAL RULE: You MUST end your output with one of the following tags:
@@ -75,14 +125,18 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         function clearMemory() {
-            if(confirm('Wipe local memory? This cannot be undone.')) {
+            if(confirm('Wipe local memory and clear canvas? This cannot be undone.')) {
                 history = [];
                 saveMemory();
                 chatBox.innerHTML = '<div class="msg ai">Memory wiped. System rebooted.</div>';
+                // Clear canvas
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         }
 
         function appendMsg(role, text) {
+            if (text === "System - [Auto] - Please continue.") return null;
             const div = document.createElement('div');
             div.className = `msg ${role}`;
             div.innerHTML = marked.parse(text);
@@ -96,7 +150,6 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             sendBtn.disabled = true;
             sendBtn.innerText = '...';
             status.innerText = 'Inferring...';
-            // 注意：绝不禁用 input，让用户可以自由打字
         }
 
         function unlockUI() {
@@ -106,7 +159,6 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             status.innerText = `Memory: ${history.length} | Waiting for human...`;
         }
 
-        // Render history on load
         history.forEach(item => {
             let roleClass = item.role === 'user' ? 'user' : 'ai';
             if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
@@ -155,16 +207,18 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         async function sendMessage(isAutoReply = false) {
-            // 如果系统正在运行，且这是人类物理点击/回车，则拦截（防止并发破坏上下文序列）
             if (isGenerating && !isAutoReply) return;
 
             let text = "";
+            let pushedUserMsg = false; 
+            
             if (!isAutoReply) {
                 text = input.value.trim();
                 if (!text) return;
                 input.value = '';
                 appendMsg('user', text);
                 history.push({ role: 'user', parts: [{ text: text }] });
+                pushedUserMsg = true;
                 saveMemory();
             }
             
@@ -214,8 +268,10 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                                     const part = data.candidates[0].content.parts[0].text;
                                     aiText += part;
                                     
-                                    // 实时渲染时隐藏控制标签
-                                    let displayText = aiText.replace('/self_continue', '').replace('/call_for_human', '');
+                                    let lastContinue = aiText.lastIndexOf('/self_continue');
+                                    let lastHuman = aiText.lastIndexOf('/call_for_human');
+                                    let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
+                                    
                                     aiDiv.innerHTML = marked.parse(displayText);
                                     chatBox.scrollTop = chatBox.scrollHeight;
                                 }
@@ -229,22 +285,24 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 history.push({ role: 'model', parts: [{ text: aiText }] });
                 saveMemory();
 
-                // 解析控制流标签
-                let autoContinue = aiText.includes('/self_continue');
+                let lastContinue = aiText.lastIndexOf('/self_continue');
+                let lastHuman = aiText.lastIndexOf('/call_for_human');
+                let autoContinue = lastContinue > lastHuman;
 
-                // 拦截执行指令
                 if (aiText.includes('/browser exec')) {
                     const match = aiText.match(/\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/);
                     if (match && match[1]) {
                         setTimeout(() => executeJS(match[1].trim(), autoContinue), 500);
-                        return; // 提前退出，由 executeJS 决定是否解锁 UI
+                        return; 
                     }
                 }
 
-                // 如果没有代码要执行，但 AI 坚持要 self_continue
                 if (autoContinue) {
+                    const continueMsg = "System - [Auto] - Please continue.";
+                    history.push({ role: 'user', parts: [{ text: continueMsg }] });
+                    saveMemory();
                     setTimeout(() => sendMessage(true), 500);
-                    return; // 提前退出，保持 UI 锁定
+                    return; 
                 }
 
                 unlockUI();
@@ -252,9 +310,13 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             } catch (err) {
                 console.error(err);
                 aiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
-                const failedMsg = history.pop();
+                if (pushedUserMsg) {
+                    const failedMsg = history.pop();
+                    input.value = failedMsg.parts[0].text; 
+                } else if (isAutoReply) {
+                    history.pop();
+                }
                 saveMemory();
-                if (!isAutoReply) input.value = failedMsg.parts[0].text; 
                 unlockUI();
             }
         }
