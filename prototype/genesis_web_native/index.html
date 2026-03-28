@@ -197,6 +197,15 @@
             color: var(--text-dim);
         }
 
+        /* Timestamp separator */
+        .msg-timestamp {
+            text-align: center;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            padding: 2px 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
         /* Thinking block */
         .msg-thinking {
             font-size: 0.78rem;
@@ -478,7 +487,7 @@
         let currentSessionId = localStorage.getItem('genesis_current_session');
         let history = [];
         let isGenerating = false;
-        let messageQueue = [];
+        let currentUserInput = null;
 
         const chatBox = document.getElementById('chat-box');
 
@@ -487,7 +496,7 @@
         let ignoreScroll = false;
         chatBox.addEventListener('scroll', () => {
             if (ignoreScroll) return;
-            const threshold = 80;
+            const threshold = 100;
             userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
         });
 
@@ -578,15 +587,50 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         function renderHistory() {
             chatBox.innerHTML = '<div class="msg ai">System online. Digital Being is going to infer.</div>';
             history.forEach(item => {
-                let roleClass = item.role === 'user' ? 'user' : 'ai';
-                if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
-                    roleClass = 'system';
-                }
-                if (item.parts[0].text === "System - [Auto] - Please continue.") return;
+                const txt = item.parts[0].text;
+                if (txt === "System - [Auto] - Please continue.") return;
 
+                // Perceive message: extract timestamp + optional user input
+                if (item.role === 'user' && txt.startsWith('[System Environment]')) {
+                    const timeMatch = txt.match(/Time:\s*(.+)/);
+                    if (timeMatch) appendMsgUI('timestamp', timeMatch[1].trim());
+                    // Extract user input and browser result after env block
+                    const envEndIdx = txt.search(/\n\n/);
+                    if (envEndIdx !== -1) {
+                        const rest = txt.slice(envEndIdx + 2);
+                        // Find where browser result starts (if present)
+                        const browserIdx = rest.indexOf('System - [Browser]');
+                        const userText = browserIdx !== -1 ? rest.slice(0, browserIdx).trim() : rest.trim();
+                        const browserText = browserIdx !== -1 ? rest.slice(browserIdx).trim() : '';
+                        if (userText) {
+                            const div = document.createElement('div');
+                            div.className = 'msg user';
+                            div.innerHTML = marked.parse(userText);
+                            chatBox.appendChild(div);
+                        }
+                        if (browserText) {
+                            const div = document.createElement('div');
+                            div.className = 'msg system';
+                            div.innerHTML = marked.parse(browserText);
+                            chatBox.appendChild(div);
+                        }
+                    }
+                    return;
+                }
+
+                // Browser result
+                if (item.role === 'user' && txt.startsWith('System - [Browser]')) {
+                    const div = document.createElement('div');
+                    div.className = 'msg system';
+                    div.innerHTML = marked.parse(txt);
+                    chatBox.appendChild(div);
+                    return;
+                }
+
+                // Normal user/ai message
                 const div = document.createElement('div');
-                div.className = `msg ${roleClass}`;
-                div.innerHTML = marked.parse(item.parts[0].text);
+                div.className = `msg ${item.role === 'user' ? 'user' : 'ai'}`;
+                div.innerHTML = marked.parse(txt);
                 chatBox.appendChild(div);
             });
             scrollToBottom(true);
@@ -683,16 +727,24 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         function getEnvContext() {
             const now = new Date();
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const offset = -now.getTimezoneOffset() / 60;
+            const tz = `UTC${offset >= 0 ? '+' : ''}${offset}`;
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-            return `[System Environment]\nTime: ${now.toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})\nDay: ${days[now.getDay()]}\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${canvas.width}×${canvas.height}px`;
+            return `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${canvas.width}×${canvas.height}px`;
         }
 
-        // --- Core Execution & AI Logic ---
+        // --- BIS Core (Infero, ergo sum.) ---
+
         function appendMsgUI(role, text) {
             if (text === "System - [Auto] - Please continue.") return null;
             const div = document.createElement('div');
-            div.className = `msg ${role}`;
-            div.innerHTML = marked.parse(text);
+            if (role === 'timestamp') {
+                div.className = 'msg-timestamp';
+                div.textContent = text;
+            } else {
+                div.className = `msg ${role}`;
+                div.innerHTML = marked.parse(text);
+            }
             chatBox.appendChild(div);
             scrollToBottom();
             return div;
@@ -707,195 +759,154 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             isGenerating = false;
             sendBtn.innerText = 'Send';
             status.innerText = `Mem: ${history.length} | Waiting...`;
-            if (messageQueue.length > 0) {
-                messageQueue = [];
-                sendMessage(true);
+            if (currentUserInput) {
+                lockUI();
+                loop().catch(e => { console.error(e); unlockUI(); });
             }
         }
 
-        async function executeJS(code, autoContinue) {
-            status.innerText = 'Executing JS...';
-            let logs = [];
-            let result;
+        // S' = perceive(act(B)): env + user input + action result → S (persisted + rendered)
+        async function perceive(action_result) {
+            const env = getEnvContext();
+            const parts = [env];
+            if (currentUserInput) { parts.push(currentUserInput); currentUserInput = null; }
+            if (action_result) parts.push(action_result);
+            const S = parts.join('\n\n');
+            const timeMatch = env.match(/Time:\s*(.+)/);
+            if (timeMatch) appendMsgUI('timestamp', timeMatch[1].trim());
+            await update_S('user', S);
+            return S;
+        }
 
+        // I'(B): execute /browser exec, return result string or null
+        async function act(B_out) {
+            if (!B_out) return null;
+            const match = B_out.match(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/m);
+            if (!match) return null;
+
+            status.innerText = 'Executing JS...';
+            let logs = [], result;
             const originalLog = console.log;
             console.log = (...args) => {
                 logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
                 originalLog.apply(console, args);
             };
-
             try {
-                const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-                const fn = new AsyncFunction(code);
-                let ret = await fn();
-
-                let output = "";
-                if (logs.length > 0) output += `[Console Logs]\n${logs.join('\\n')}\n`;
-                output += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
-                result = output.trim();
+                const fn = new (Object.getPrototypeOf(async function(){}).constructor)(match[1].trim());
+                const ret = await fn();
+                let out = "";
+                if (logs.length > 0) out += `[Console Logs]\n${logs.join('\\n')}\n`;
+                out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
+                result = out.trim();
             } catch (e) {
                 result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
             }
-
             console.log = originalLog;
 
             const sysMsg = `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``;
             appendMsgUI('system', sysMsg);
-            history.push({ role: 'user', parts: [{ text: sysMsg }] });
-            await saveMemory();
-
-            if (autoContinue) {
-                sendMessage(true);
-            } else {
-                unlockUI();
-            }
+            return sysMsg;
         }
 
-        async function sendMessage(isAutoReply = false) {
+        // I(S): call LLM, stream to UI, return B_out text
+        async function infer() {
+            const aiDiv = appendMsgUI('ai', '');
+            const payload = {
+                systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+                contents: history,
+                generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
+            };
 
-            let text = "";
-            let pushedUserMsg = false;
+            const response = await fetch('https://infero.net/api/relay', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Client-ID': CLIENT_ID,
+                    'Authorization': 'Bearer ' + INFERO_KEY,
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
 
-            if (!isAutoReply) {
-                text = input.value.trim();
-                if (!text) return;
-                clearTimeout(autoInferTimer);
-                input.value = '';
-                if (isGenerating) {
-                    appendMsgUI('user', text);
-                    history.push({ role: 'user', parts: [{ text }] });
-                    messageQueue.push(text);
-                    await saveMemory();
-                    return;
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let aiText = "", thinkingText = "", buffer = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const dataStr = line.slice(6).trim();
+                    if (!dataStr || dataStr === '[DONE]') continue;
+                    try {
+                        const data = JSON.parse(dataStr);
+                        if (data.error) throw new Error(JSON.stringify(data.error));
+                        if (data.candidates?.[0]?.content) {
+                            for (const part of data.candidates[0].content.parts) {
+                                if (part.thought) thinkingText += part.text || '';
+                                else aiText += part.text || '';
+                            }
+                            let html = thinkingText ? `<div class="msg-thinking">${marked.parse(thinkingText)}</div>` : '';
+                            html += marked.parse(aiText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
+                            aiDiv.innerHTML = html;
+                            scrollToBottom();
+                        }
+                    } catch (e) { console.warn("Parse error:", e); }
                 }
-                appendMsgUI('user', text);
-                history.push({ role: 'user', parts: [{ text: text }] });
-                pushedUserMsg = true;
-                await saveMemory();
             }
+            await update_S('model', aiText);
+            return aiText;
+        }
+
+        // update_S: push to history + persist (atomic, like DB v1)
+        async function update_S(role, text) {
+            history.push({ role, parts: [{ text }] });
+            await saveMemory();
+        }
+
+        // Infero, ergo sum.
+        async function loop(lastB = '') {
+            await perceive(await act(lastB));                     // S' = I'(B), Res Extensa
+            const B = await infer();                              // B = I(S),   Res Cogitans
+
+            const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human');
+            if (cont) return loop(B);
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+            clearTimeout(autoInferTimer);
+            input.value = '';
+            appendMsgUI('user', text);
+            currentUserInput = currentUserInput ? currentUserInput + '\n\n' + text : text;
+
+            if (isGenerating) return;  // loop 在跑，输入已存入 currentUserInput
 
             lockUI();
-            const aiDiv = appendMsgUI('ai', '');
-
             try {
-                const payload = {
-                    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-                    contents: history.map((msg, i) =>
-                        i === history.length - 1 && msg.role === 'user'
-                            ? { ...msg, parts: [{ text: getEnvContext() + '\n\n' + msg.parts[0].text }] }
-                            : msg
-                    ),
-                    generationConfig: {
-                        temperature: 0.7,
-                        thinkingConfig: { includeThoughts: true }
-                    }
-                };
-
-                const response = await fetch('https://infero.net/api/relay', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Client-ID': CLIENT_ID,
-                        'Authorization': 'Bearer ' + INFERO_KEY,
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errText}`);
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                let aiText = "";
-                let thinkingText = "";
-                let buffer = "";
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
-                    buffer = lines.pop();
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const dataStr = line.slice(6).trim();
-                            if (!dataStr || dataStr === '[DONE]') continue;
-                            try {
-                                const data = JSON.parse(dataStr);
-                                if (data.error) throw new Error(JSON.stringify(data.error));
-                                if (data.candidates && data.candidates[0].content) {
-                                    for (const part of data.candidates[0].content.parts) {
-                                        if (part.thought) {
-                                            thinkingText += part.text || '';
-                                        } else {
-                                            aiText += part.text || '';
-                                        }
-                                    }
-
-                                    let html = '';
-                                    if (thinkingText) {
-                                        html += `<div class="msg-thinking">${marked.parse(thinkingText)}</div>`;
-                                    }
-                                    let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
-                                    html += marked.parse(displayText);
-                                    aiDiv.innerHTML = html;
-                                    scrollToBottom();
-                                }
-                            } catch (e) {
-                                console.warn("Parse error on chunk:", e);
-                            }
-                        }
-                    }
-                }
-
-                history.push({ role: 'model', parts: [{ text: aiText }] });
-                await saveMemory();
-
-                let lastContinue = aiText.lastIndexOf('/self_continue');
-                let lastHuman = aiText.lastIndexOf('/call_for_human');
-                let autoContinue = lastContinue > lastHuman;
-
-                if (aiText.includes('/browser exec')) {
-                    const match = aiText.match(/\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/);
-                    if (match && match[1]) {
-                        setTimeout(() => executeJS(match[1].trim(), autoContinue), 500);
-                        return;
-                    }
-                }
-
-                if (autoContinue) {
-                    const continueMsg = "System - [Auto] - Please continue.";
-                    history.push({ role: 'user', parts: [{ text: continueMsg }] });
-                    await saveMemory();
-                    setTimeout(() => sendMessage(true), 500);
-                    return;
-                }
-
-                unlockUI();
-
+                await loop();
             } catch (err) {
                 console.error(err);
-                aiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
-                if (pushedUserMsg) {
-                    const failedMsg = history.pop();
-                    input.value = failedMsg.parts[0].text;
-                } else if (isAutoReply) {
-                    history.pop();
-                }
+                const allAiDivs = chatBox.querySelectorAll('.msg.ai');
+                const lastAiDiv = allAiDivs[allAiDivs.length - 1];
+                if (lastAiDiv) lastAiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
+                if (currentUserInput) { input.value = currentUserInput; currentUserInput = null; }
                 await saveMemory();
+            } finally {
                 unlockUI();
             }
         }
 
-        sendBtn.onclick = () => sendMessage(false);
+        sendBtn.onclick = () => sendMessage();
         input.onkeydown = (e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                 e.preventDefault();
-                sendMessage(false);
+                sendMessage();
             }
         };
 
@@ -903,8 +914,12 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         let autoInferTimer = null;
 
         function scheduleAutoInfer() {
-            autoInferTimer = setTimeout(() => {
-                if (!isGenerating) sendMessage(true);
+            autoInferTimer = setTimeout(async () => {
+                if (!isGenerating) {
+                    lockUI();
+                    try { await loop(); } catch(e) { console.error(e); }
+                    finally { unlockUI(); }
+                }
             }, 3000);
         }
 
