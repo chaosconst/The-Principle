@@ -29,10 +29,10 @@ QUOTA_PER_IP = int(os.environ.get("QUOTA_PER_IP", "20"))         # 测试用，�
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 # 从 index.html 读取 SYSTEM_INSTRUCTION，保持前后端统一
-_html_path = os.path.join(os.path.dirname(__file__), 'index.html')
+_html_path = os.environ.get("HTML_PATH", os.path.join(os.path.dirname(__file__), 'index.html'))
 with open(_html_path, 'r', encoding='utf-8') as f:
     _match = re.search(r'const SYSTEM_INSTRUCTION = `(.*?)`', f.read(), re.DOTALL)
-SYSTEM_PROMPT_FULL = _match.group(1).replace('\\`', '`').replace('\\n', '\n').replace('\\\\', '\\') if _match else None
+SYSTEM_PROMPT_FIRST_LINE = _match.group(1).split('\n')[0].strip() if _match else None
 
 # --- Redis 限流 ---
 rdb = redis.from_url(REDIS_URL, decode_responses=True)
@@ -107,11 +107,12 @@ async def relay_request(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
-    # System prompt 校验：必须与 index.html 中定义的 SYSTEM_INSTRUCTION 完全一致
-    if SYSTEM_PROMPT_FULL:
+    # System prompt 校验：第一行必须匹配
+    if SYSTEM_PROMPT_FIRST_LINE:
         try:
             sys_text = payload["systemInstruction"]["parts"][0]["text"]
-            if sys_text != SYSTEM_PROMPT_FULL:
+            first_line = sys_text.split('\n')[0].strip()
+            if first_line != SYSTEM_PROMPT_FIRST_LINE:
                 raise HTTPException(status_code=403, detail="Invalid system prompt")
         except (KeyError, IndexError, TypeError):
             raise HTTPException(status_code=403, detail="Missing system prompt")
