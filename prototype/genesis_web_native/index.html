@@ -195,6 +195,20 @@
             color: var(--text-dim);
         }
 
+        /* Thinking block */
+        .msg-thinking {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            font-style: italic;
+            border-left: 2px solid var(--text-dim);
+            padding-left: 10px;
+            margin-bottom: 10px;
+            opacity: 0.7;
+            line-height: 1.5;
+        }
+        .msg-thinking p { margin: 0 0 4px 0; }
+        .msg-thinking p:last-child { margin-bottom: 0; }
+
         .msg p { margin: 0 0 8px 0; }
         .msg p:last-child { margin-bottom: 0; }
         .msg pre {
@@ -727,7 +741,10 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 const payload = {
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
                     contents: history,
-                    generationConfig: { temperature: 0.7 }
+                    generationConfig: {
+                        temperature: 0.7,
+                        thinkingConfig: { includeThoughts: true }
+                    }
                 };
 
                 const response = await fetch('https://infero.net/api/relay', {
@@ -748,6 +765,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
                 let aiText = "";
+                let thinkingText = "";
                 aiDiv.innerHTML = "";
                 let buffer = "";
 
@@ -767,11 +785,21 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                                 const data = JSON.parse(dataStr);
                                 if (data.error) throw new Error(JSON.stringify(data.error));
                                 if (data.candidates && data.candidates[0].content) {
-                                    const part = data.candidates[0].content.parts[0].text;
-                                    aiText += part;
+                                    for (const part of data.candidates[0].content.parts) {
+                                        if (part.thought) {
+                                            thinkingText += part.text || '';
+                                        } else {
+                                            aiText += part.text || '';
+                                        }
+                                    }
 
+                                    let html = '';
+                                    if (thinkingText) {
+                                        html += `<div class="msg-thinking">${marked.parse(thinkingText)}</div>`;
+                                    }
                                     let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
-                                    aiDiv.innerHTML = marked.parse(displayText);
+                                    html += marked.parse(displayText);
+                                    aiDiv.innerHTML = html;
                                     chatBox.scrollTop = chatBox.scrollHeight;
                                 }
                             } catch (e) {
