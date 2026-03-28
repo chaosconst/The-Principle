@@ -2,109 +2,408 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GENESIS | Infero</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bg: #0a0a0c; --text: #e0e0e0; --cyan: #00e5ff; --border: #333; --red: #ff5f56; --orange: #ff9800; --panel-bg: #050507; }
-        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; overflow: hidden; }
-        
-        /* Left Panel */
-        .left-panel { flex: 1; max-width: 50%; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg); z-index: 10; }
-        .header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .title-area { display: flex; align-items: center; gap: 15px; }
-        .header h1 { margin: 0; font-size: 1.2rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 2px; }
-        #session-select { background: #111; color: var(--cyan); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; outline: none; font-family: inherit; max-width: 180px; font-size: 0.8rem; }
-        
-        .controls { display: flex; gap: 8px; align-items: center; }
-        .controls button { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-        .controls button:hover { border-color: var(--cyan); color: var(--cyan); }
-        .controls button.clear-btn:hover { border-color: var(--red); color: var(--red); }
-        
-        .status { font-size: 0.8rem; color: #888; margin-right: 10px; }
-        
-        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
-        .msg { max-width: 90%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; font-family: -apple-system, sans-serif; word-wrap: break-word; }
-        .msg.user { align-self: flex-end; background: rgba(255,255,255,0.1); border: 1px solid var(--border); }
-        .msg.ai { align-self: flex-start; background: rgba(0, 229, 255, 0.05); border-left: 3px solid var(--cyan); }
-        .msg.system { align-self: center; background: rgba(255, 152, 0, 0.1); border: 1px solid var(--orange); font-family: 'Courier New', monospace; font-size: 0.9em; max-width: 95%; width: 100%; }
-        .msg p { margin-bottom: 10px; }
-        .msg p:last-child { margin-bottom: 0; }
-        .msg pre { background: #1e1e1e; padding: 10px; border-radius: 4px; overflow-x: auto; }
-        .msg code { font-family: 'Courier New', monospace; }
-        
-        .input-area { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; background: var(--bg); }
-        textarea { flex: 1; background: transparent; border: 1px solid var(--border); color: white; padding: 12px; border-radius: 6px; font-family: inherit; resize: none; outline: none; }
-        textarea:focus { border-color: var(--cyan); }
-        button.send { background: var(--cyan); color: #000; border: none; padding: 0 20px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: all 0.3s; }
-        button.send:hover:not(:disabled) { opacity: 0.8; }
-        button.send:disabled { background: #333; color: #666; cursor: not-allowed; }
-
-        /* Right Panel */
-        .right-panel { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); position: relative; }
-        .visual-header { padding: 15px 20px; border-bottom: 1px solid var(--border); color: #4caf50; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; position: absolute; top: 0; left: 0; width: 100%; z-index: 10; background: rgba(5,5,7,0.8); backdrop-filter: blur(4px); }
-        #canvas-container { flex: 1; width: 100%; height: 100%; position: relative; overflow: hidden; }
-        #main-canvas { display: block; width: 100%; height: 100%; }
-        #canvas-container::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 30px 30px; z-index: 0; pointer-events: none;
+        :root {
+            --bg: #08080b;
+            --bg-raised: #0e0e13;
+            --text: #c8c8d0;
+            --text-dim: #5a5a6e;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.08);
+            --accent-glow: rgba(0, 212, 170, 0.25);
+            --border: rgba(255,255,255,0.06);
+            --border-active: rgba(255,255,255,0.12);
+            --red: #e84057;
+            --amber: #d4a017;
+            --panel-bg: #050508;
         }
-        #main-canvas { position: relative; z-index: 1; }
-    
-        /* Mobile Responsive Layout */
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            height: 100vh;
+            height: 100dvh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* === HEADER === */
+        .header {
+            grid-column: 1; grid-row: 1;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg);
+            z-index: 10;
+        }
+
+        .title-area { display: flex; align-items: center; gap: 14px; }
+
+        .header h1 {
+            margin: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        #session-select {
+            background: var(--bg-raised);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            outline: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            max-width: 160px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        #session-select:hover { border-color: var(--border-active); }
+        #session-select:focus { border-color: var(--accent); color: var(--text); }
+
+        /* === CONTROLS === */
+        .controls { display: flex; gap: 2px; align-items: center; }
+
+        .status {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 300;
+            color: var(--text-dim);
+            margin-right: 12px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status::before {
+            content: '';
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent-glow);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .controls button {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-dim);
+            width: 30px; height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, sans-serif;
+        }
+        .controls button:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--border);
+        }
+        .controls button.clear-btn:hover {
+            background: rgba(232, 64, 87, 0.08);
+            color: var(--red);
+            border-color: rgba(232, 64, 87, 0.2);
+        }
+
+        /* === LEFT PANEL (Chat) === */
+        .left-panel {
+            grid-column: 1; grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--bg);
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+        }
+
+        /* Scrollbar */
+        #chat-box::-webkit-scrollbar { width: 4px; }
+        #chat-box::-webkit-scrollbar-track { background: transparent; }
+        #chat-box::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 2px; }
+        #chat-box::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+        /* === MESSAGES === */
+        .msg {
+            max-width: 88%;
+            padding: 10px 14px;
+            border-radius: 6px;
+            line-height: 1.65;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+            animation: msgIn 0.25s ease-out;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .msg.ai {
+            align-self: flex-start;
+            background: var(--accent-dim);
+            border-left: 2px solid var(--accent);
+            color: var(--text);
+        }
+        .msg.system {
+            align-self: stretch;
+            background: rgba(212, 160, 23, 0.04);
+            border: 1px solid rgba(212, 160, 23, 0.15);
+            border-left: 2px solid var(--amber);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .msg p { margin: 0 0 8px 0; }
+        .msg p:last-child { margin-bottom: 0; }
+        .msg pre {
+            background: #0c0c10;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            font-size: 0.82rem;
+        }
+        .msg code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+        }
+        .msg a { color: var(--accent); text-decoration: none; }
+        .msg a:hover { text-decoration: underline; }
+
+        /* === INPUT === */
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: var(--bg);
+        }
+
+        textarea {
+            flex: 1;
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea::placeholder { color: var(--text-dim); font-size: 0.85rem; }
+        textarea:focus { border-color: var(--accent); }
+
+        button.send {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        button.send:hover:not(:disabled) {
+            box-shadow: 0 0 20px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+        button.send:disabled {
+            background: var(--border);
+            color: var(--text-dim);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* === RIGHT PANEL (Canvas) === */
+        .right-panel {
+            grid-column: 2; grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            position: relative;
+        }
+
+        #canvas-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Subtle dot grid */
+        #canvas-container::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 24px 24px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #main-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* === MOBILE === */
         @media (max-width: 768px) {
-            body { flex-direction: column; overflow-x: hidden; }
-            .right-panel { width: 100vw; height: 35vh; flex: none; order: 1; border-bottom: 1px solid var(--border); }
-            .left-panel { width: 100vw; max-width: 100vw; height: 65vh; flex: none; border-right: none; order: 2; }
-            
-            /* Header 重排：上下两行，防止按钮撑爆屏幕 */
-            .header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 10px 15px; }
+            body {
+                display: flex;
+                flex-direction: column;
+                overflow-x: hidden;
+            }
+            .header {
+                order: 1;
+                border-right: none;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 10px 14px;
+            }
             .title-area { width: 100%; justify-content: space-between; }
-            .header h1 { font-size: 1.1rem; white-space: nowrap; }
-            #session-select { max-width: 140px; }
-            
-            /* 按钮自动换行 */
-            .controls { flex-wrap: wrap; gap: 6px; justify-content: flex-start; width: 100%; }
-            .controls button { padding: 5px 12px; font-size: 0.85rem; }
-            
+            .header h1 { font-size: 0.8rem; }
+            #session-select { max-width: 130px; }
+            .controls { flex-wrap: wrap; gap: 2px; width: 100%; }
+
+            .right-panel {
+                order: 2;
+                width: 100vw;
+                height: 35vh;
+                flex: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .left-panel {
+                order: 3;
+                width: 100vw;
+                max-width: 100vw;
+                height: calc(65vh - 80px);
+                flex: none;
+                border-right: none;
+            }
+
             #chat-box { padding: 12px; }
-            .input-area { padding: 12px; }
+            .input-area { padding: 10px 12px; }
+            .msg { max-width: 92%; font-size: 0.88rem; }
         }
     </style>
 </head>
 <body>
-    <div class="left-panel">
-        <div class="header">
-            <div class="title-area">
-                <h1>[ GENESIS ]</h1>
-                <select id="session-select" onchange="switchSession(this.value)"></select>
-            </div>
-            <div class="controls">
-                <div class="status" id="status">Ready</div>
-                <button title="New Universe" onclick="newSession()">[+]</button>
-                <button title="Duplicate/Fork" onclick="duplicateSession()">[⑂]</button>
-                <button title="Export Cartridge" onclick="exportSession()">[↓]</button>
-                <button title="Import Cartridge" onclick="document.getElementById('import-file').click()">[↑]</button>
-                <button title="Destroy Universe" class="clear-btn" onclick="deleteSession()">[×]</button>
-                <input type="file" id="import-file" style="display:none" accept=".json" onchange="importSession(event)">
-            </div>
+    <div class="header">
+        <div class="title-area">
+            <h1>GENESIS</h1>
+            <select id="session-select" onchange="switchSession(this.value)"></select>
         </div>
-        <div id="chat-box"></div>
-        <div class="input-area">
-            <textarea id="input" rows="2" placeholder="Enter prompt... (Shift+Enter for new line)"></textarea>
-            <button id="send-btn" class="send">Send</button>
+        <div class="controls">
+            <div class="status" id="status">Ready</div>
+            <button title="New Universe" onclick="newSession()">+</button>
+            <button title="Duplicate/Fork" onclick="duplicateSession()">&#x2442;</button>
+            <button title="Export Cartridge" onclick="exportSession()">&#x2193;</button>
+            <button title="Import Cartridge" onclick="document.getElementById('import-file').click()">&#x2191;</button>
+            <button title="Destroy Universe" class="clear-btn" onclick="deleteSession()">&#x00d7;</button>
+            <input type="file" id="import-file" style="display:none" accept=".json" onchange="importSession(event)">
         </div>
     </div>
 
     <div class="right-panel">
-        <div class="visual-header">[ GENESIS VISUAL CORE ]</div>
         <div id="canvas-container">
             <canvas id="main-canvas"></canvas>
         </div>
     </div>
 
+    <div class="left-panel">
+        <div id="chat-box"></div>
+        <div class="input-area">
+            <textarea id="input" rows="2" placeholder="Enter prompt..."></textarea>
+            <button id="send-btn" class="send">Send</button>
+        </div>
+    </div>
+
     <script>
+        // --- Client Identity ---
+        function generateClientID() {
+            const raw = [
+                navigator.userAgent,
+                navigator.language,
+                Intl.DateTimeFormat().resolvedOptions().timeZone,
+                screen.width + 'x' + screen.height,
+                screen.colorDepth
+            ].join('|');
+            // Simple hash to base64-ish string
+            let hash = 0;
+            for (let i = 0; i < raw.length; i++) {
+                hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+                hash |= 0;
+            }
+            return btoa(String(hash >>> 0)).replace(/=/g, '');
+        }
+
+        function getOrCreateKey() {
+            let key = localStorage.getItem('infero_key');
+            if (!key) {
+                key = 'inf_' + crypto.randomUUID().replace(/-/g, '');
+                localStorage.setItem('infero_key', key);
+            }
+            return key;
+        }
+
+        const CLIENT_ID = generateClientID();
+        const INFERO_KEY = getOrCreateKey();
+
         // --- IndexedDB Storage Engine ---
         const DB = {
             async open() {
@@ -187,15 +486,15 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         function resizeCanvas() {
             const rect = container.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
-            
+
             // 物理像素分辨率 (适配 Retina 屏幕)
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
-            
+
             // CSS 逻辑显示尺寸
             canvas.style.width = rect.width + 'px';
             canvas.style.height = rect.height + 'px';
-            
+
             // 归一化坐标系
             const ctx = canvas.getContext('2d');
             ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置矩阵
@@ -243,7 +542,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                     roleClass = 'system';
                 }
                 if (item.parts[0].text === "System - [Auto] - Please continue.") return;
-                
+
                 const div = document.createElement('div');
                 div.className = `msg ${roleClass}`;
                 div.innerHTML = marked.parse(item.parts[0].text);
@@ -309,7 +608,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             } catch(e) {
                 alert("Failed to parse cartridge.");
             }
-            event.target.value = ''; 
+            event.target.value = '';
         }
 
         async function initApp() {
@@ -367,7 +666,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             status.innerText = 'Executing JS...';
             let logs = [];
             let result;
-            
+
             const originalLog = console.log;
             console.log = (...args) => {
                 logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
@@ -378,7 +677,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
                 const fn = new AsyncFunction(code);
                 let ret = await fn();
-                
+
                 let output = "";
                 if (logs.length > 0) output += `[Console Logs]\n${logs.join('\\n')}\n`;
                 output += `[Return Value]\n${ret !== undefined ? ret : 'undefined'}`;
@@ -395,7 +694,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             await saveMemory();
 
             if (autoContinue) {
-                sendMessage(true); 
+                sendMessage(true);
             } else {
                 unlockUI();
             }
@@ -405,8 +704,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             if (isGenerating && !isAutoReply) return;
 
             let text = "";
-            let pushedUserMsg = false; 
-            
+            let pushedUserMsg = false;
+
             if (!isAutoReply) {
                 text = input.value.trim();
                 if (!text) return;
@@ -416,7 +715,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 pushedUserMsg = true;
                 await saveMemory();
             }
-            
+
             lockUI();
             const aiDiv = appendMsgUI('ai', '...');
 
@@ -427,9 +726,13 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                     generationConfig: { temperature: 0.7 }
                 };
 
-                const response = await fetch('/api/relay', {
+                const response = await fetch('https://infero.net/api/relay', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Client-ID': CLIENT_ID,
+                        'Authorization': 'Bearer ' + INFERO_KEY,
+                    },
                     body: JSON.stringify(payload)
                 });
 
@@ -447,11 +750,11 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    
+
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    buffer = lines.pop(); 
-                    
+                    buffer = lines.pop();
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const dataStr = line.slice(6).trim();
@@ -462,7 +765,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                                 if (data.candidates && data.candidates[0].content) {
                                     const part = data.candidates[0].content.parts[0].text;
                                     aiText += part;
-                                    
+
                                     let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
                                     aiDiv.innerHTML = marked.parse(displayText);
                                     chatBox.scrollTop = chatBox.scrollHeight;
@@ -473,7 +776,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                         }
                     }
                 }
-                
+
                 history.push({ role: 'model', parts: [{ text: aiText }] });
                 await saveMemory();
 
@@ -485,7 +788,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                     const match = aiText.match(/\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/);
                     if (match && match[1]) {
                         setTimeout(() => executeJS(match[1].trim(), autoContinue), 500);
-                        return; 
+                        return;
                     }
                 }
 
@@ -494,7 +797,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                     history.push({ role: 'user', parts: [{ text: continueMsg }] });
                     await saveMemory();
                     setTimeout(() => sendMessage(true), 500);
-                    return; 
+                    return;
                 }
 
                 unlockUI();
@@ -504,7 +807,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 aiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
                 if (pushedUserMsg) {
                     const failedMsg = history.pop();
-                    input.value = failedMsg.parts[0].text; 
+                    input.value = failedMsg.parts[0].text;
                 } else if (isAutoReply) {
                     history.pop();
                 }
