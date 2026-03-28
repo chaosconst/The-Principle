@@ -355,7 +355,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         #session-select:focus { border-color: var(--accent); color: var(--text); }
 
         /* === CONTROLS === */
-        .controls { display: flex; gap: 2px; align-items: center; }
+        .controls { display: flex; gap: 2px; align-items: center; margin-left: auto; }
 
         .status {
             font-family: 'JetBrains Mono', monospace;
@@ -367,6 +367,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             display: flex;
             align-items: center;
             gap: 6px;
+            min-width: 160px;
         }
         .status::before {
             content: '';
@@ -622,7 +623,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             .title-area { width: 100%; justify-content: space-between; }
             .header h1 { font-size: 0.8rem; }
             #session-select { max-width: 130px; }
-            .controls { flex-wrap: wrap; gap: 2px; width: 100%; }
+            .controls { flex-wrap: wrap; gap: 2px; margin-left: auto; }
 
             .right-panel {
                 order: 2;
@@ -653,10 +654,10 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
     <div class="header">
         <div class="title-area">
             <h1>GENESIS</h1>
-            <select id="session-select" onchange="switchSession(this.value)"></select>
+            <div class="status" id="status">Ready</div>
         </div>
         <div class="controls">
-            <div class="status" id="status">Ready</div>
+            <select id="session-select" onchange="switchSession(this.value)"></select>
             <button title="New Universe" onclick="newSession()">+</button>
             <button title="Duplicate/Fork" onclick="duplicateSession()">&#x2442;</button>
             <button title="Export Cartridge" onclick="exportSession()">&#x2193;</button>
@@ -840,8 +841,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 currentSessionId = 'session_' + Date.now();
             }
             let title = currentSessionId;
-            // Extract title from first user input (skip system environment lines)
-            const userMatch = consciousness.match(/\n\n([^\n\[].{0,30})/);
+            // Extract title from first user input (skip system/assistant markers)
+            const userMatch = consciousness.match(/\n\n(?!\[System|\*\*Assistant|System -)([^\n].{0,30})/);
             if (userMatch) {
                 title = userMatch[1].replace(/\n/g, ' ').trim().substring(0, 15) + '...';
             }
