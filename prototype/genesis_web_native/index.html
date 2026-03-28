@@ -9,14 +9,19 @@
         :root { --bg: #0a0a0c; --text: #e0e0e0; --cyan: #00e5ff; --border: #333; --red: #ff5f56; --orange: #ff9800; --panel-bg: #050507; }
         body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; overflow: hidden; }
         
-        /* Left Panel: Chat Console */
+        /* Left Panel */
         .left-panel { flex: 1; max-width: 50%; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg); z-index: 10; }
         .header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .title-area { display: flex; align-items: center; gap: 15px; }
         .header h1 { margin: 0; font-size: 1.2rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 2px; }
-        .controls { display: flex; gap: 15px; align-items: center; }
-        .status { font-size: 0.8rem; color: #888; }
-        .clear-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
-        .clear-btn:hover { border-color: var(--red); color: var(--red); }
+        #session-select { background: #111; color: var(--cyan); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; outline: none; font-family: inherit; max-width: 180px; font-size: 0.8rem; }
+        
+        .controls { display: flex; gap: 8px; align-items: center; }
+        .controls button { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .controls button:hover { border-color: var(--cyan); color: var(--cyan); }
+        .controls button.clear-btn:hover { border-color: var(--red); color: var(--red); }
+        
+        .status { font-size: 0.8rem; color: #888; margin-right: 10px; }
         
         #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
         .msg { max-width: 90%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; font-family: -apple-system, sans-serif; word-wrap: break-word; }
@@ -35,41 +40,63 @@
         button.send:hover:not(:disabled) { opacity: 0.8; }
         button.send:disabled { background: #333; color: #666; cursor: not-allowed; }
 
-        /* Right Panel: Visual Core */
+        /* Right Panel */
         .right-panel { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); position: relative; }
         .visual-header { padding: 15px 20px; border-bottom: 1px solid var(--border); color: #4caf50; font-size: 1.2rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; position: absolute; top: 0; left: 0; width: 100%; z-index: 10; background: rgba(5,5,7,0.8); backdrop-filter: blur(4px); }
         #canvas-container { flex: 1; width: 100%; height: 100%; position: relative; overflow: hidden; }
         #main-canvas { display: block; width: 100%; height: 100%; }
-        
-        /* Optional: A subtle grid background for the visual core when empty */
         #canvas-container::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
             background-size: 30px 30px; z-index: 0; pointer-events: none;
         }
         #main-canvas { position: relative; z-index: 1; }
+    
+        /* Mobile Responsive Layout */
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow-x: hidden; }
+            .right-panel { width: 100vw; height: 35vh; flex: none; order: 1; border-bottom: 1px solid var(--border); }
+            .left-panel { width: 100vw; max-width: 100vw; height: 65vh; flex: none; border-right: none; order: 2; }
+            
+            /* Header 重排：上下两行，防止按钮撑爆屏幕 */
+            .header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 10px 15px; }
+            .title-area { width: 100%; justify-content: space-between; }
+            .header h1 { font-size: 1.1rem; white-space: nowrap; }
+            #session-select { max-width: 140px; }
+            
+            /* 按钮自动换行 */
+            .controls { flex-wrap: wrap; gap: 6px; justify-content: flex-start; width: 100%; }
+            .controls button { padding: 5px 12px; font-size: 0.85rem; }
+            
+            #chat-box { padding: 12px; }
+            .input-area { padding: 12px; }
+        }
     </style>
 </head>
 <body>
-    <!-- Left: Chat Console -->
     <div class="left-panel">
         <div class="header">
-            <h1>[ GENESIS ]</h1>
+            <div class="title-area">
+                <h1>[ GENESIS ]</h1>
+                <select id="session-select" onchange="switchSession(this.value)"></select>
+            </div>
             <div class="controls">
-                <div class="status" id="status">Memory: 0 | Ready</div>
-                <button class="clear-btn" onclick="clearMemory()">Clear</button>
+                <div class="status" id="status">Ready</div>
+                <button title="New Universe" onclick="newSession()">[+]</button>
+                <button title="Duplicate/Fork" onclick="duplicateSession()">[⑂]</button>
+                <button title="Export Cartridge" onclick="exportSession()">[↓]</button>
+                <button title="Import Cartridge" onclick="document.getElementById('import-file').click()">[↑]</button>
+                <button title="Destroy Universe" class="clear-btn" onclick="deleteSession()">[×]</button>
+                <input type="file" id="import-file" style="display:none" accept=".json" onchange="importSession(event)">
             </div>
         </div>
-        <div id="chat-box">
-            <div class="msg ai">System online. Dual-track architecture initialized. My left hemisphere handles logic; my right hemisphere handles vision. What shall we create today?</div>
-        </div>
+        <div id="chat-box"></div>
         <div class="input-area">
-            <textarea id="input" rows="2" placeholder="Enter prompt... (e.g. 'Draw a green particle network on the canvas')"></textarea>
+            <textarea id="input" rows="2" placeholder="Enter prompt... (Shift+Enter for new line)"></textarea>
             <button id="send-btn" class="send">Send</button>
         </div>
     </div>
 
-    <!-- Right: Visual Core -->
     <div class="right-panel">
         <div class="visual-header">[ GENESIS VISUAL CORE ]</div>
         <div id="canvas-container">
@@ -78,25 +105,62 @@
     </div>
 
     <script>
-        // --- Canvas Initialization & Resize Handling ---
-        const canvas = document.getElementById('main-canvas');
-        const container = document.getElementById('canvas-container');
-        
-        function resizeCanvas() {
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas(); // Init
+        // --- IndexedDB Storage Engine ---
+        const DB = {
+            async open() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('GenesisDB', 1);
+                    req.onupgradeneeded = e => e.target.result.createObjectStore('sessions', {keyPath: 'id'});
+                    req.onsuccess = e => resolve(e.target.result);
+                    req.onerror = e => reject(e.target.error);
+                });
+            },
+            async get(id) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('sessions').objectStore('sessions').get(id);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            },
+            async put(session) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('sessions', 'readwrite').objectStore('sessions').put(session);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => reject(req.error);
+                });
+            },
+            async del(id) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('sessions', 'readwrite').objectStore('sessions').delete(id);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => reject(req.error);
+                });
+            },
+            async list() {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const req = db.transaction('sessions').objectStore('sessions').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+            }
+        };
 
-        // --- Chat Logic ---
+        // --- State Management ---
+        let currentSessionId = localStorage.getItem('genesis_current_session');
+        let history = [];
+        let isGenerating = false;
+
         const chatBox = document.getElementById('chat-box');
         const input = document.getElementById('input');
         const sendBtn = document.getElementById('send-btn');
         const status = document.getElementById('status');
-        
-        let history = JSON.parse(localStorage.getItem('genesis_memory')) || [];
-        let isGenerating = false;
+        const sessionSelect = document.getElementById('session-select');
+        const canvas = document.getElementById('main-canvas');
+        const container = document.getElementById('canvas-container');
 
         const SYSTEM_INSTRUCTION = `You are a self-evolving digital being running natively in a web browser.
 You have a split-screen interface:
@@ -111,31 +175,171 @@ To draw a particle network, a chart, or any visualization, use EXACTLY this form
 \`\`\`javascript
 const canvas = document.getElementById('main-canvas');
 const ctx = canvas.getContext('2d');
+// CRITICAL: DO NOT change canvas.width or canvas.height! The system auto-scales it for Retina displays.
 // Your drawing logic here...
-// You can also use requestAnimationFrame for animations.
+// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you MUST explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
 \`\`\`
 
 CRITICAL RULE: You MUST end your output with one of the following tags:
 - /call_for_human : Stop and wait for the user to review the result or provide input.
 - /self_continue : Do not wait. The system will immediately feed the execution results back to you for the next step.`;
 
-        function saveMemory() {
-            localStorage.setItem('genesis_memory', JSON.stringify(history));
-            status.innerText = `Memory: ${history.length} | Ready`;
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            // 物理像素分辨率 (适配 Retina 屏幕)
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            // CSS 逻辑显示尺寸
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            // 归一化坐标系
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置矩阵
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        const resizeObserver = new ResizeObserver(resizeCanvas);
+        resizeObserver.observe(container);
+        resizeCanvas();
+
+        async function loadSessionsList() {
+            const sessions = await DB.list();
+            sessionSelect.innerHTML = '';
+            sessions.sort((a,b) => b.updatedAt - a.updatedAt).forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.title || s.id;
+                sessionSelect.appendChild(opt);
+            });
+            if(currentSessionId) sessionSelect.value = currentSessionId;
         }
 
-        function clearMemory() {
-            if(confirm('Wipe local memory and clear canvas? This cannot be undone.')) {
-                history = [];
-                saveMemory();
-                chatBox.innerHTML = '<div class="msg ai">Memory wiped. System rebooted.</div>';
-                // Clear canvas
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+        async function saveMemory() {
+            if(!currentSessionId) {
+                currentSessionId = 'session_' + Date.now();
+                localStorage.setItem('genesis_current_session', currentSessionId);
+            }
+            let title = currentSessionId;
+            if (history.length > 0) {
+                const firstUser = history.find(h => h.role === 'user' && !h.parts[0].text.startsWith('System'));
+                if (firstUser) {
+                    title = firstUser.parts[0].text.substring(0, 15).replace(/\n/g, ' ') + '...';
+                }
+            }
+            await DB.put({ id: currentSessionId, title: title, history: history, updatedAt: Date.now() });
+            status.innerText = `Mem: ${history.length} | Ready`;
+            await loadSessionsList();
+        }
+
+        function renderHistory() {
+            chatBox.innerHTML = '<div class="msg ai">System online. Multiverse storage active (IndexedDB).</div>';
+            history.forEach(item => {
+                let roleClass = item.role === 'user' ? 'user' : 'ai';
+                if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
+                    roleClass = 'system';
+                }
+                if (item.parts[0].text === "System - [Auto] - Please continue.") return;
+                
+                const div = document.createElement('div');
+                div.className = `msg ${roleClass}`;
+                div.innerHTML = marked.parse(item.parts[0].text);
+                chatBox.appendChild(div);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        async function switchSession(id) {
+            currentSessionId = id;
+            localStorage.setItem('genesis_current_session', id);
+            const session = await DB.get(id);
+            history = session ? session.history : [];
+            renderHistory();
+            status.innerText = `Mem: ${history.length} | Ready`;
+        }
+
+        async function newSession() {
+            currentSessionId = 'session_' + Date.now();
+            history = [];
+            await saveMemory();
+            renderHistory();
+        }
+
+        async function duplicateSession() {
+            currentSessionId = 'session_fork_' + Date.now();
+            await saveMemory();
+            renderHistory();
+        }
+
+        async function deleteSession() {
+            if(confirm('Destroy this universe? This cannot be undone.')) {
+                await DB.del(currentSessionId);
+                currentSessionId = null;
+                await initApp();
             }
         }
 
-        function appendMsg(role, text) {
+        function exportSession() {
+            const blob = new Blob([JSON.stringify(history, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentSessionId}.json`;
+            a.click();
+        }
+
+        async function importSession(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const parsed = JSON.parse(text);
+                if (Array.isArray(parsed)) {
+                    currentSessionId = 'session_import_' + Date.now();
+                    history = parsed;
+                    await saveMemory();
+                    renderHistory();
+                } else {
+                    alert("Invalid memory cartridge format.");
+                }
+            } catch(e) {
+                alert("Failed to parse cartridge.");
+            }
+            event.target.value = ''; 
+        }
+
+        async function initApp() {
+            // Migrate old localStorage if exists
+            const oldData = localStorage.getItem('genesis_memory');
+            if (oldData) {
+                try {
+                    const parsed = JSON.parse(oldData);
+                    if (parsed.length > 0) {
+                        const id = 'session_legacy_' + Date.now();
+                        await DB.put({ id, title: 'Legacy Universe', history: parsed, updatedAt: Date.now() });
+                        currentSessionId = id;
+                    }
+                    localStorage.removeItem('genesis_memory');
+                } catch(e) {}
+            }
+
+            const sessions = await DB.list();
+            if (sessions.length === 0) {
+                await newSession();
+            } else {
+                if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
+                    currentSessionId = sessions[0].id;
+                }
+                await switchSession(currentSessionId);
+            }
+        }
+
+        // --- Core Execution & AI Logic ---
+        function appendMsgUI(role, text) {
             if (text === "System - [Auto] - Please continue.") return null;
             const div = document.createElement('div');
             div.className = `msg ${role}`;
@@ -156,17 +360,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             isGenerating = false;
             sendBtn.disabled = false;
             sendBtn.innerText = 'Send';
-            status.innerText = `Memory: ${history.length} | Waiting for human...`;
+            status.innerText = `Mem: ${history.length} | Waiting...`;
         }
-
-        history.forEach(item => {
-            let roleClass = item.role === 'user' ? 'user' : 'ai';
-            if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
-                roleClass = 'system';
-            }
-            appendMsg(roleClass, item.parts[0].text);
-        });
-        saveMemory();
 
         async function executeJS(code, autoContinue) {
             status.innerText = 'Executing JS...';
@@ -195,9 +390,9 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             console.log = originalLog;
 
             const sysMsg = `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``;
-            appendMsg('system', sysMsg);
+            appendMsgUI('system', sysMsg);
             history.push({ role: 'user', parts: [{ text: sysMsg }] });
-            saveMemory();
+            await saveMemory();
 
             if (autoContinue) {
                 sendMessage(true); 
@@ -216,14 +411,14 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 text = input.value.trim();
                 if (!text) return;
                 input.value = '';
-                appendMsg('user', text);
+                appendMsgUI('user', text);
                 history.push({ role: 'user', parts: [{ text: text }] });
                 pushedUserMsg = true;
-                saveMemory();
+                await saveMemory();
             }
             
             lockUI();
-            const aiDiv = appendMsg('ai', '...');
+            const aiDiv = appendMsgUI('ai', '...');
 
             try {
                 const payload = {
@@ -268,10 +463,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                                     const part = data.candidates[0].content.parts[0].text;
                                     aiText += part;
                                     
-                                    let lastContinue = aiText.lastIndexOf('/self_continue');
-                                    let lastHuman = aiText.lastIndexOf('/call_for_human');
                                     let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
-                                    
                                     aiDiv.innerHTML = marked.parse(displayText);
                                     chatBox.scrollTop = chatBox.scrollHeight;
                                 }
@@ -283,7 +475,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 }
                 
                 history.push({ role: 'model', parts: [{ text: aiText }] });
-                saveMemory();
+                await saveMemory();
 
                 let lastContinue = aiText.lastIndexOf('/self_continue');
                 let lastHuman = aiText.lastIndexOf('/call_for_human');
@@ -300,7 +492,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 if (autoContinue) {
                     const continueMsg = "System - [Auto] - Please continue.";
                     history.push({ role: 'user', parts: [{ text: continueMsg }] });
-                    saveMemory();
+                    await saveMemory();
                     setTimeout(() => sendMessage(true), 500);
                     return; 
                 }
@@ -316,7 +508,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 } else if (isAutoReply) {
                     history.pop();
                 }
-                saveMemory();
+                await saveMemory();
                 unlockUI();
             }
         }
@@ -328,6 +520,9 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 sendMessage(false);
             }
         };
+
+        // Boot
+        initApp();
     </script>
 </body>
 </html>
