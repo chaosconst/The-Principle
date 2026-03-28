@@ -39,7 +39,7 @@ rdb = redis.from_url(REDIS_URL, decode_responses=True)
 
 def get_identity(request: Request):
     """提取 IP 和 clientID，分开返回"""
-    ip = request.headers.get("x-forwarded-for", request.client.host)
+    ip = request.headers.get("x-forwarded-for") or request.headers.get("x-real-ip") or request.client.host
     if "," in ip:
         ip = ip.split(",")[0].strip()
     client_id = request.headers.get("x-client-id", "unknown")

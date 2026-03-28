@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GENESIS | Infero</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='none' stroke='%2300d4aa' stroke-width='4'/><circle cx='50' cy='50' r='8' fill='%2300d4aa'/></svg>">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -475,8 +476,8 @@ To draw a particle network, a chart, or any visualization, use EXACTLY this form
 /browser exec
 \`\`\`javascript
 const canvas = document.getElementById('main-canvas');
-const ctx = canvas.getContext('2d');
-// CRITICAL: DO NOT change canvas.width or canvas.height! The system auto-scales it for Retina displays.
+// CRITICAL: DO NOT change canvas.width or canvas.height! The system handles Retina via CSS scaling.
+// Use canvas.width and canvas.height directly for coordinates (e.g., canvas.width/2 is the exact center).
 // Your drawing logic here...
 // CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you MUST explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
 \`\`\`
@@ -493,14 +494,12 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
 
-            // CSS 逻辑显示尺寸
+            // CSS 逻辑显示尺寸 (CSS 负责缩放显示)
             canvas.style.width = rect.width + 'px';
             canvas.style.height = rect.height + 'px';
 
-            // 归一化坐标系
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置矩阵
-            ctx.scale(dpr, dpr);
+            // 保持 1:1 物理坐标系，不做 scale
+            // AI 直接用 canvas.width/height 计算坐标即可精确对应
         }
         window.addEventListener('resize', resizeCanvas);
         const resizeObserver = new ResizeObserver(resizeCanvas);
