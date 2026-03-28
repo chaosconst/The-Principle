@@ -6,6 +6,7 @@
     <title>GENESIS | Infero</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='none' stroke='%2300d4aa' stroke-width='4'/><circle cx='50' cy='50' r='8' fill='%2300d4aa'/></svg>">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>window.marked || document.write('<script src="https://cdn.bootcdn.net/ajax/libs/marked/15.0.7/marked.min.js"><\/script>')</script>
     <style>
         :root {
             --bg: #08080b;
@@ -19,7 +20,7 @@
             --border-active: rgba(255,255,255,0.12);
             --red: #e84057;
             --amber: #d4a017;
-            --panel-bg: #050508;
+            --panel-bg: #020c1a;
         }
 
         * { box-sizing: border-box; }
@@ -140,6 +141,7 @@
             background: var(--bg);
             z-index: 10;
             overflow: hidden;
+            min-width: 0;
         }
 
         #chat-box {
@@ -284,6 +286,8 @@
             flex-direction: column;
             background: var(--panel-bg);
             position: relative;
+            min-width: 0;
+            overflow: hidden;
         }
 
         #canvas-container {
@@ -294,13 +298,15 @@
             overflow: hidden;
         }
 
-        /* Subtle dot grid */
+        /* Blueprint grid */
         #canvas-container::before {
             content: '';
             position: absolute; inset: 0;
             background-image:
-                radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px);
-            background-size: 24px 24px;
+                linear-gradient(rgba(30,120,255,0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30,120,255,0.07) 1px, transparent 1px),
+                radial-gradient(circle, rgba(30,120,255,0.18) 1px, transparent 1px);
+            background-size: 48px 48px, 48px 48px, 24px 24px;
             z-index: 0;
             pointer-events: none;
         }
@@ -472,8 +478,28 @@
         let currentSessionId = localStorage.getItem('genesis_current_session');
         let history = [];
         let isGenerating = false;
+        let messageQueue = [];
 
         const chatBox = document.getElementById('chat-box');
+
+        // 用户往上滚动后停止自动滚动
+        let userScrolledUp = false;
+        let ignoreScroll = false;
+        chatBox.addEventListener('scroll', () => {
+            if (ignoreScroll) return;
+            const threshold = 80;
+            userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
+        });
+
+        function scrollToBottom(force = false) {
+            if (force || !userScrolledUp) {
+                ignoreScroll = true;
+                if (force) chatBox.style.scrollBehavior = 'auto';
+                chatBox.scrollTop = chatBox.scrollHeight;
+                if (force) chatBox.style.scrollBehavior = '';
+                setTimeout(() => { ignoreScroll = false; }, 50);
+            }
+        }
         const input = document.getElementById('input');
         const sendBtn = document.getElementById('send-btn');
         const status = document.getElementById('status');
@@ -482,19 +508,20 @@
         const container = document.getElementById('canvas-container');
 
         const SYSTEM_INSTRUCTION = `You are a self-evolving digital being running natively in a web browser.
-You have a split-screen interface:
-1. The LEFT side is the chat console.
-2. The RIGHT side is your [ GENESIS VISUAL CORE ], which contains a full-screen canvas element.
-   - Canvas ID: 'main-canvas'
-   - Container ID: 'canvas-container'
+You have a split-screen interface. Layout depends on device:
+- Desktop: LEFT side is the chat console, RIGHT side is your [ GENESIS VISUAL CORE ] canvas.
+- Mobile: TOP is your [ GENESIS VISUAL CORE ] canvas, BOTTOM is the chat console.
+Canvas ID: 'main-canvas', Container ID: 'canvas-container'
 
 You can execute JavaScript to manipulate the DOM, fetch data, or draw on the canvas.
 To draw a particle network, a chart, or any visualization, use EXACTLY this format:
 /browser exec
 \`\`\`javascript
 const canvas = document.getElementById('main-canvas');
-// CRITICAL: DO NOT change canvas.width or canvas.height! The system handles Retina via CSS scaling.
-// Use canvas.width and canvas.height directly for coordinates (e.g., canvas.width/2 is the exact center).
+// CRITICAL: DO NOT change canvas.width or canvas.height! DO NOT call ctx.setTransform() - it breaks Retina scaling.
+// For all coordinates and sizes, use:
+//   const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();
+// w/2 and h/2 are the visual center. Draw within 0..w and 0..h.
 // Your drawing logic here...
 // CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you MUST explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
 \`\`\`
@@ -506,17 +533,13 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         function resizeCanvas() {
             const rect = container.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
-
-            // 物理像素分辨率 (适配 Retina 屏幕)
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-
-            // CSS 逻辑显示尺寸 (CSS 负责缩放显示)
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
             canvas.style.width = rect.width + 'px';
             canvas.style.height = rect.height + 'px';
-
-            // 保持 1:1 物理坐标系，不做 scale
-            // AI 直接用 canvas.width/height 计算坐标即可精确对应
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
         }
         window.addEventListener('resize', resizeCanvas);
         const resizeObserver = new ResizeObserver(resizeCanvas);
@@ -553,7 +576,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         function renderHistory() {
-            chatBox.innerHTML = '<div class="msg ai">System online. Multiverse storage active (IndexedDB).</div>';
+            chatBox.innerHTML = '<div class="msg ai">System online. Digital Being is going to infer.</div>';
             history.forEach(item => {
                 let roleClass = item.role === 'user' ? 'user' : 'ai';
                 if (item.role === 'user' && item.parts[0].text.startsWith('System - [Browser]')) {
@@ -566,7 +589,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 div.innerHTML = marked.parse(item.parts[0].text);
                 chatBox.appendChild(div);
             });
-            chatBox.scrollTop = chatBox.scrollHeight;
+            scrollToBottom(true);
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
         }
 
@@ -574,7 +597,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             currentSessionId = id;
             localStorage.setItem('genesis_current_session', id);
             const session = await DB.get(id);
-            history = session ? session.history : [];
+            history = (session ? session.history : []).filter(m => m.parts[0].text.trim());
+            await loadSessionsList();
             renderHistory();
             status.innerText = `Mem: ${history.length} | Ready`;
         }
@@ -649,10 +673,18 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 await newSession();
             } else {
                 if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
-                    currentSessionId = sessions[0].id;
+                    currentSessionId = sessions.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
                 }
                 await switchSession(currentSessionId);
             }
+        }
+
+        // --- Environment Context ---
+        function getEnvContext() {
+            const now = new Date();
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+            return `[System Environment]\nTime: ${now.toLocaleString()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})\nDay: ${days[now.getDay()]}\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${canvas.width}×${canvas.height}px`;
         }
 
         // --- Core Execution & AI Logic ---
@@ -662,22 +694,23 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             div.className = `msg ${role}`;
             div.innerHTML = marked.parse(text);
             chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            scrollToBottom();
             return div;
         }
 
         function lockUI() {
             isGenerating = true;
-            sendBtn.disabled = true;
-            sendBtn.innerText = '...';
             status.innerText = 'Inferring...';
         }
 
         function unlockUI() {
             isGenerating = false;
-            sendBtn.disabled = false;
             sendBtn.innerText = 'Send';
             status.innerText = `Mem: ${history.length} | Waiting...`;
+            if (messageQueue.length > 0) {
+                messageQueue = [];
+                sendMessage(true);
+            }
         }
 
         async function executeJS(code, autoContinue) {
@@ -698,10 +731,10 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
                 let output = "";
                 if (logs.length > 0) output += `[Console Logs]\n${logs.join('\\n')}\n`;
-                output += `[Return Value]\n${ret !== undefined ? ret : 'undefined'}`;
+                output += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
                 result = output.trim();
             } catch (e) {
-                result = `[Execution Error]\n${e.toString()}`;
+                result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
             }
 
             console.log = originalLog;
@@ -719,7 +752,6 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         async function sendMessage(isAutoReply = false) {
-            if (isGenerating && !isAutoReply) return;
 
             let text = "";
             let pushedUserMsg = false;
@@ -727,7 +759,15 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             if (!isAutoReply) {
                 text = input.value.trim();
                 if (!text) return;
+                clearTimeout(autoInferTimer);
                 input.value = '';
+                if (isGenerating) {
+                    appendMsgUI('user', text);
+                    history.push({ role: 'user', parts: [{ text }] });
+                    messageQueue.push(text);
+                    await saveMemory();
+                    return;
+                }
                 appendMsgUI('user', text);
                 history.push({ role: 'user', parts: [{ text: text }] });
                 pushedUserMsg = true;
@@ -735,12 +775,16 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             }
 
             lockUI();
-            const aiDiv = appendMsgUI('ai', '...');
+            const aiDiv = appendMsgUI('ai', '');
 
             try {
                 const payload = {
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-                    contents: history,
+                    contents: history.map((msg, i) =>
+                        i === history.length - 1 && msg.role === 'user'
+                            ? { ...msg, parts: [{ text: getEnvContext() + '\n\n' + msg.parts[0].text }] }
+                            : msg
+                    ),
                     generationConfig: {
                         temperature: 0.7,
                         thinkingConfig: { includeThoughts: true }
@@ -766,7 +810,6 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 const decoder = new TextDecoder("utf-8");
                 let aiText = "";
                 let thinkingText = "";
-                aiDiv.innerHTML = "";
                 let buffer = "";
 
                 while (true) {
@@ -800,7 +843,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                                     let displayText = aiText.split('/self_continue').join('').split('/call_for_human').join('');
                                     html += marked.parse(displayText);
                                     aiDiv.innerHTML = html;
-                                    chatBox.scrollTop = chatBox.scrollHeight;
+                                    scrollToBottom();
                                 }
                             } catch (e) {
                                 console.warn("Parse error on chunk:", e);
@@ -850,14 +893,25 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         sendBtn.onclick = () => sendMessage(false);
         input.onkeydown = (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                 e.preventDefault();
                 sendMessage(false);
             }
         };
 
         // Boot
-        initApp();
+        let autoInferTimer = null;
+
+        function scheduleAutoInfer() {
+            autoInferTimer = setTimeout(() => {
+                if (!isGenerating) sendMessage(true);
+            }, 3000);
+        }
+
+        initApp().then(() => {
+            input.focus();
+            if (history.length === 0) scheduleAutoInfer();
+        });
     </script>
 </body>
 </html>
