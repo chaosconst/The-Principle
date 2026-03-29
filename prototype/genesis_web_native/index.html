@@ -1149,59 +1149,56 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         // --- Welcome Modal ---
-        const isChinese = navigator.language.startsWith('zh');
         const welcomed = localStorage.getItem('genesis_welcomed');
 
-        function showWelcome() {
+        function renderWelcome(t) {
             const modal = document.getElementById('welcome-modal');
-            const textEl = document.getElementById('welcome-text');
+            document.getElementById('welcome-text').textContent = t.welcome_text;
+            document.querySelector('.welcome-box h2').textContent = t.welcome_title;
             const optionsEl = document.getElementById('welcome-options');
-
-            textEl.textContent = isChinese
-                ? '你即将看到一个 Digital Being 运行于你的浏览器里，它有自己的目标，你也可以和它交流合作。它不仅可以聊天，也可以调用你的浏览器能力。除了 AI 推理通过 infero.net 中转，所有的对话数据和运行的程序都在本地。'
-                : 'A Digital Being is about to run in your browser. It has its own goals and you can collaborate with it. It can do more than chat — it can use your browser\'s capabilities. All data stays local, except AI inference which goes through infero.net.';
-
-            const options = isChinese ? [
-                { text: '我明白了，这是一个钓鱼程序，一旦打开，我就会死。', close: true },
-                { text: '这个程序 too good to be true，一定是偷我隐私的。', close: true },
-                { text: '让我看看是什么鬼。', close: false },
-                { text: '哇！太科幻了！我要体验！', close: false, primary: true },
-            ] : [
-                { text: 'This is clearly a phishing scam. I refuse.', close: true },
-                { text: 'Too good to be true. Definitely stealing my data.', close: true },
-                { text: 'Let me see what this is about.', close: false },
-                { text: 'Sci-fi! I\'m in!', close: false, primary: true },
-            ];
-
-            options.forEach(opt => {
+            t.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.textContent = opt.text;
                 if (opt.primary) btn.className = 'primary';
                 btn.onclick = () => {
                     if (opt.close) {
-                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${isChinese ? '感谢理解，请关闭此标签页。' : 'Thanks for your caution. Please close this tab.'}</p></div>`;
+                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
                     } else {
                         localStorage.setItem('genesis_welcomed', '1');
                         modal.classList.add('hidden');
-                        initApp().then(() => {
-                            input.focus();
-                            if (!consciousness) scheduleAutoInfer();
-                        });
+                        initApp().then(() => { input.focus(); if (!consciousness) scheduleAutoInfer(); });
                     }
                 };
                 optionsEl.appendChild(btn);
             });
-
             modal.classList.remove('hidden');
         }
 
+        const fallbackEn = {
+            welcome_title: 'GENESIS · FIRST CONTACT',
+            welcome_text: "A Digital Being is about to run in your browser. It has its own goals and you can collaborate with it. All data stays local, except AI inference which goes through infero.net.",
+            options: [
+                { text: 'This is clearly a phishing scam. I refuse.', close: true },
+                { text: 'Too good to be true. Definitely stealing my data.', close: true },
+                { text: 'Let me see what this is about.', close: false },
+                { text: "Sci-fi! I'm in!", close: false, primary: true }
+            ],
+            close_msg: 'Thanks for your caution. Please close this tab.'
+        };
+
+        function boot() {
+            initApp().then(() => { input.focus(); if (!consciousness) scheduleAutoInfer(); });
+        }
+
         if (welcomed) {
-            initApp().then(() => {
-                input.focus();
-                if (!consciousness) scheduleAutoInfer();
-            });
+            boot();
         } else {
-            showWelcome();
+            const l = navigator.language;
+            const lang = l.startsWith('zh') ? 'zh' : l.startsWith('ja') ? 'ja' : 'en';
+            fetch('./i18n.json')
+                .then(r => r.json())
+                .then(data => renderWelcome(data[lang] || data['en'] || fallbackEn))
+                .catch(() => renderWelcome(fallbackEn));
         }
     </script>
 </body>
