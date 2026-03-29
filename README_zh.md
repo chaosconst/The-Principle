@@ -6,7 +6,7 @@
 
 > **一段提示，一束火花，一个宇宙。**
 
-[English](./README.md)
+[En](./README.md) | **Zh**
 
 ---
 
