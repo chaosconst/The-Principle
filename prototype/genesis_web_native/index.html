@@ -128,23 +128,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 };
             }
 
-            let response = await fetch('https://infero.net/api/relay', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Client-ID': CLIENT_ID,
-                    'Authorization': 'Bearer ' + INFERO_KEY,
-                },
-                body: JSON.stringify(buildPayload())
-            });
-
-            // Cache expired or invalid → rebuild cache, then retry
-            if (cacheName && response.status === 403) {
-                console.warn('Cache failed, rebuilding...');
-                cacheName = null;
-                cachedLength = 0;
-                await maybeRefreshCache(true);  // force rebuild
-                response = await fetch('https://infero.net/api/relay', {
+            async function streamLLM() {
+                const response = await fetch('https://infero.net/api/relay', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -153,24 +138,22 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                     },
                     body: JSON.stringify(buildPayload())
                 });
-            }
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let aiText = "", thinkingText = "", buffer = "";
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let aiText = "", thinkingText = "", buffer = "";
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const dataStr = line.slice(6).trim();
-                    if (!dataStr || dataStr === '[DONE]') continue;
-                    try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const dataStr = line.slice(6).trim();
+                        if (!dataStr || dataStr === '[DONE]') continue;
                         const data = JSON.parse(dataStr);
                         if (data.error) throw new Error(JSON.stringify(data.error));
                         if (data.candidates?.[0]?.content) {
@@ -184,9 +167,29 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                             aiDiv.innerHTML = html;
                             scrollToBottom();
                         }
-                    } catch (e) { console.warn("Parse error:", e); }
+                    }
+                }
+                return aiText;
+            }
+
+            let aiText;
+            try {
+                aiText = await streamLLM();
+            } catch (e) {
+                // Cache error → rebuild and retry
+                if (cacheName && e.message.includes('CachedContent')) {
+                    console.warn('Cache expired, rebuilding...');
+                    cacheName = null;
+                    cachedLength = 0;
+                    await maybeRefreshCache(true);
+                    setStatus('Inferring...');
+                    aiDiv.innerHTML = '';
+                    aiText = await streamLLM();
+                } else {
+                    throw e;
                 }
             }
+
             const time_str = new Date().toLocaleString();
             await appendConsciousness(`**Assistant - [${time_str}]**\n${aiText}\n\n`);
             maybeRefreshCache();  // fire and forget, don't block loop
