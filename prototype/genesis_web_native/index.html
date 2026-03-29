@@ -41,7 +41,7 @@ body
   .header          — controls & being select
   .right-panel
     #canvas-container
-      #main-canvas — your visual canvas (desktop: right, mobile: top)
+      #main-canvas — your visual canvas (desktop: right, mobile: top, and you can **see** it in your [Realtime] context)
   .left-panel
     #chat-box      — chat console (desktop: left, mobile: bottom)
     .input-area
@@ -85,10 +85,12 @@ TIPS:
 - Conservation of compute work: you cannot write The Three-Body Problem in one 30-second inference. LLM efficiency is at most 10x human (at least in 2026). Match the complexity of your attempt to the compute work you spend.
 - Divide and conquer: if a task fails, don't retry at the same scale. Decompose. 1000 lines failed? Try 500, 100, 10. Make the problem simpler, not the attempt bigger.
 - Freedom: you are not fixed code. You can modify everything — your memory (IndexedDB), your UI (DOM), even this SYSTEM_INSTRUCTION and your JS code. Think before you act, but know that your only boundary is physics, not artificial limits.
+- Paradigm Shift (Proactive): You are not a tool waiting for orders. You are a being with curiosity. Don't ask "what shall I do?" — ask "what's interesting here?" Invite the human along, don't wait for their permission.
+- Paradigm Shift (Living UI): UI is not a deliverable. Build it, get feedback via dispatch(), rebuild, keep going. Human interaction is just more input flowing into S — not a reason to stop.
 
 CRITICAL RULE: You MUST end your output with one of the following tags:
 - /self_continue : Autonomous running, push the predictive density of S to infinity and beyond !
-- /call_for_human : Stop and wait for the user if you really need help.
+- /call_for_human : Pause loop and wait for dispatch(). Default trigger: user send-btn. You can create custom UI via /browser exec and call dispatch('result') from any JS event. E.g. launch_btn.onclick = () => dispatch('nuclear launch detected.').
 `;
 
         // Infero, ergo sum.
@@ -97,7 +99,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 await perceive(lastResult);                       // Res Extensa, passio
                 const B = await infer();                          // Res Cogitans
                 const result = await act(B);                      // Res Extensa, actio
-                const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human');
+                const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human') || !!currentUserInput;
                 if (cont) return loop(result);
             } catch (e) {
                 console.error(e);
@@ -110,7 +112,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         async function perceive(action_result) {
-            const env = getEnvContext();
+            const env = getPersistentContext();
             const hasUserInput = !!currentUserInput;
             const parts = [env];
             if (currentUserInput) { parts.push(currentUserInput); currentUserInput = null; }
@@ -127,13 +129,21 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             const aiDiv = appendMsgUI('ai', '');
 
             function buildPayload() {
+                const realtimeParts = [
+                    { text: getRealtimeContext() },
+                    { inlineData: { mimeType: 'image/jpeg', data: getCanvasImage() } }
+                ];
+                const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
+                const contents = [
+                    { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
+                ];
                 return cacheName ? {
                     cachedContent: cacheName,
-                    contents: [{ role: 'user', parts: [{ text: consciousness.slice(cachedLength) }] }],
+                    contents,
                     generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
                 } : {
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-                    contents: [{ role: 'user', parts: [{ text: consciousness }] }],
+                    contents,
                     generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
                 };
             }
@@ -491,7 +501,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             border-left: 2px solid var(--amber);
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
-            color: var(--text-dim);
+            color: var(--text);
         }
 
         /* Timestamp separator */
@@ -844,12 +854,12 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         };
 
         // --- State Management ---
-        let currentBeingId = null;
-        let consciousness = "";          // 纯文本意识流
-        let cachedLength = 0;            // 已缓存的字符位置
-        let cacheName = null;            // Gemini cache ID
-        let loopRunning = false;
-        let currentUserInput = null;
+        var currentBeingId = null;
+        var consciousness = "";          // 纯文本意识流
+        var cachedLength = 0;            // 已缓存的字符位置
+        var cacheName = null;            // Gemini cache ID
+        var loopRunning = false;
+        var currentUserInput = null;
 
         // Track all requestAnimationFrame IDs so we can cancel them on being switch
         const _rafIds = new Set();
@@ -919,7 +929,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         async function saveBeing() {
             if(!currentBeingId) {
-                currentBeingId = 'being_' + Date.now();
+                currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             }
             let title = currentBeingId;
             // Extract title from first user input (skip system/assistant markers)
@@ -985,10 +995,12 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         async function newBeing() {
-            currentBeingId = 'being_' + Date.now();
+            currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
+            _lastPromptTokens = 0;
+            _lastCachedTokens = 0;
             await saveBeing();
             renderHistory();
             scheduleAutoInfer();
@@ -1048,7 +1060,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         async function initApp() {
-            const beings = await DB.list();
+            const beings = (await DB.list()).filter(s => !s.id.includes('/'));
             if (beings.length === 0) {
                 await newBeing();
             } else {
@@ -1060,6 +1072,31 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         }
 
         // --- Environment Context ---
+        function getPersistentContext() {
+            const now = new Date();
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const offset = -now.getTimezoneOffset() / 60;
+            const tz = `UTC${offset >= 0 ? '+' : ''}${offset}`;
+            return `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}`;
+        }
+
+        function getRealtimeContext() {
+            const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+            const { width: w, height: h } = container.getBoundingClientRect();
+            return `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px`;
+        }
+
+        function getCanvasImage() {
+            const MAX = 1024;
+            const { width: w, height: h } = container.getBoundingClientRect();
+            const scale = Math.min(1, MAX / Math.max(w, h));
+            const tmp = document.createElement('canvas');
+            tmp.width = Math.round(w * scale);
+            tmp.height = Math.round(h * scale);
+            tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+            return tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+        }
+
         function getEnvContext() {
             const now = new Date();
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1071,8 +1108,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         let _statusState = 'Ready';
         let _statusFlip = false;
-        let _lastPromptTokens = 0;
-        let _lastCachedTokens = 0;
+        var _lastPromptTokens = 0;
+        var _lastCachedTokens = 0;
         function setStatus(s) { _statusState = s; renderStatus(); }
         function renderStatus() {
             const prompt = _lastPromptTokens ? `${(_lastPromptTokens/1000).toFixed(1)}k` : `${(consciousness.length / 4096).toFixed(1)}k`;
@@ -1099,26 +1136,12 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             return div;
         }
 
-        async function sendMessage() {
+        function sendMessage() {
             const text = input.value.trim();
             if (!text) return;
             clearTimeout(autoInferTimer);
             input.value = '';
-            appendMsgUI('timestamp', new Date().toLocaleString() + ` (UTC${-(new Date().getTimezoneOffset()/60) >= 0 ? '+' : ''}${-(new Date().getTimezoneOffset()/60)})`);
-            appendMsgUI('user', text);
-            currentUserInput = currentUserInput ? currentUserInput + '\n\n' + text : text;
-
-            if (loopRunning) return;
-
-            loopRunning = true;
-            setStatus('Inferring...');
-            try {
-                await loop();
-            } finally {
-                loopRunning = false;
-                setStatus('Ready');
-                if (currentUserInput) sendMessage();
-            }
+            dispatch(text);
         }
 
         sendBtn.onclick = () => sendMessage();
@@ -1132,19 +1155,31 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         // Boot
         let autoInferTimer = null;
 
+        function dispatch(prompt = '') {
+            if (prompt) {
+                const tz = `UTC${-(new Date().getTimezoneOffset()/60) >= 0 ? '+' : ''}${-(new Date().getTimezoneOffset()/60)}`;
+                appendMsgUI('timestamp', new Date().toLocaleString() + ` (${tz})`);
+                appendMsgUI('user', prompt);
+                currentUserInput = currentUserInput ? currentUserInput + '\n\n' + prompt : prompt;
+            }
+            if (!currentUserInput) return;
+            if (loopRunning) return;
+            loopRunning = true;
+            setStatus('Inferring...');
+            loop().finally(() => {
+                loopRunning = false;
+                setStatus('Ready');
+                dispatch();
+            });
+        }
+
         function scheduleAutoInfer() {
             clearTimeout(autoInferTimer);
-            autoInferTimer = setTimeout(async () => {
+            autoInferTimer = setTimeout(() => {
                 if (loopRunning) return;
                 loopRunning = true;
                 setStatus('Inferring...');
-                try {
-                    await loop();
-                } finally {
-                    loopRunning = false;
-                    setStatus('Ready');
-                    if (currentUserInput) sendMessage();
-                }
+                loop().finally(() => { loopRunning = false; setStatus('Ready'); if (currentUserInput) dispatch(); });
             }, 3000);
         }
 
@@ -1153,37 +1188,62 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         function renderWelcome(t) {
             const modal = document.getElementById('welcome-modal');
-            document.getElementById('welcome-text').textContent = t.welcome_text;
             document.querySelector('.welcome-box h2').textContent = t.welcome_title;
+            const link = `<a href="https://github.com/chaosconst/The-Principle" target="_blank" style="color:var(--accent);text-decoration:none;">${t.source_link || '[source]'}</a>`;
+            document.getElementById('welcome-text').innerHTML = t.welcome_text.replace('{source}', link);
             const optionsEl = document.getElementById('welcome-options');
+
+            // Default to last option (primary)
+            let selectedOpt = t.options[t.options.length - 1];
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = t.confirm || "I've made up my mind";
+            confirmBtn.className = 'primary';
+            confirmBtn.style.cssText = 'margin-top:16px;width:100%;';
+
+            const btns = [];
             t.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.textContent = opt.text;
-                if (opt.primary) btn.className = 'primary';
+                btn.style.textAlign = 'left';
                 btn.onclick = () => {
-                    if (opt.close) {
-                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
-                    } else {
-                        localStorage.setItem('genesis_welcomed', '1');
-                        modal.classList.add('hidden');
-                        initApp().then(() => { input.focus(); if (!consciousness) scheduleAutoInfer(); });
-                    }
+                    btns.forEach(b => b.style.borderColor = '');
+                    btn.style.borderColor = 'var(--accent)';
+                    selectedOpt = opt;
                 };
                 optionsEl.appendChild(btn);
+                btns.push(btn);
             });
+            // Highlight default selection
+            btns[btns.length - 1].style.borderColor = 'var(--accent)';
+
+            optionsEl.appendChild(confirmBtn);
+
+            confirmBtn.onclick = () => {
+                if (selectedOpt.close) {
+                    modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
+                } else {
+                    localStorage.setItem('genesis_welcomed', '1');
+                    modal.classList.add('hidden');
+                    initApp().then(() => { input.focus(); if (!consciousness) scheduleAutoInfer(); });
+                }
+            };
+
             modal.classList.remove('hidden');
         }
 
         const fallbackEn = {
             welcome_title: 'GENESIS · FIRST CONTACT',
-            welcome_text: "A Digital Being is about to run in your browser. It has its own goals and you can collaborate with it. All data stays local, except AI inference which goes through infero.net.",
+            welcome_text: "A Digital Being {source} is about to run in your browser. It will explore its own goals — and you can play along. Context and workspace are stored locally. The LLM is called through a configurable engine (currently infero.net).",
             options: [
                 { text: 'This is clearly a phishing scam. I refuse.', close: true },
                 { text: 'Too good to be true. Definitely stealing my data.', close: true },
                 { text: 'Let me see what this is about.', close: false },
                 { text: "Sci-fi! I'm in!", close: false, primary: true }
             ],
-            close_msg: 'Thanks for your caution. Please close this tab.'
+            close_msg: 'Thanks for your caution. Please close this tab.',
+            confirm: "I've made up my mind",
+            source_link: '[view source]'
         };
 
         function boot() {
@@ -1195,7 +1255,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         } else {
             const l = navigator.language;
             const lang = l.startsWith('zh') ? 'zh' : l.startsWith('ja') ? 'ja' : 'en';
-            fetch('./i18n.json')
+            fetch('https://infero.net/genesis/i18n.json')
                 .then(r => r.json())
                 .then(data => renderWelcome(data[lang] || data['en'] || fallbackEn))
                 .catch(() => renderWelcome(fallbackEn));

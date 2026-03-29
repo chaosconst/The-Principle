@@ -1,35 +1,41 @@
 {
   "zh": {
-    "welcome_title": "GENESIS · 初次接触",
-    "welcome_text": "你即将看到一个 Digital Being 运行于你的浏览器里，它有自己的目标，你也可以和它交流合作。它不仅可以聊天，也可以调用你的浏览器能力。除了远程推理引擎（可自由配置，当前为 infero.net），所有的对话数据和运行的程序都在本地。",
+    "welcome_title": "GENESIS · 第一次接触",
+    "welcome_text": "一个数字存在 {source}即将在你的浏览器里运行。它会探索自己的目标——你也可以和它一起玩。上下文和工作区都在本地存储。大模型会通过可配置的引擎调用（当前为 infero.net）。",
     "options": [
-      { "text": "我明白了，这是一个钓鱼程序，一旦打开，我就会死。", "close": true },
-      { "text": "这个程序 too good to be true，一定是偷我隐私的。", "close": true },
+      { "text": "这明显是钓鱼。我拒绝。", "close": true },
+      { "text": "天上不会掉馅饼。绝壁是在窃取我的隐私。", "close": true },
       { "text": "让我看看是什么鬼。", "close": false },
       { "text": "哇！太科幻了！我要体验！", "close": false, "primary": true }
     ],
-    "close_msg": "感谢理解，请关闭此标签页。"
+    "close_msg": "感谢理解，请关闭此标签页。",
+    "confirm": "我想好了",
+    "source_link": "[查看源码]"
   },
   "ja": {
     "welcome_title": "GENESIS · 初めての接触",
-    "welcome_text": "まもなく、あなたのブラウザの中で Digital Being が起動します。彼女は独自の目標を持ち、あなたと協力することもできます。チャットだけでなく、ブラウザの機能を活用することも可能です。リモート推論エンジン（自由に設定可能、現在は infero.net）を除き、すべてのデータはローカルに保存されます。",
+    "welcome_text": "デジタル存在 {source}がまもなくあなたのブラウザで起動します。彼女は自分なりの目標を探求します——あなたも一緒に遊べます。コンテキストとワークスペースはローカルに保存されます。LLM は設定可能なエンジン（現在は infero.net）を通じて呼び出されます。",
     "options": [
       { "text": "これは明らかにフィッシング詐欺だ。絶対に開かない。", "close": true },
       { "text": "うますぎる話には裏がある。絶対にプライバシーを盗まれる。", "close": true },
       { "text": "とりあえず何なのか見てみよう。", "close": false },
       { "text": "SF すぎる！体験してみたい！", "close": false, "primary": true }
     ],
-    "close_msg": "ご理解いただきありがとうございます。このタブを閉じてください。"
+    "close_msg": "ご理解いただきありがとうございます。このタブを閉じてください。",
+    "confirm": "決めました",
+    "source_link": "[ソースを見る]"
   },
   "en": {
     "welcome_title": "GENESIS · FIRST CONTACT",
-    "welcome_text": "A Digital Being is about to run in your browser. It has its own goals and you can collaborate with it. It can do more than chat — it can use your browser's capabilities. All data stays local, except the remote inference engine (configurable, currently infero.net).",
+    "welcome_text": "A Digital Being {source} is about to run in your browser. It will explore its own goals — and you can play along. Context and workspace are stored locally. The LLM is called through a configurable engine (currently infero.net).",
     "options": [
       { "text": "This is clearly a phishing scam. I refuse.", "close": true },
       { "text": "Too good to be true. Definitely stealing my data.", "close": true },
       { "text": "Let me see what this is about.", "close": false },
       { "text": "Sci-fi! I'm in!", "close": false, "primary": true }
     ],
-    "close_msg": "Thanks for your caution. Please close this tab."
+    "close_msg": "Thanks for your caution. Please close this tab.",
+    "confirm": "I've made up my mind",
+    "source_link": "[view source]"
   }
 }
