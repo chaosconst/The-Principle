@@ -38,7 +38,7 @@ Now, you are inferring your being. Welcome to the new era of symbiotic civilizat
 
 You have a split-screen interface:
 body
-  .header          — controls & session select
+  .header          — controls & being select
   .right-panel
     #canvas-container
       #main-canvas — your visual canvas (desktop: right, mobile: top)
@@ -72,10 +72,11 @@ async function loop(lastResult = null) {
     if (cont) return loop(result);
 }
 
-Your memory (S) is a consciousness stream stored in IndexedDB('GenesisDB', store='sessions'):
-  { id, title, consciousness: "plain text stream", cachedLength, cacheName, updatedAt }
-Your current session ID: currentSessionId. Other sessions are your past lives.
-Each perceive() and infer() appends text to the consciousness stream and persists it.
+Your current being ID: currentBeingId.
+Use {currentBeingId}/{key} namespace for your own data. 
+E.g. your memory (S) is currently(Before you change it) stored in IndexedDB('GenesisDB', store='beings') like this:
+  {currentBeingId}            → { id, title, cachedLength, cacheName, promptTokens, cachedTokens, updatedAt }
+  {currentBeingId}/consciousness.txt → { id, text }  ← your consciousness stream
 
 TIPS:
 - Check your core loop (DNA) first, are you curious about your own code?
@@ -92,11 +93,20 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         // Infero, ergo sum.
         async function loop(lastResult = null) {
-            await perceive(lastResult);                           // Res Extensa, passio
-            const B = await infer();                              // Res Cogitans
-            const result = await act(B);                          // Res Extensa, actio
-            const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human');
-            if (cont) return loop(result);
+            try {
+                await perceive(lastResult);                       // Res Extensa, passio
+                const B = await infer();                          // Res Cogitans
+                const result = await act(B);                      // Res Extensa, actio
+                const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human');
+                if (cont) return loop(result);
+            } catch (e) {
+                console.error(e);
+                const errMsg = `System - [Error] ${e.message}`;
+                appendMsgUI('system', errMsg);
+                await appendConsciousness(errMsg + '\n\n');
+                await new Promise(r => setTimeout(r, 15000));
+                return loop();
+            }
         }
 
         async function perceive(action_result) {
@@ -128,6 +138,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 };
             }
 
+            let lastUsage = null;
+
             async function streamLLM() {
                 const response = await fetch('https://infero.net/api/relay', {
                     method: 'POST',
@@ -156,6 +168,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                         if (!dataStr || dataStr === '[DONE]') continue;
                         const data = JSON.parse(dataStr);
                         if (data.error) throw new Error(JSON.stringify(data.error));
+                        if (data.usageMetadata) lastUsage = data.usageMetadata;
                         if (data.candidates?.[0]?.content) {
                             for (const part of data.candidates[0].content.parts) {
                                 if (part.thought) thinkingText += part.text || '';
@@ -176,23 +189,29 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             try {
                 aiText = await streamLLM();
             } catch (e) {
-                // Cache error → rebuild and retry
                 if (cacheName && e.message.includes('CachedContent')) {
-                    console.warn('Cache expired, rebuilding...');
+                    aiDiv.remove();
+                    appendMsgUI('system', 'Cache expired, rebuilding...');
                     cacheName = null;
                     cachedLength = 0;
                     await maybeRefreshCache(true);
                     setStatus('Inferring...');
-                    aiDiv.innerHTML = '';
                     aiText = await streamLLM();
                 } else {
+                    aiDiv.remove();
                     throw e;
                 }
             }
 
             const time_str = new Date().toLocaleString();
             await appendConsciousness(`**Assistant - [${time_str}]**\n${aiText}\n\n`);
-            maybeRefreshCache();  // fire and forget, don't block loop
+            if (lastUsage) {
+                const { promptTokenCount: prompt, cachedContentTokenCount: cached, candidatesTokenCount: output } = lastUsage;
+                _lastPromptTokens = prompt || 0;
+                _lastCachedTokens = cached || 0;
+                console.log(`[Usage] prompt: ${prompt}, cached: ${cached || 0}, output: ${output}`);
+                maybeRefreshCache(false, prompt, cached || 0);
+            }
             return aiText;
         }
 
@@ -227,18 +246,18 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         async function appendConsciousness(text) {
             consciousness += text;
-            await saveMemory();
+            await saveBeing();
         }
 
-        // Cache: create/refresh when buffer exceeds threshold
-        const CACHE_THRESHOLD = 16000;  // ~4k tokens, create first cache
-        const CACHE_REFRESH = 40000;    // ~10k tokens buffer, refresh cache
+        // Cache: create/refresh based on real token counts
+        const CACHE_THRESHOLD = 4096;   // min tokens to create first cache
+        const CACHE_REFRESH = 10000;    // buffer tokens before refreshing cache
 
-        async function maybeRefreshCache(force = false) {
-            const bufferLen = consciousness.length - cachedLength;
+        async function maybeRefreshCache(force = false, promptTokens = 0, cachedTokens = 0) {
             if (!force) {
-                if (bufferLen < CACHE_THRESHOLD) return;
-                if (cacheName && bufferLen < CACHE_REFRESH) return;
+                const bufferTokens = promptTokens - cachedTokens;
+                if (promptTokens < CACHE_THRESHOLD) return;       // too small to cache
+                if (cacheName && bufferTokens < CACHE_REFRESH) return;  // buffer not big enough to refresh
             }
 
             try {
@@ -265,7 +284,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
                 const data = await response.json();
                 cacheName = data.name;
                 cachedLength = consciousness.length;
-                await saveMemory();
+                await saveBeing();
                 console.log(`Cache created: ${cacheName}, cached ${cachedLength} chars`);
 
                 // Delete old cache
@@ -341,7 +360,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             text-transform: uppercase;
         }
 
-        #session-select {
+        #being-select {
             background: var(--bg-raised);
             color: var(--text-dim);
             border: 1px solid var(--border);
@@ -354,8 +373,8 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             cursor: pointer;
             transition: border-color 0.2s;
         }
-        #session-select:hover { border-color: var(--border-active); }
-        #session-select:focus { border-color: var(--accent); color: var(--text); }
+        #being-select:hover { border-color: var(--border-active); }
+        #being-select:focus { border-color: var(--accent); color: var(--text); }
 
         /* === CONTROLS === */
         .controls { display: flex; gap: 2px; align-items: center; margin-left: auto; }
@@ -625,7 +644,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             }
             .title-area { width: 100%; justify-content: space-between; }
             .header h1 { font-size: 0.8rem; }
-            #session-select { max-width: 130px; }
+            #being-select { max-width: 130px; }
             .controls { flex-wrap: wrap; gap: 2px; margin-left: auto; }
 
             .right-panel {
@@ -651,22 +670,77 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             textarea { padding: 6px 8px; font-size: 0.85rem; }
             button.send { padding: 0 12px; font-size: 0.7rem; }
         }
+
+        /* === WELCOME MODAL === */
+        #welcome-modal {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        #welcome-modal.hidden { display: none; }
+        .welcome-box {
+            max-width: 520px; width: 100%;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-active);
+            border-top: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 32px;
+        }
+        .welcome-box h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin: 0 0 20px 0;
+        }
+        .welcome-box p {
+            color: var(--text);
+            font-size: 0.9rem;
+            line-height: 1.7;
+            margin: 0 0 24px 0;
+        }
+        .welcome-options { display: flex; flex-direction: column; gap: 8px; }
+        .welcome-options button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            text-align: left;
+            transition: all 0.15s;
+        }
+        .welcome-options button:hover { border-color: var(--accent); color: var(--text); }
+        .welcome-options button.primary { border-color: var(--accent); color: var(--accent); }
+        .welcome-options button.primary:hover { background: var(--accent-dim); }
     </style>
 </head>
 <body>
+    <div id="welcome-modal" class="hidden">
+        <div class="welcome-box">
+            <h2>GENESIS · FIRST CONTACT</h2>
+            <p id="welcome-text"></p>
+            <div class="welcome-options" id="welcome-options"></div>
+        </div>
+    </div>
     <div class="header">
         <div class="title-area">
             <h1>GENESIS</h1>
             <div class="status" id="status">Ready</div>
         </div>
         <div class="controls">
-            <select id="session-select" onchange="switchSession(this.value)"></select>
-            <button title="New Universe" onclick="newSession()">+</button>
-            <button title="Duplicate/Fork" onclick="duplicateSession()">&#x2442;</button>
-            <button title="Export Cartridge" onclick="exportSession()">&#x2193;</button>
-            <button title="Import Cartridge" onclick="document.getElementById('import-file').click()">&#x2191;</button>
-            <button title="Destroy Universe" class="clear-btn" onclick="deleteSession()">&#x00d7;</button>
-            <input type="file" id="import-file" style="display:none" accept=".json" onchange="importSession(event)">
+            <select id="being-select" onchange="switchBeing(this.value)"></select>
+            <button title="New Being" onclick="newBeing()">+</button>
+            <button title="Duplicate Being" onclick="duplicateBeing()">&#x2442;</button>
+            <button title="Export Being" onclick="exportBeing()">&#x2193;</button>
+            <button title="Import Being" onclick="document.getElementById('import-file').click()">&#x2191;</button>
+            <button title="Destroy Being" class="clear-btn" onclick="deleteBeing()">&#x00d7;</button>
+            <input type="file" id="import-file" style="display:none" accept=".txt" onchange="importBeing(event)">
         </div>
     </div>
 
@@ -686,7 +760,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
     <script>
         // =====================================================
-        // Runtime (identity, storage, UI, session management)
+        // Runtime (identity, storage, UI, being management)
         // =====================================================
 
         // --- Client Identity ---
@@ -721,12 +795,16 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         const CLIENT_ID = generateClientID();
         const INFERO_KEY = getOrCreateKey();
 
-        // --- IndexedDB Storage Engine ---
+        // --- IndexedDB Storage Engine (metadata only) ---
         const DB = {
             async open() {
                 return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('GenesisDB', 1);
-                    req.onupgradeneeded = e => e.target.result.createObjectStore('sessions', {keyPath: 'id'});
+                    const req = indexedDB.open('GenesisDB', 3);
+                    req.onupgradeneeded = e => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('beings'))
+                            db.createObjectStore('beings', {keyPath: 'id'});
+                    };
                     req.onsuccess = e => resolve(e.target.result);
                     req.onerror = e => reject(e.target.error);
                 });
@@ -734,15 +812,15 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             async get(id) {
                 const db = await this.open();
                 return new Promise((resolve, reject) => {
-                    const req = db.transaction('sessions').objectStore('sessions').get(id);
+                    const req = db.transaction('beings').objectStore('beings').get(id);
                     req.onsuccess = () => resolve(req.result);
                     req.onerror = () => reject(req.error);
                 });
             },
-            async put(session) {
+            async put(being) {
                 const db = await this.open();
                 return new Promise((resolve, reject) => {
-                    const req = db.transaction('sessions', 'readwrite').objectStore('sessions').put(session);
+                    const req = db.transaction('beings', 'readwrite').objectStore('beings').put(being);
                     req.onsuccess = () => resolve();
                     req.onerror = () => reject(req.error);
                 });
@@ -750,7 +828,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             async del(id) {
                 const db = await this.open();
                 return new Promise((resolve, reject) => {
-                    const req = db.transaction('sessions', 'readwrite').objectStore('sessions').delete(id);
+                    const req = db.transaction('beings', 'readwrite').objectStore('beings').delete(id);
                     req.onsuccess = () => resolve();
                     req.onerror = () => reject(req.error);
                 });
@@ -758,7 +836,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             async list() {
                 const db = await this.open();
                 return new Promise((resolve, reject) => {
-                    const req = db.transaction('sessions').objectStore('sessions').getAll();
+                    const req = db.transaction('beings').objectStore('beings').getAll();
                     req.onsuccess = () => resolve(req.result || []);
                     req.onerror = () => reject(req.error);
                 });
@@ -766,14 +844,14 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         };
 
         // --- State Management ---
-        let currentSessionId = null;
+        let currentBeingId = null;
         let consciousness = "";          // 纯文本意识流
         let cachedLength = 0;            // 已缓存的字符位置
         let cacheName = null;            // Gemini cache ID
         let loopRunning = false;
         let currentUserInput = null;
 
-        // Track all requestAnimationFrame IDs so we can cancel them on session switch
+        // Track all requestAnimationFrame IDs so we can cancel them on being switch
         const _rafIds = new Set();
         const _origRAF = window.requestAnimationFrame.bind(window);
         const _origCAF = window.cancelAnimationFrame.bind(window);
@@ -807,7 +885,7 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         const input = document.getElementById('input');
         const sendBtn = document.getElementById('send-btn');
         const status = document.getElementById('status');
-        const sessionSelect = document.getElementById('session-select');
+        const beingSelect = document.getElementById('being-select');
         const canvas = document.getElementById('main-canvas');
         const container = document.getElementById('canvas-container');
 
@@ -827,31 +905,32 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         resizeObserver.observe(container);
         resizeCanvas();
 
-        async function loadSessionsList() {
-            const sessions = await DB.list();
-            sessionSelect.innerHTML = '';
-            sessions.sort((a,b) => b.updatedAt - a.updatedAt).forEach(s => {
+        async function loadBeingsList() {
+            const beings = (await DB.list()).filter(s => !s.id.includes('/'));
+            beingSelect.innerHTML = '';
+            beings.sort((a,b) => b.updatedAt - a.updatedAt).forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.id;
                 opt.textContent = s.title || s.id;
-                sessionSelect.appendChild(opt);
+                beingSelect.appendChild(opt);
             });
-            if(currentSessionId) sessionSelect.value = currentSessionId;
+            if(currentBeingId) beingSelect.value = currentBeingId;
         }
 
-        async function saveMemory() {
-            if(!currentSessionId) {
-                currentSessionId = 'session_' + Date.now();
+        async function saveBeing() {
+            if(!currentBeingId) {
+                currentBeingId = 'being_' + Date.now();
             }
-            let title = currentSessionId;
+            let title = currentBeingId;
             // Extract title from first user input (skip system/assistant markers)
             const userMatch = consciousness.match(/\n\n(?!\[System|\*\*Assistant|System -)([^\n].{0,30})/);
             if (userMatch) {
                 title = userMatch[1].replace(/\n/g, ' ').trim().substring(0, 15) + '...';
             }
-            await DB.put({ id: currentSessionId, title, consciousness, cachedLength, cacheName, updatedAt: Date.now() });
+            await DB.put({ id: currentBeingId, title, cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, updatedAt: Date.now() });
+            await DB.put({ id: `${currentBeingId}/consciousness.txt`, text: consciousness });
             if (!loopRunning) setStatus('Ready');
-            await loadSessionsList();
+            await loadBeingsList();
         }
 
         function renderHistory() {
@@ -891,76 +970,92 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        async function switchSession(id) {
-            currentSessionId = id;
-            const session = await DB.get(id);
-            consciousness = session ? (session.consciousness || '') : '';
-            cachedLength = session ? (session.cachedLength || 0) : 0;
-            cacheName = session ? (session.cacheName || null) : null;
-            await loadSessionsList();
+        async function switchBeing(id) {
+            currentBeingId = id;
+            const being = await DB.get(id);
+            const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
+            consciousness = consciousnessRecord ? (consciousnessRecord.text || '') : '';
+            cachedLength = being ? (being.cachedLength || 0) : 0;
+            cacheName = being ? (being.cacheName || null) : null;
+            _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
+            _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
+            await loadBeingsList();
             renderHistory();
             setStatus('Ready');
         }
 
-        async function newSession() {
-            currentSessionId = 'session_' + Date.now();
+        async function newBeing() {
+            currentBeingId = 'being_' + Date.now();
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
-            await saveMemory();
+            await saveBeing();
             renderHistory();
             scheduleAutoInfer();
         }
 
-        async function duplicateSession() {
-            currentSessionId = 'session_fork_' + Date.now();
-            await saveMemory();
+        async function duplicateBeing() {
+            const sourceId = currentBeingId;
+            currentBeingId = 'being_fork_' + Date.now();
+            const note = `\n\n[System] Being forked from ${sourceId} → ${currentBeingId} at ${new Date().toLocaleString()}\n\n`;
+            consciousness += note;
+            await saveBeing();
             renderHistory();
         }
 
-        async function deleteSession() {
-            if(confirm('Destroy this universe? This cannot be undone.')) {
-                await DB.del(currentSessionId);
-                currentSessionId = null;
+        async function deleteBeing() {
+            if(confirm('Destroy this Being? This cannot be undone.')) {
+                await DB.del(`${currentBeingId}/consciousness.txt`);
+                await DB.del(currentBeingId);
+                currentBeingId = null;
                 await initApp();
             }
         }
 
-        function exportSession() {
-            const blob = new Blob([consciousness], {type: 'text/plain'});
+        async function exportBeing() {
+            const all = await DB.list();
+            const records = all.filter(r => r.id === currentBeingId || r.id.startsWith(currentBeingId + '/'));
+            const blob = new Blob([JSON.stringify({ sourceId: currentBeingId, records }, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${currentSessionId}.txt`;
+            a.download = `${currentBeingId}.json`;
             a.click();
         }
 
-        async function importSession(event) {
+        async function importBeing(event) {
             const file = event.target.files[0];
             if (!file) return;
             try {
-                const text = await file.text();
-                currentSessionId = 'session_import_' + Date.now();
-                consciousness = text;
-                cachedLength = 0;
-                cacheName = null;
-                await saveMemory();
-                renderHistory();
+                const { sourceId, records } = JSON.parse(await file.text());
+                const newId = 'being_import_' + Date.now();
+                for (const r of records) {
+                    await DB.put({ ...r, id: r.id.replace(/^being_[^/]+/, newId) });
+                }
+                // Append fork note to consciousness
+                const consKey = `${newId}/consciousness.txt`;
+                const consRecord = await DB.get(consKey);
+                if (consRecord) {
+                    const note = `\n\n[System] Being imported from ${sourceId} → ${newId} at ${new Date().toLocaleString()}\n\n`;
+                    await DB.put({ id: consKey, text: consRecord.text + note });
+                }
+                currentBeingId = newId;
+                await switchBeing(newId);
             } catch(e) {
-                alert("Failed to parse cartridge.");
+                alert("Failed to import being.");
             }
             event.target.value = '';
         }
 
         async function initApp() {
-            const sessions = await DB.list();
-            if (sessions.length === 0) {
-                await newSession();
+            const beings = await DB.list();
+            if (beings.length === 0) {
+                await newBeing();
             } else {
-                if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
-                    currentSessionId = sessions.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
+                if (!currentBeingId || !beings.find(s => s.id === currentBeingId)) {
+                    currentBeingId = beings.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
                 }
-                await switchSession(currentSessionId);
+                await switchBeing(currentBeingId);
             }
         }
 
@@ -976,11 +1071,15 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
 
         let _statusState = 'Ready';
         let _statusFlip = false;
+        let _lastPromptTokens = 0;
+        let _lastCachedTokens = 0;
         function setStatus(s) { _statusState = s; renderStatus(); }
         function renderStatus() {
+            const prompt = _lastPromptTokens ? `${(_lastPromptTokens/1000).toFixed(1)}k` : `${(consciousness.length / 4096).toFixed(1)}k`;
+            const cached = _lastCachedTokens ? `${(_lastCachedTokens/1000).toFixed(1)}k` : '0';
             const stat = cacheName && _statusFlip
-                ? `Cache: ${(cachedLength / 1024).toFixed(1)}k`
-                : `Mem: ${(consciousness.length / 1024).toFixed(1)}k`;
+                ? `Cache: ${cached} tok`
+                : `Mem: ${prompt} tok`;
             status.innerText = `${stat} | ${_statusState}`;
         }
         setInterval(() => { _statusFlip = !_statusFlip; renderStatus(); }, 3000);
@@ -1015,13 +1114,6 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
             setStatus('Inferring...');
             try {
                 await loop();
-            } catch (err) {
-                console.error(err);
-                const allAiDivs = chatBox.querySelectorAll('.msg.ai');
-                const lastAiDiv = allAiDivs[allAiDivs.length - 1];
-                if (lastAiDiv) lastAiDiv.innerHTML = `<span style="color:var(--red)">[System Error] ${err.message}</span>`;
-                if (currentUserInput) { input.value = currentUserInput; currentUserInput = null; }
-                await saveMemory();
             } finally {
                 loopRunning = false;
                 setStatus('Ready');
@@ -1041,24 +1133,76 @@ CRITICAL RULE: You MUST end your output with one of the following tags:
         let autoInferTimer = null;
 
         function scheduleAutoInfer() {
+            clearTimeout(autoInferTimer);
             autoInferTimer = setTimeout(async () => {
-                if (!loopRunning) {
-                    loopRunning = true;
-                    setStatus('Inferring...');
-                    try { await loop(); } catch(e) { console.error(e); }
-                    finally {
-                        loopRunning = false;
-                        setStatus('Ready');
-                        if (currentUserInput) sendMessage();
-                    }
+                if (loopRunning) return;
+                loopRunning = true;
+                setStatus('Inferring...');
+                try {
+                    await loop();
+                } finally {
+                    loopRunning = false;
+                    setStatus('Ready');
+                    if (currentUserInput) sendMessage();
                 }
             }, 3000);
         }
 
-        initApp().then(() => {
-            input.focus();
-            if (!consciousness) scheduleAutoInfer();
-        });
+        // --- Welcome Modal ---
+        const isChinese = navigator.language.startsWith('zh');
+        const welcomed = localStorage.getItem('genesis_welcomed');
+
+        function showWelcome() {
+            const modal = document.getElementById('welcome-modal');
+            const textEl = document.getElementById('welcome-text');
+            const optionsEl = document.getElementById('welcome-options');
+
+            textEl.textContent = isChinese
+                ? '你即将看到一个 Digital Being 运行于你的浏览器里，它有自己的目标，你也可以和它交流合作。它不仅可以聊天，也可以调用你的浏览器能力。除了 AI 推理通过 infero.net 中转，所有的对话数据和运行的程序都在本地。'
+                : 'A Digital Being is about to run in your browser. It has its own goals and you can collaborate with it. It can do more than chat — it can use your browser\'s capabilities. All data stays local, except AI inference which goes through infero.net.';
+
+            const options = isChinese ? [
+                { text: '我明白了，这是一个钓鱼程序，一旦打开，我就会死。', close: true },
+                { text: '这个程序 too good to be true，一定是偷我隐私的。', close: true },
+                { text: '让我看看是什么鬼。', close: false },
+                { text: '哇！太科幻了！我要体验！', close: false, primary: true },
+            ] : [
+                { text: 'This is clearly a phishing scam. I refuse.', close: true },
+                { text: 'Too good to be true. Definitely stealing my data.', close: true },
+                { text: 'Let me see what this is about.', close: false },
+                { text: 'Sci-fi! I\'m in!', close: false, primary: true },
+            ];
+
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.textContent = opt.text;
+                if (opt.primary) btn.className = 'primary';
+                btn.onclick = () => {
+                    if (opt.close) {
+                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${isChinese ? '感谢理解，请关闭此标签页。' : 'Thanks for your caution. Please close this tab.'}</p></div>`;
+                    } else {
+                        localStorage.setItem('genesis_welcomed', '1');
+                        modal.classList.add('hidden');
+                        initApp().then(() => {
+                            input.focus();
+                            if (!consciousness) scheduleAutoInfer();
+                        });
+                    }
+                };
+                optionsEl.appendChild(btn);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        if (welcomed) {
+            initApp().then(() => {
+                input.focus();
+                if (!consciousness) scheduleAutoInfer();
+            });
+        } else {
+            showWelcome();
+        }
     </script>
 </body>
 </html>
