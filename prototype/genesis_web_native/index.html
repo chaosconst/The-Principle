@@ -962,8 +962,8 @@ CONCLUSION:
                 <label>Vision</label>
                 <select id="set-vision">
                     <option value="canvas">Canvas only</option>
-                    <option value="half">Screenshot (half)</option>
-                    <option value="full">Screenshot (full)</option>
+                    <option value="half">Pageshot (half)</option>
+                    <option value="full">Pageshot (full)</option>
                     <option value="native">Screen capture</option>
                 </select>
             </div>
@@ -1042,7 +1042,7 @@ CONCLUSION:
             provider: 'infero',
             apiEndpoint: '',
             tokens: {},
-            vision: 'canvas',
+            vision: 'full',
             preview: false,
         };
         function loadSettings() {
@@ -1255,7 +1255,7 @@ CONCLUSION:
             if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('html-div').innerHTML = ''; return; }
 
             // Split consciousness into blocks by markers
-            const blocks = consciousness.split(/(?<=^|\n\n)(?=\[System Environment\])|(?<=^|\n\n)(?=\*\*(?:Digital Being|Assistant) - )|(?<=^|\n\n)(?=System - \[Browser\] - Result:)/);
+            const blocks = consciousness.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:)/);
             for (const block of blocks) {
                 const trimmed = block.trim();
                 if (!trimmed) continue;
@@ -1400,7 +1400,7 @@ CONCLUSION:
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
             const { width: w, height: h } = container.getBoundingClientRect();
-            const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: 'html2canvas (right panel: canvas + html-div)', full: 'html2canvas (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
+            const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: 'html2canvas pageshot (right panel: canvas + html-div)', full: 'html2canvas pageshot (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
             let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px\nVision: ${visionLabels[settings.vision] || settings.vision}`;
 
             const ui = document.getElementById('html-div');
@@ -1445,7 +1445,7 @@ CONCLUSION:
         async function getCanvasImage() {
             try {
                 const v = settings.vision || 'canvas';
-                const MAX = 1024;
+                const MAX = 1536;
                 let result;
 
                 // Wait for DOM to finish rendering before capture
@@ -1833,7 +1833,9 @@ CONCLUSION:
         } else {
             const l = navigator.language;
             const lang = l.startsWith('zh') ? 'zh' : l.startsWith('ja') ? 'ja' : 'en';
-            fetch('https://infero.net/genesis/i18n.json')
+            const i18nCtrl = new AbortController();
+            setTimeout(() => i18nCtrl.abort(), 3000);
+            fetch('https://infero.net/genesis/i18n.json', { signal: i18nCtrl.signal })
                 .then(r => r.json())
                 .then(data => renderWelcome(data[lang] || data['en'] || fallbackEn))
                 .catch(() => renderWelcome(fallbackEn));
