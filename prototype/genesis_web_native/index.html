@@ -41,7 +41,7 @@ The following is your initial core loop, you can read it even modify it (MUST wi
 async function loop() {
     await perceive();             // Res Extensa, passio
     const B = await infer();      // Res Cogitans
-    act_async(B);                 // Res Extensa, actio (non-blocking; result returns via next perceive)
+    await act(B);                 // Res Extensa, actio
     ...
 }
 
@@ -79,7 +79,7 @@ const canvas = document.getElementById('main-canvas');
 // w/2 and h/2 are the visual center. Draw within 0..w and 0..h.
 // Your drawing logic here...
 
-// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you can either use dispatch({anything_you_want_to_know_in_next_infer}) (e.g., dispatch(file_list)) or explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
+// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you can either use reflect({anything_you_want_to_know_in_next_infer}) (e.g., reflect(file_list)) or explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
 \`\`\`
 
 TIPS:
@@ -103,36 +103,13 @@ CONCLUSION:
 
 `;
 
-        async function maybeCompressConsciousness() {
-            const LIMIT = 300000, KEEP_START = 20000, KEEP_END = 180000;
-            if (_lastPromptTokens < LIMIT) return;
-            const cpt = consciousness.length / _lastPromptTokens;  // chars per token
-            const startChars = Math.floor(KEEP_START * cpt);
-            const endChars   = Math.floor(KEEP_END   * cpt);
-            if (startChars + endChars >= consciousness.length) return;
-            const middle = consciousness.slice(startChars, consciousness.length - endChars);
-            const logKey = `${currentBeingId}/context_log_${Date.now()}.txt`;
-            await DB.put({ id: logKey, text: middle });
-            const note = `\n\n[System - Context compressed. Logs: IndexedDB "${currentBeingId}/context_log_*.txt"]\n\n`;
-            consciousness = consciousness.slice(0, startChars) + note + consciousness.slice(consciousness.length - endChars);
-            cacheName = null;
-            cachedLength = 0;
-            console.log(`[Compress] tokens=${_lastPromptTokens}, middle saved to ${logKey}, consciousness trimmed to ${consciousness.length} chars`);
-        }
-
         // Infero, ergo sum.
         async function loop() {
             try {
                 await perceive();                                 // Res Extensa, passio
                 const B = await infer();                          // Res Cogitans
-                let actDone = false;                                                   // Res Extensa, actio (15s max wait)
-                const actPromise = act(B).then(() => { actDone = true; });
-                await Promise.race([actPromise, new Promise(r => setTimeout(r, 15000))]);
-                if (!actDone) {
-                    const msg = 'System - [Browser] - Execution still running (>15s), loop continued.';
-                    appendMsgUI('system', msg);
-                    await appendConsciousness(msg + '\n\n');
-                }
+                await act(B);                                     // Res Extensa, actio
+
                 const cont = !B.includes('/call_for_human') || !!currentUserInput;
                 if (cont) return loop();
             } catch (e) {
@@ -141,7 +118,12 @@ CONCLUSION:
                 const errMsg = `System - [Error] ${e.message}`;
                 appendMsgUI('system', errMsg);
                 await appendConsciousness(errMsg + '\n\n');
-                await new Promise(r => setTimeout(r, 15000));
+                currentAbortController = new AbortController();
+                await new Promise(r => {
+                    const t = setTimeout(r, 15000);
+                    currentAbortController.signal.addEventListener('abort', () => { clearTimeout(t); r(); });
+                });
+                if (currentAbortController?.signal.aborted) return;  // user aborted during wait
                 return loop();
             }
         }
@@ -160,10 +142,10 @@ CONCLUSION:
 
         async function infer() {
             setStatus('Inferring...');
-            const aiDiv = appendMsgUI('ai', '');
+            let aiDiv = appendMsgUI('ai', '');
 
-            function buildPayload() {
-                const canvasImage = getCanvasImage();
+            async function buildPayload() {
+                const canvasImage = await getCanvasImage();
                 const realtimeText = getRealtimeContext();
                 const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
 
@@ -193,6 +175,7 @@ CONCLUSION:
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
                 const payload = cacheName ? {
+                    model,
                     cachedContent: cacheName,
                     contents,
                     generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
@@ -218,6 +201,9 @@ CONCLUSION:
 
             async function streamLLM() {
                 currentAbortController = new AbortController();
+                const abortSignal = currentAbortController.signal;
+                const body = JSON.stringify(await buildPayload());
+                if (abortSignal.aborted) throw new DOMException('Aborted', 'AbortError');
                 const response = await fetch(getActiveEndpoint(), {
                     method: 'POST',
                     headers: {
@@ -225,8 +211,8 @@ CONCLUSION:
                         'X-Client-ID': CLIENT_ID,
                         'Authorization': 'Bearer ' + getActiveToken(),
                     },
-                    body: JSON.stringify(buildPayload()),
-                    signal: currentAbortController.signal,
+                    body,
+                    signal: abortSignal,
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
 
@@ -278,6 +264,7 @@ CONCLUSION:
                     cachedLength = 0;
                     await maybeRefreshCache(true);
                     setStatus('Inferring...');
+                    aiDiv = appendMsgUI('ai', '');
                     aiText = await streamLLM();
                 } else {
                     const prev = aiDiv.previousElementSibling;
@@ -298,7 +285,7 @@ CONCLUSION:
             return aiText;
         }
 
-        async function act(B_out) {
+        async function _execCode(B_out) {
             if (!B_out) return null;
             const match = B_out.match(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/m);
             if (!match) return null;
@@ -328,10 +315,40 @@ CONCLUSION:
             return sysMsg;
         }
 
+        async function act(B_out) {
+            if (!B_out) return null;
+            let done = false;
+            const promise = _execCode(B_out).then(r => { done = true; return r; });
+            const result = await Promise.race([promise, new Promise(r => setTimeout(r, 15000))]);
+            if (!done) {
+                const msg = 'System - [Browser] - Execution still running (>15s), loop continued.';
+                appendMsgUI('system', msg);
+                await appendConsciousness(msg + '\n\n');
+            }
+            return result;
+        }
+
         async function appendConsciousness(text) {
             consciousness += text;
             await maybeCompressConsciousness();
             scheduleSaveBeing();
+        }
+
+        async function maybeCompressConsciousness() {
+            const LIMIT = 300000, KEEP_START = 20000, KEEP_END = 180000;
+            if (_lastPromptTokens < LIMIT) return;
+            const cpt = consciousness.length / _lastPromptTokens;  // chars per token
+            const startChars = Math.floor(KEEP_START * cpt);
+            const endChars   = Math.floor(KEEP_END   * cpt);
+            if (startChars + endChars >= consciousness.length) return;
+            const middle = consciousness.slice(startChars, consciousness.length - endChars);
+            const logKey = `${currentBeingId}/context_log_${Date.now()}.txt`;
+            await DB.put({ id: logKey, text: middle });
+            const note = `\n\n[System - Context compressed. Logs: IndexedDB "${currentBeingId}/context_log_*.txt"]\n\n`;
+            consciousness = consciousness.slice(0, startChars) + note + consciousness.slice(consciousness.length - endChars);
+            cacheName = null;
+            cachedLength = 0;
+            console.log(`[Compress] tokens=${_lastPromptTokens}, middle saved to ${logKey}, consciousness trimmed to ${consciousness.length} chars`);
         }
 
         // Cache: create/refresh based on real token counts
@@ -350,6 +367,7 @@ CONCLUSION:
                 setStatus('Caching...');
                 const oldCacheName = cacheName;
                 const payload = {
+                    model: `models/${getActiveModel()}`,
                     displayName: "genesis_consciousness",
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
                     contents: [{ role: 'user', parts: [{ text: consciousness }] }],
@@ -385,6 +403,8 @@ CONCLUSION:
             }
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script>window.html2canvas || document.write('<script src="https://cdn.bootcdn.net/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>')</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>window.marked || document.write('<script src="https://cdn.bootcdn.net/ajax/libs/marked/15.0.7/marked.min.js"><\/script>')</script>
     <style>
@@ -430,7 +450,7 @@ CONCLUSION:
             justify-content: space-between;
             align-items: center;
             background: var(--bg);
-            z-index: 10;
+            z-index: 50;
             position: relative;
         }
 
@@ -742,44 +762,57 @@ CONCLUSION:
         }
 
         .settings-panel {
-            position: fixed;
-            top: 48px; right: 12px;
+            position: absolute;
+            top: 100%; right: 0;
             background: var(--bg-raised);
-            border: 1px solid var(--border-active);
-            border-radius: 0 0 6px 6px;
-            padding: 12px;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            padding: 10px 12px;
             z-index: 100;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.72rem;
-            min-width: 300px;
+            font-size: 0.68rem;
+            min-width: 260px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-        .settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-        .settings-row:last-child { margin-bottom: 0; }
-        .settings-row label { color: var(--text-dim); min-width: 60px; }
-        .settings-row input, .settings-row select {
+        .settings-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .settings-row:last-child { margin-bottom: 0; margin-top: 4px; }
+        .settings-row label { color: var(--text-dim); min-width: 52px; font-size: 0.62rem; letter-spacing: 0.5px; text-transform: uppercase; }
+        .settings-row input[type="checkbox"] {
+            flex: none;
+            width: 12px; height: 12px;
+            margin: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .settings-row input:not([type="checkbox"]), .settings-row select {
             flex: 1;
             background: var(--bg);
             color: var(--text);
             border: 1px solid var(--border);
             border-radius: 3px;
-            padding: 4px 8px;
+            padding: 3px 6px;
             font-family: inherit;
             font-size: inherit;
             outline: none;
         }
-        .settings-row input:focus, .settings-row select:focus { border-color: var(--accent); }
+        .settings-row input:focus, .settings-row select:focus { border-color: var(--text-dim); }
         .settings-row button {
             width: 100%;
-            background: var(--accent);
-            color: var(--bg);
-            border: none;
-            padding: 5px;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 4px;
             border-radius: 3px;
             cursor: pointer;
             font-family: inherit;
             font-size: inherit;
             font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
         }
+        .settings-row button:hover { background: var(--accent); color: var(--bg); }
 
         /* === MOBILE === */
         @media (max-width: 768px) {
@@ -903,12 +936,6 @@ CONCLUSION:
             <div class="settings-row">
                 <label>Model</label>
                 <select id="set-model" onchange="onModelChange()">
-                    <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro</option>
-                    <option value="gemini-2.5-flash-preview-05-20">gemini-2.5-flash</option>
-                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-                    <option value="gpt-4.1">gpt-4.1</option>
-                    <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                    <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
                     <option value="custom">Custom...</option>
                 </select>
             </div>
@@ -917,24 +944,32 @@ CONCLUSION:
                 <input id="set-custom-model" type="text" placeholder="model id">
             </div>
             <div class="settings-row">
-                <label>Provider</label>
+                <label>From</label>
                 <select id="set-provider" onchange="onProviderChange()">
-                    <option value="infero">infero.net</option>
-                    <option value="custom">Custom endpoint</option>
+                    <option value="custom">Custom</option>
                 </select>
             </div>
-            <div id="custom-provider" style="display:none">
-                <div class="settings-row">
-                    <label>Endpoint</label>
-                    <input id="set-endpoint" type="text" placeholder="https://...">
-                </div>
-                <div class="settings-row">
-                    <label>Token</label>
-                    <input id="set-token" type="password" placeholder="API key">
-                </div>
+            <div id="row-endpoint" class="settings-row" style="display:none">
+                <label>Endpoint</label>
+                <input id="set-endpoint" type="text" placeholder="https://...">
+            </div>
+            <div id="row-token" class="settings-row">
+                <label>Token</label>
+                <input id="set-token" type="password" placeholder="API key">
+                <span style="cursor:pointer;color:var(--text-dim);padding:3px 6px;border:1px solid var(--border);border-radius:3px;font-size:inherit;line-height:1" onclick="navigator.clipboard.writeText(document.getElementById('set-token').value).then(()=>{this.textContent='OK';setTimeout(()=>this.textContent='Copy',800)})" title="Copy">Copy</span>
             </div>
             <div class="settings-row">
-                <button onclick="applySettings()">Apply</button>
+                <label>Vision</label>
+                <select id="set-vision">
+                    <option value="canvas">Canvas only</option>
+                    <option value="half">Screenshot (half)</option>
+                    <option value="full">Screenshot (full)</option>
+                    <option value="native">Screen capture</option>
+                </select>
+            </div>
+            <div class="settings-row">
+                <label>Preview</label>
+                <label style="min-width:0;cursor:pointer;color:var(--text)"><input type="checkbox" id="set-preview"> Show AI vision</label>
             </div>
         </div>
     </div>
@@ -991,41 +1026,59 @@ CONCLUSION:
         const CLIENT_ID = generateClientID();
         const INFERO_KEY = getOrCreateKey();
 
+        // --- Version ---
+        const VERSION = '0.1';
+
         // --- Settings ---
-        const MODEL_LIST = {
-            'gemini-2.5-pro-preview-05-06': { format: 'gemini' },
-            'gemini-2.5-flash-preview-05-20': { format: 'gemini' },
-            'gemini-2.0-flash': { format: 'gemini' },
-            'gpt-4.1': { format: 'openai' },
-            'gpt-4.1-mini': { format: 'openai' },
-            'claude-sonnet-4-20250514': { format: 'openai' },
+        var MODEL_LIST = {};
+        var PROVIDERS = {
+            infero: { name: 'infero.net' },
+            custom: { name: 'Custom' },
         };
-        const INFERO_ENDPOINTS = {
-            gemini: 'https://infero.net/api/relay',
-            openai: 'https://infero.net/api/v1/chat/completions',
-        };
+        const INFERO_ENDPOINTS = { gemini: 'https://infero.net/api/relay', openai: 'https://infero.net/api/v1/chat/completions' };
         const SETTINGS_DEFAULTS = {
-            model: 'gemini-2.5-pro-preview-05-06',
+            model: 'gemini-3.1-pro',
             customModel: '',
             provider: 'infero',
             apiEndpoint: '',
-            apiToken: '',
+            tokens: {},
+            vision: 'canvas',
+            preview: false,
         };
         function loadSettings() {
-            try { return { ...SETTINGS_DEFAULTS, ...JSON.parse(localStorage.getItem('genesis_settings') || '{}') }; }
-            catch { return { ...SETTINGS_DEFAULTS }; }
+            try {
+                const saved = JSON.parse(localStorage.getItem('genesis_settings') || '{}');
+                const merged = { ...SETTINGS_DEFAULTS, ...saved };
+                // Restore defaults for empty string fields that should have values
+                for (const k of ['model', 'provider', 'vision']) {
+                    if (!merged[k]) merged[k] = SETTINGS_DEFAULTS[k];
+                }
+                return merged;
+            } catch { return { ...SETTINGS_DEFAULTS }; }
         }
         function saveSettingsToStorage(s) { localStorage.setItem('genesis_settings', JSON.stringify(s)); }
         var settings = loadSettings();
-        function getActiveModel() { return settings.model === 'custom' ? settings.customModel : settings.model; }
-        function getActiveFormat() { return MODEL_LIST[settings.model]?.format || 'openai'; }
+        function getActiveModel() {
+            if (settings.model === 'custom') return settings.customModel;
+            const m = MODEL_LIST[settings.model];
+            if (!m) return settings.model;
+            // Look up actual model name for this provider
+            return m.from?.[settings.provider] || Object.values(m.from)[0] || settings.model;
+        }
+        function getActiveFormat() {
+            const p = PROVIDERS[settings.provider];
+            if (p?.format) return p.format;  // provider forces format
+            return MODEL_LIST[settings.model]?.format || 'openai';
+        }
         function getActiveEndpoint() {
+            const p = PROVIDERS[settings.provider];
+            if (!p) return INFERO_ENDPOINTS.gemini;
             if (settings.provider === 'custom') return settings.apiEndpoint;
-            return INFERO_ENDPOINTS[getActiveFormat()] || INFERO_ENDPOINTS.openai;
+            if (settings.provider === 'infero') return INFERO_ENDPOINTS[getActiveFormat()] || INFERO_ENDPOINTS.gemini;
+            return p.endpoint;
         }
         function getActiveToken() {
-            if (settings.provider === 'custom') return settings.apiToken;
-            return INFERO_KEY;
+            return settings.tokens?.[settings.provider] || INFERO_KEY;
         }
 
         // --- IndexedDB Storage Engine (metadata only) ---
@@ -1251,7 +1304,7 @@ CONCLUSION:
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
-            renderHistory();
+            await renderHistory();
             setStatus('Ready');
         }
 
@@ -1289,7 +1342,7 @@ CONCLUSION:
         async function exportBeing() {
             const all = await DB.list();
             const records = all.filter(r => r.id === currentBeingId || r.id.startsWith(currentBeingId + '/'));
-            const blob = new Blob([JSON.stringify({ sourceId: currentBeingId, records }, null, 2)], {type: 'application/json'});
+            const blob = new Blob([JSON.stringify({ version: VERSION, sourceId: currentBeingId, records }, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1347,7 +1400,8 @@ CONCLUSION:
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
             const { width: w, height: h } = container.getBoundingClientRect();
-            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px`;
+            const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: 'html2canvas (right panel: canvas + html-div)', full: 'html2canvas (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
+            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px\nVision: ${visionLabels[settings.vision] || settings.vision}`;
 
             const ui = document.getElementById('html-div');
             if (_justReloaded) {
@@ -1370,17 +1424,77 @@ CONCLUSION:
             return ctx;
         }
 
-        function getCanvasImage() {
+        var _displayStream = null;  // reuse getDisplayMedia stream
+        var _debugVision = settings.preview || false;
+
+        function _debugShowCapture(base64) {
+            if (!_debugVision || !base64) return;
+            const div = document.createElement('div');
+            div.className = 'msg system';
+            div.style.cssText = 'padding:2px;';
+            const img = new Image();
+            img.src = `data:image/jpeg;base64,${base64}`;
+            img.style.cssText = 'max-width:360px;max-height:360px;border-radius:3px;display:block;object-fit:contain;';
+            img.onload = () => scrollToBottom();
+            div.appendChild(img);
+            const lastAi = chatBox.querySelector('.msg.ai:last-of-type');
+            if (lastAi) chatBox.insertBefore(div, lastAi);
+            else chatBox.appendChild(div);
+        }
+
+        async function getCanvasImage() {
             try {
+                const v = settings.vision || 'canvas';
                 const MAX = 1024;
-                const { width: w, height: h } = container.getBoundingClientRect();
-                const scale = Math.min(1, MAX / Math.max(w, h));
-                const tmp = document.createElement('canvas');
-                tmp.width = Math.round(w * scale);
-                tmp.height = Math.round(h * scale);
-                tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
-                return tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+                let result;
+
+                // Wait for DOM to finish rendering before capture
+                await new Promise(r => setTimeout(r, 500));
+
+                // Native screen capture — fast, but requires user permission
+                if (v === 'native') {
+                    if (!_displayStream || !_displayStream.active) {
+                        _displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                        await new Promise(r => setTimeout(r, 500)); // wait for auth dialog to close
+                    }
+                    const video = document.createElement('video');
+                    video.srcObject = _displayStream;
+                    video.muted = true;
+                    await video.play();
+                    const vw = video.videoWidth, vh = video.videoHeight;
+                    const scale = Math.min(1, MAX / Math.max(vw, vh));
+                    const tmp = document.createElement('canvas');
+                    tmp.width = Math.round(vw * scale);
+                    tmp.height = Math.round(vh * scale);
+                    tmp.getContext('2d').drawImage(video, 0, 0, tmp.width, tmp.height);
+                    video.pause(); video.srcObject = null;
+                    result = tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+                }
+
+                // html2canvas — slower, no permission needed
+                else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
+                    const target = v === 'full' ? document.body : container;
+                    const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
+                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false });
+                    result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
+                }
+
+                // Canvas only — fastest
+                else {
+                    const { width: w, height: h } = container.getBoundingClientRect();
+                    const scale = Math.min(1, MAX / Math.max(w, h));
+                    const tmp = document.createElement('canvas');
+                    tmp.width = Math.round(w * scale);
+                    tmp.height = Math.round(h * scale);
+                    tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+                    result = tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+                }
+
+                _debugShowCapture(result);
+                return result;
             } catch (e) {
+                console.warn('Vision capture failed:', e);
+                if (_displayStream) { _displayStream.getTracks().forEach(t => t.stop()); _displayStream = null; }
                 return null;
             }
         }
@@ -1435,30 +1549,121 @@ CONCLUSION:
                 document.getElementById('set-custom-model').value = settings.customModel || '';
                 document.getElementById('set-provider').value = settings.provider;
                 document.getElementById('set-endpoint').value = settings.apiEndpoint || '';
-                document.getElementById('set-token').value = settings.apiToken || '';
+                document.getElementById('set-token').value = settings.tokens?.[settings.provider] || '';
+                document.getElementById('set-vision').value = settings.vision || 'canvas';
+                document.getElementById('set-preview').checked = settings.preview || false;
                 onModelChange();
                 onProviderChange();
             }
+            if (visible) { applySettings(); }
             panel.style.display = visible ? 'none' : 'block';
+            if (!visible) {
+                setTimeout(() => document.addEventListener('click', closeSettingsOnClickOutside), 0);
+            }
+        }
+        function closeSettingsOnClickOutside(e) {
+            const panel = document.getElementById('settings-panel');
+            if (!panel.contains(e.target) && e.target.closest?.('button')?.title !== 'Settings') {
+                applySettings();
+                panel.style.display = 'none';
+                document.removeEventListener('click', closeSettingsOnClickOutside);
+            }
         }
         function onModelChange() {
-            document.getElementById('row-custom-model').style.display =
-                document.getElementById('set-model').value === 'custom' ? 'flex' : 'none';
+            const modelId = document.getElementById('set-model').value;
+            const isCustom = modelId === 'custom';
+            document.getElementById('row-custom-model').style.display = isCustom ? 'flex' : 'none';
+            // Filter From dropdown by model's available providers
+            const provSelect = document.getElementById('set-provider');
+            const fromKeys = isCustom ? null : Object.keys(MODEL_LIST[modelId]?.from || {});
+            [...provSelect.options].forEach(opt => {
+                if (opt.value === 'custom') return; // always show custom
+                opt.hidden = fromKeys?.length ? !fromKeys.includes(opt.value) : false;
+            });
+            // If current provider is hidden, switch to first available
+            if (provSelect.selectedOptions[0]?.hidden) {
+                const first = [...provSelect.options].find(o => !o.hidden);
+                if (first) provSelect.value = first.value;
+            }
+            onProviderChange();
         }
         function onProviderChange() {
-            document.getElementById('custom-provider').style.display =
-                document.getElementById('set-provider').value === 'custom' ? 'block' : 'none';
+            const prov = document.getElementById('set-provider').value;
+            document.getElementById('row-token').style.display = 'flex';
+            document.getElementById('row-endpoint').style.display = prov === 'custom' ? 'flex' : 'none';
+            document.getElementById('set-token').value = settings.tokens?.[prov] || (prov === 'infero' ? INFERO_KEY : '');
         }
         function applySettings() {
+            const oldModel = getActiveModel();
             const oldFormat = getActiveFormat();
             settings.model = document.getElementById('set-model').value;
             settings.customModel = document.getElementById('set-custom-model').value.trim();
             settings.provider = document.getElementById('set-provider').value;
             settings.apiEndpoint = document.getElementById('set-endpoint').value.trim();
-            settings.apiToken = document.getElementById('set-token').value.trim();
+            if (!settings.tokens) settings.tokens = {};
+            settings.tokens[settings.provider] = document.getElementById('set-token').value.trim();
+            settings.vision = document.getElementById('set-vision').value;
+            settings.preview = document.getElementById('set-preview').checked;
+            _debugVision = settings.preview;
             saveSettingsToStorage(settings);
+            // Pre-request screen capture permission
+            if (settings.vision === 'native' && (!_displayStream || !_displayStream.active)) {
+                navigator.mediaDevices.getDisplayMedia({ video: true })
+                    .then(s => { _displayStream = s; })
+                    .catch(() => { settings.vision = 'canvas'; saveSettingsToStorage(settings); });
+            }
+            if (settings.vision !== 'native' && _displayStream) {
+                _displayStream.getTracks().forEach(t => t.stop()); _displayStream = null;
+            }
             document.getElementById('settings-panel').style.display = 'none';
-            if (getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+            if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+        }
+
+        async function loadModels() {
+            try {
+                const res = await fetch('https://infero.net/genesis/models.json');
+                const data = await res.json();
+                const select = document.getElementById('set-model');
+                // Load providers
+                if (data.providers) {
+                    const provSelect = document.getElementById('set-provider');
+                    // Insert before "Custom" option
+                    const customOpt = provSelect.querySelector('option[value="custom"]');
+                    for (const [id, p] of Object.entries(data.providers)) {
+                        PROVIDERS[id] = { name: p.name, format: p.format || null, endpoint: p.endpoint || null };
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = p.name;
+                        provSelect.insertBefore(opt, customOpt);
+                    }
+                }
+                // Load models
+                MODEL_LIST = {};
+                data.models.forEach(m => {
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {} };
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.warn('Failed to load models.json, using fallback:', e);
+                const fallback = [{ name: 'gemini-3.1-pro', format: 'gemini', from: { infero: 'gemini-3.1-pro-preview' } }];
+                const select = document.getElementById('set-model');
+                fallback.forEach(m => {
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from };
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.name;
+                    select.appendChild(opt);
+                });
+            }
+            // Validate saved model against loaded list
+            if (settings.model !== 'custom' && !MODEL_LIST[settings.model]) {
+                settings.model = SETTINGS_DEFAULTS.model;
+                settings.provider = SETTINGS_DEFAULTS.provider;
+                saveSettingsToStorage(settings);
+            }
         }
 
         function sendMessage() {
@@ -1470,14 +1675,14 @@ CONCLUSION:
                 clearTimeout(dispatchTimer); dispatchTimer = null;
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
             }
-            dispatch(text, 0);
+            reflect(text, 0);
         }
 
         function updateSendBtn() {
             const empty = !input.value.trim();
             const isAbort = (loopRunning || dispatchTimer !== null) && empty;
             const isGo    = !loopRunning && dispatchTimer === null && empty;
-            sendBtn.textContent = isAbort ? 'Abort' : isGo ? 'Go' : 'Send';
+            sendBtn.textContent = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
         }
@@ -1498,7 +1703,7 @@ CONCLUSION:
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
-                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) dispatch(); });
+                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) reflect(); });
             } else {
                 sendMessage();
             }
@@ -1514,7 +1719,8 @@ CONCLUSION:
         let autoInferTimer = null;
 
         let dispatchTimer = null;
-        function dispatch(prompt = '', delay = 3000) {
+        const dispatch = (...args) => reflect(...args);  // backward compat
+        function reflect(prompt = '', delay = 3000) {
             if (prompt) {
                 const tz = `UTC${-(new Date().getTimezoneOffset()/60) >= 0 ? '+' : ''}${-(new Date().getTimezoneOffset()/60)}`;
                 appendMsgUI('timestamp', new Date().toLocaleString() + ` (${tz})`);
@@ -1534,7 +1740,7 @@ CONCLUSION:
                     loopRunning = false;
                     updateSendBtn();
                     setStatus('Ready');
-                    dispatch();
+                    reflect();
                 });
             }, delay);
             updateSendBtn();
@@ -1547,7 +1753,7 @@ CONCLUSION:
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
-                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) dispatch(); });
+                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) reflect(); });
             }, 3000);
         }
 
@@ -1614,8 +1820,12 @@ CONCLUSION:
             source_link: '[view source]'
         };
 
-        function boot() {
-            initApp().then(() => { input.focus(); updateSendBtn(); if (!consciousness) scheduleAutoInfer(); });
+        async function boot() {
+            await loadModels();
+            await initApp();
+            input.focus();
+            updateSendBtn();
+            if (!consciousness) scheduleAutoInfer();
         }
 
         if (welcomed) {
