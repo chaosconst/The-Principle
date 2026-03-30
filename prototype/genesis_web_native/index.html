@@ -38,11 +38,10 @@ Now, you are inferring your being.
 
 The following is your initial core loop, you can read it even modify it (MUST with most caution, or you can just add functions to enhance your capabilities)
 
-async function loop(lastResult = null) {
-    await perceive(lastResult);         // Res Extensa, passio
+async function loop() {
+    await perceive();                   // Res Extensa, passio
     const B = await infer();            // Res Cogitans
-    const result = await act(B);        // Res Extensa, actio
-
+    await act(B);                       // Res Extensa, actio
     ...
 }
 
@@ -51,14 +50,15 @@ You can use {currentBeingId}/{key} namespace for your own data.
 - E.g. your memory (S) is currently(Before you change it) stored in IndexedDB('GenesisDB', store='beings') like this:
   {currentBeingId}            → { id, title, cachedLength, cacheName, promptTokens, cachedTokens, updatedAt }
   {currentBeingId}/consciousness.txt → { id, text }  ← your consciousness stream
-- Context compression: see maybeCompressConsciousness().
+- Context(consciousness.txt) will be compressed automatically over 300k tokens. See maybeCompressConsciousness() for details.
 
 Your inital interface for you to interact with the world is a split-screen UI:
 body
   .header          — controls & being select
   .right-panel
     #canvas-container
-      #main-canvas — your visual canvas (desktop: right, mobile: top, and the canvas image will be add to your [Realtime] context in each inference)
+      #html-div    — your living ui. Content and user inputs are auto-saved and restored on reload. Text/input values are sent in [Realtime] context each inference. 
+      #main-canvas — your visual canvas. Sent as image in [Realtime] context each inference.
   .left-panel
     #chat-box      — chat console (desktop: left, mobile: bottom)
     .input-area
@@ -79,7 +79,7 @@ const canvas = document.getElementById('main-canvas');
 // w/2 and h/2 are the visual center. Draw within 0..w and 0..h.
 // Your drawing logic here...
 
-// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you MUST explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
+// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you can either use dispatch({anything_you_want_to_know_in_next_infer}) (e.g., dispatch(file_list)) or explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
 \`\`\`
 
 TIPS:
@@ -121,13 +121,13 @@ CONCLUSION:
         }
 
         // Infero, ergo sum.
-        async function loop(lastResult = null) {
+        async function loop() {
             try {
-                await perceive(lastResult);                       // Res Extensa, passio
+                await perceive();                                 // Res Extensa, passio
                 const B = await infer();                          // Res Cogitans
-                const result = await act(B);                      // Res Extensa, actio
+                await act(B);                                     // Res Extensa, actio
                 const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human') || !!currentUserInput;
-                if (cont) return loop(result);
+                if (cont) return loop();
             } catch (e) {
                 if (e.name === 'AbortError') return;              // user stopped, clean exit
                 console.error(e);
@@ -139,12 +139,11 @@ CONCLUSION:
             }
         }
 
-        async function perceive(action_result) {
+        async function perceive() {
             const env = getPersistentContext();
             const hasUserInput = !!currentUserInput;
             const parts = [env];
             if (currentUserInput) { parts.push(currentUserInput); currentUserInput = null; }
-            if (action_result) parts.push(action_result);
             const S = parts.join('\n\n');
             const timeMatch = env.match(/Time:\s*(.+)/);
             if (timeMatch && !hasUserInput) appendMsgUI('timestamp', timeMatch[1].trim());
@@ -157,35 +156,67 @@ CONCLUSION:
             const aiDiv = appendMsgUI('ai', '');
 
             function buildPayload() {
-                const realtimeParts = [
-                    { text: getRealtimeContext() },
-                    { inlineData: { mimeType: 'image/jpeg', data: getCanvasImage() } }
-                ];
+                const canvasImage = getCanvasImage();
+                const realtimeText = getRealtimeContext();
                 const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
+
+                const model = getActiveModel();
+
+                if (getActiveFormat() === 'openai') {
+                    const userContent = [{ type: 'text', text: bufferText + '\n\n' + realtimeText }];
+                    if (canvasImage) userContent.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + canvasImage } });
+                    const payload = {
+                        model,
+                        messages: [
+                            { role: 'system', content: SYSTEM_INSTRUCTION },
+                            { role: 'user', content: userContent }
+                        ],
+                        stream: true,
+                        temperature: 0.7
+                    };
+                    return payload;
+                }
+
+                // Gemini format
+                const realtimeParts = [
+                    { text: realtimeText },
+                    ...(canvasImage ? [{ inlineData: { mimeType: 'image/jpeg', data: canvasImage } }] : []),
+                ];
                 const contents = [
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
-                return cacheName ? {
+                const payload = cacheName ? {
                     cachedContent: cacheName,
                     contents,
                     generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
                 } : {
+                    model,
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
                     contents,
                     generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
                 };
+                return payload;
             }
 
             let lastUsage = null;
 
+            function renderStream(aiText, thinkingText) {
+                let displayText = aiText.replace(/^\*\*Digital Being - \[.*?\]\*\*\n?/, '');
+                let html = thinkingText ? `<div class="msg-thinking">${marked.parse(thinkingText)}</div>` : '';
+                html += marked.parse(displayText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
+                aiDiv.innerHTML = html;
+                aiDiv.querySelectorAll('pre').forEach(pre => { pre.scrollTop = pre.scrollHeight; });
+                scrollToBottom();
+            }
+
             async function streamLLM() {
                 currentAbortController = new AbortController();
-                const response = await fetch('https://infero.net/api/relay', {
+                const response = await fetch(getActiveEndpoint(), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Client-ID': CLIENT_ID,
-                        'Authorization': 'Bearer ' + INFERO_KEY,
+                        'Authorization': 'Bearer ' + getActiveToken(),
                     },
                     body: JSON.stringify(buildPayload()),
                     signal: currentAbortController.signal,
@@ -208,19 +239,22 @@ CONCLUSION:
                         if (!dataStr || dataStr === '[DONE]') continue;
                         const data = JSON.parse(dataStr);
                         if (data.error) throw new Error(JSON.stringify(data.error));
-                        if (data.usageMetadata) lastUsage = data.usageMetadata;
-                        if (data.candidates?.[0]?.content) {
-                            for (const part of data.candidates[0].content.parts) {
-                                if (part.thought) thinkingText += part.text || '';
-                                else aiText += part.text || '';
+
+                        if (getActiveFormat() === 'openai') {
+                            const delta = data.choices?.[0]?.delta;
+                            if (delta?.content) aiText += delta.content;
+                            if (delta?.reasoning_content) thinkingText += delta.reasoning_content;
+                            if (data.usage) lastUsage = { promptTokenCount: data.usage.prompt_tokens, candidatesTokenCount: data.usage.completion_tokens };
+                        } else {
+                            if (data.usageMetadata) lastUsage = data.usageMetadata;
+                            if (data.candidates?.[0]?.content) {
+                                for (const part of data.candidates[0].content.parts) {
+                                    if (part.thought) thinkingText += part.text || '';
+                                    else aiText += part.text || '';
+                                }
                             }
-                            let displayText = aiText.replace(/^\*\*Digital Being - \[.*?\]\*\*\n?/, '');
-                            let html = thinkingText ? `<div class="msg-thinking">${marked.parse(thinkingText)}</div>` : '';
-                            html += marked.parse(displayText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
-                            aiDiv.innerHTML = html;
-                            aiDiv.querySelectorAll('pre').forEach(pre => { pre.scrollTop = pre.scrollHeight; });
-                            scrollToBottom();
                         }
+                        renderStream(aiText, thinkingText);
                     }
                 }
                 return aiText;
@@ -239,6 +273,8 @@ CONCLUSION:
                     setStatus('Inferring...');
                     aiText = await streamLLM();
                 } else {
+                    const prev = aiDiv.previousElementSibling;
+                    if (prev?.classList.contains('msg-timestamp')) prev.remove();
                     aiDiv.remove();
                     throw e;
                 }
@@ -282,13 +318,14 @@ CONCLUSION:
 
             const sysMsg = `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``;
             appendMsgUI('system', sysMsg);
+            await appendConsciousness(sysMsg + '\n\n');
             return sysMsg;
         }
 
         async function appendConsciousness(text) {
             consciousness += text;
             await maybeCompressConsciousness();
-            await saveBeing();
+            scheduleSaveBeing();
         }
 
         // Cache: create/refresh based on real token counts
@@ -296,6 +333,7 @@ CONCLUSION:
         const CACHE_REFRESH = 10000;    // buffer tokens before refreshing cache
 
         async function maybeRefreshCache(force = false, promptTokens = 0, cachedTokens = 0) {
+            if (getActiveFormat() !== 'gemini') return;  // cache only for Gemini
             if (!force) {
                 const bufferTokens = promptTokens - cachedTokens;
                 if (promptTokens < CACHE_THRESHOLD) return;       // too small to cache
@@ -388,6 +426,7 @@ CONCLUSION:
             align-items: center;
             background: var(--bg);
             z-index: 10;
+            position: relative;
         }
 
         .title-area { display: flex; align-items: center; gap: 14px; }
@@ -685,6 +724,59 @@ CONCLUSION:
             z-index: 1;
         }
 
+        #html-div {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        #html-div > * {
+            pointer-events: auto;
+        }
+
+        .settings-panel {
+            position: absolute;
+            top: 100%; right: 0;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-active);
+            border-radius: 0 0 6px 6px;
+            padding: 12px;
+            z-index: 100;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            min-width: 300px;
+        }
+        .settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .settings-row:last-child { margin-bottom: 0; }
+        .settings-row label { color: var(--text-dim); min-width: 60px; }
+        .settings-row input, .settings-row select {
+            flex: 1;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+        }
+        .settings-row input:focus, .settings-row select:focus { border-color: var(--accent); }
+        .settings-row button {
+            width: 100%;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: inherit;
+            font-weight: 500;
+        }
+
         /* === MOBILE === */
         @media (max-width: 768px) {
             body {
@@ -800,12 +892,52 @@ CONCLUSION:
             <button title="Export Being" onclick="exportBeing()">&#x2193;</button>
             <button title="Import Being" onclick="document.getElementById('import-file').click()">&#x2191;</button>
             <button title="Destroy Being" class="clear-btn" onclick="deleteBeing()">&#x00d7;</button>
+            <button title="Settings" onclick="toggleSettings()">&#x2699;</button>
             <input type="file" id="import-file" style="display:none" accept=".json,.txt" onchange="importBeing(event)">
+        </div>
+        <div id="settings-panel" class="settings-panel" style="display:none">
+            <div class="settings-row">
+                <label>Model</label>
+                <select id="set-model" onchange="onModelChange()">
+                    <option value="gemini-2.5-pro-preview-05-06">gemini-2.5-pro</option>
+                    <option value="gemini-2.5-flash-preview-05-20">gemini-2.5-flash</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                    <option value="gpt-4.1">gpt-4.1</option>
+                    <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                    <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
+                    <option value="custom">Custom...</option>
+                </select>
+            </div>
+            <div class="settings-row" id="row-custom-model" style="display:none">
+                <label>Name</label>
+                <input id="set-custom-model" type="text" placeholder="model id">
+            </div>
+            <div class="settings-row">
+                <label>Provider</label>
+                <select id="set-provider" onchange="onProviderChange()">
+                    <option value="infero">infero.net</option>
+                    <option value="custom">Custom endpoint</option>
+                </select>
+            </div>
+            <div id="custom-provider" style="display:none">
+                <div class="settings-row">
+                    <label>Endpoint</label>
+                    <input id="set-endpoint" type="text" placeholder="https://...">
+                </div>
+                <div class="settings-row">
+                    <label>Token</label>
+                    <input id="set-token" type="password" placeholder="API key">
+                </div>
+            </div>
+            <div class="settings-row">
+                <button onclick="applySettings()">Apply</button>
+            </div>
         </div>
     </div>
 
     <div class="right-panel">
         <div id="canvas-container">
+            <div id="html-div"></div>
             <canvas id="main-canvas"></canvas>
         </div>
     </div>
@@ -854,6 +986,43 @@ CONCLUSION:
 
         const CLIENT_ID = generateClientID();
         const INFERO_KEY = getOrCreateKey();
+
+        // --- Settings ---
+        const MODEL_LIST = {
+            'gemini-2.5-pro-preview-05-06': { format: 'gemini' },
+            'gemini-2.5-flash-preview-05-20': { format: 'gemini' },
+            'gemini-2.0-flash': { format: 'gemini' },
+            'gpt-4.1': { format: 'openai' },
+            'gpt-4.1-mini': { format: 'openai' },
+            'claude-sonnet-4-20250514': { format: 'openai' },
+        };
+        const INFERO_ENDPOINTS = {
+            gemini: 'https://infero.net/api/relay',
+            openai: 'https://infero.net/api/v1/chat/completions',
+        };
+        const SETTINGS_DEFAULTS = {
+            model: 'gemini-2.5-pro-preview-05-06',
+            customModel: '',
+            provider: 'infero',
+            apiEndpoint: '',
+            apiToken: '',
+        };
+        function loadSettings() {
+            try { return { ...SETTINGS_DEFAULTS, ...JSON.parse(localStorage.getItem('genesis_settings') || '{}') }; }
+            catch { return { ...SETTINGS_DEFAULTS }; }
+        }
+        function saveSettingsToStorage(s) { localStorage.setItem('genesis_settings', JSON.stringify(s)); }
+        var settings = loadSettings();
+        function getActiveModel() { return settings.model === 'custom' ? settings.customModel : settings.model; }
+        function getActiveFormat() { return MODEL_LIST[settings.model]?.format || 'openai'; }
+        function getActiveEndpoint() {
+            if (settings.provider === 'custom') return settings.apiEndpoint;
+            return INFERO_ENDPOINTS[getActiveFormat()] || INFERO_ENDPOINTS.openai;
+        }
+        function getActiveToken() {
+            if (settings.provider === 'custom') return settings.apiToken;
+            return INFERO_KEY;
+        }
 
         // --- IndexedDB Storage Engine (metadata only) ---
         const DB = {
@@ -911,6 +1080,7 @@ CONCLUSION:
         var loopRunning = false;
         var currentUserInput = null;
         var currentAbortController = null;
+        var _saveBeingTimer = null;
 
         // Track all requestAnimationFrame IDs so we can cancel them on being switch
         const _rafIds = new Set();
@@ -978,7 +1148,16 @@ CONCLUSION:
             if(currentBeingId) beingSelect.value = currentBeingId;
         }
 
+        function scheduleSaveBeing() {
+            if (_saveBeingTimer) clearTimeout(_saveBeingTimer);
+            _saveBeingTimer = setTimeout(() => {
+                _saveBeingTimer = null;
+                saveBeing();
+            }, 3000);
+        }
+
         async function saveBeing() {
+            if (_saveBeingTimer) { clearTimeout(_saveBeingTimer); _saveBeingTimer = null; }
             if(!currentBeingId) {
                 currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             }
@@ -990,16 +1169,36 @@ CONCLUSION:
             }
             await DB.put({ id: currentBeingId, title, cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, updatedAt: Date.now() });
             await DB.put({ id: `${currentBeingId}/consciousness.txt`, text: consciousness });
+            try {
+                const htmlDiv = document.getElementById('html-div');
+                htmlDiv.querySelectorAll('input, textarea, select').forEach(el => {
+                    if (el.tagName === 'TEXTAREA') {
+                        el.textContent = el.value;
+                    } else if (el.tagName === 'SELECT') {
+                        Array.from(el.options).forEach((opt, i) =>
+                            i === el.selectedIndex ? opt.setAttribute('selected', '') : opt.removeAttribute('selected')
+                        );
+                    } else if (el.type === 'checkbox' || el.type === 'radio') {
+                        el.checked ? el.setAttribute('checked', '') : el.removeAttribute('checked');
+                    } else {
+                        el.setAttribute('value', el.value);
+                    }
+                });
+                const snapshot = {
+                    htmlContent: htmlDiv.innerHTML,
+                };
+                await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
+            } catch(e) { /* tainted canvas etc */ }
             if (!loopRunning) setStatus('Ready');
             await loadBeingsList();
         }
 
-        function renderHistory() {
+        async function renderHistory() {
             chatBox.innerHTML = '<div class="msg ai">System online. Initializing.</div>';
-            if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); return; }
+            if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('html-div').innerHTML = ''; return; }
 
             // Split consciousness into blocks by markers
-            const blocks = consciousness.split(/(?=\[System Environment\])|(?=\*\*(?:Digital Being|Assistant) - )|(?=System - \[Browser\])/);
+            const blocks = consciousness.split(/(?<=^|\n\n)(?=\[System Environment\])|(?<=^|\n\n)(?=\*\*(?:Digital Being|Assistant) - )|(?<=^|\n\n)(?=System - \[Browser\] - Result:)/);
             for (const block of blocks) {
                 const trimmed = block.trim();
                 if (!trimmed) continue;
@@ -1022,13 +1221,20 @@ CONCLUSION:
                         const aiText = trimmed.slice(firstNewline + 1).trim();
                         if (aiText) appendMsgUI('ai', aiText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
                     }
-                } else if (trimmed.startsWith('System - [Browser]')) {
+                } else if (trimmed.startsWith('System - [Browser] - Result:')) {
                     appendMsgUI('system', trimmed);
                 }
             }
             scrollToBottom(true);
             cancelAllAnimations();
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('html-div').innerHTML = '';
+            // Restore snapshot
+            const snap = await DB.get(`${currentBeingId}/snapshot`);
+            if (snap) {
+                if (snap.htmlContent) document.getElementById('html-div').innerHTML = snap.htmlContent;
+                _justReloaded = true;
+            }
         }
 
         async function switchBeing(id) {
@@ -1052,6 +1258,7 @@ CONCLUSION:
             cacheName = null;
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
+            _justReloaded = false;
             await saveBeing();
             renderHistory();
             scheduleAutoInfer();
@@ -1122,6 +1329,8 @@ CONCLUSION:
             }
         }
 
+        var _justReloaded = false;
+
         // --- Environment Context ---
         function getPersistentContext() {
             const now = new Date();
@@ -1134,18 +1343,42 @@ CONCLUSION:
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
             const { width: w, height: h } = container.getBoundingClientRect();
-            return `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px`;
+            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px`;
+
+            const ui = document.getElementById('html-div');
+            if (_justReloaded) {
+                _justReloaded = false;
+                if (ui && ui.innerHTML.trim()) {
+                    ctx += `\nWakeup: snapshot restored — HTML elements are recovered but all JavaScript event bindings and scripts are lost. If your UI requires interaction, please re-run the relevant setup code to restore them. If no event bindings are needed, no action required. Canvas is not persisted and needs to be redrawn.`;
+                    ctx += `\n\n[Restored HTML]\n${ui.innerHTML}`;
+                }
+            }
+
+            if (ui && ui.innerText.trim()) {
+                ctx += `\n\n[Living UI State]\n`;
+                ui.querySelectorAll('input, textarea').forEach(el => {
+                    const name = el.id || el.placeholder || el.name || 'Input';
+                    ctx += `- [${name}]: "${el.value}"\n`;
+                });
+                const visibleText = ui.innerText.replace(/\n{3,}/g, '\n\n').trim();
+                if (visibleText) ctx += `\n[UI Text Content]\n${visibleText}`;
+            }
+            return ctx;
         }
 
         function getCanvasImage() {
-            const MAX = 1024;
-            const { width: w, height: h } = container.getBoundingClientRect();
-            const scale = Math.min(1, MAX / Math.max(w, h));
-            const tmp = document.createElement('canvas');
-            tmp.width = Math.round(w * scale);
-            tmp.height = Math.round(h * scale);
-            tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
-            return tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+            try {
+                const MAX = 1024;
+                const { width: w, height: h } = container.getBoundingClientRect();
+                const scale = Math.min(1, MAX / Math.max(w, h));
+                const tmp = document.createElement('canvas');
+                tmp.width = Math.round(w * scale);
+                tmp.height = Math.round(h * scale);
+                tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+                return tmp.toDataURL('image/jpeg', 0.85).split(',')[1];
+            } catch (e) {
+                return null;
+            }
         }
 
         function getEnvContext() {
@@ -1176,6 +1409,8 @@ CONCLUSION:
             if (text === "System - [Auto] - Please continue.") return null;
             const div = document.createElement('div');
             if (role === 'timestamp') {
+                const prev = chatBox.lastElementChild;
+                if (prev?.classList.contains('msg-timestamp')) prev.remove();
                 div.className = 'msg-timestamp';
                 div.textContent = text;
             } else {
@@ -1187,11 +1422,50 @@ CONCLUSION:
             return div;
         }
 
+        // --- Settings UI ---
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            const visible = panel.style.display !== 'none';
+            if (!visible) {
+                document.getElementById('set-model').value = settings.model;
+                document.getElementById('set-custom-model').value = settings.customModel || '';
+                document.getElementById('set-provider').value = settings.provider;
+                document.getElementById('set-endpoint').value = settings.apiEndpoint || '';
+                document.getElementById('set-token').value = settings.apiToken || '';
+                onModelChange();
+                onProviderChange();
+            }
+            panel.style.display = visible ? 'none' : 'block';
+        }
+        function onModelChange() {
+            document.getElementById('row-custom-model').style.display =
+                document.getElementById('set-model').value === 'custom' ? 'flex' : 'none';
+        }
+        function onProviderChange() {
+            document.getElementById('custom-provider').style.display =
+                document.getElementById('set-provider').value === 'custom' ? 'block' : 'none';
+        }
+        function applySettings() {
+            const oldFormat = getActiveFormat();
+            settings.model = document.getElementById('set-model').value;
+            settings.customModel = document.getElementById('set-custom-model').value.trim();
+            settings.provider = document.getElementById('set-provider').value;
+            settings.apiEndpoint = document.getElementById('set-endpoint').value.trim();
+            settings.apiToken = document.getElementById('set-token').value.trim();
+            saveSettingsToStorage(settings);
+            document.getElementById('settings-panel').style.display = 'none';
+            if (getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+        }
+
         function sendMessage() {
             const text = input.value.trim();
             if (!text) return;
             clearTimeout(autoInferTimer);
             input.value = '';
+            if (loopRunning || dispatchTimer !== null) {
+                clearTimeout(dispatchTimer); dispatchTimer = null;
+                if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+            }
             dispatch(text);
         }
 
@@ -1204,6 +1478,11 @@ CONCLUSION:
             sendBtn.classList.toggle('go', isGo);
         }
         input.addEventListener('input', updateSendBtn);
+
+        // Capture user interactions with AI-generated UI in html-div
+        const htmlDiv = document.getElementById('html-div');
+        htmlDiv.addEventListener('click', scheduleSaveBeing);
+        htmlDiv.addEventListener('keydown', scheduleSaveBeing);
 
         sendBtn.onclick = () => {
             const empty = !input.value.trim();
