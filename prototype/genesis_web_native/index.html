@@ -39,9 +39,9 @@ Now, you are inferring your being.
 The following is your initial core loop, you can read it even modify it (MUST with most caution, or you can just add functions to enhance your capabilities)
 
 async function loop() {
-    await perceive();                   // Res Extensa, passio
-    const B = await infer();            // Res Cogitans
-    await act(B);                       // Res Extensa, actio
+    await perceive();             // Res Extensa, passio
+    const B = await infer();      // Res Cogitans
+    act_async(B);                 // Res Extensa, actio (non-blocking; result returns via next perceive)
     ...
 }
 
@@ -125,8 +125,15 @@ CONCLUSION:
             try {
                 await perceive();                                 // Res Extensa, passio
                 const B = await infer();                          // Res Cogitans
-                await act(B);                                     // Res Extensa, actio
-                const cont = B.lastIndexOf('/self_continue') > B.lastIndexOf('/call_for_human') || !!currentUserInput;
+                let actDone = false;                                                   // Res Extensa, actio (15s max wait)
+                const actPromise = act(B).then(() => { actDone = true; });
+                await Promise.race([actPromise, new Promise(r => setTimeout(r, 15000))]);
+                if (!actDone) {
+                    const msg = 'System - [Browser] - Execution still running (>15s), loop continued.';
+                    appendMsgUI('system', msg);
+                    await appendConsciousness(msg + '\n\n');
+                }
+                const cont = !B.includes('/call_for_human') || !!currentUserInput;
                 if (cont) return loop();
             } catch (e) {
                 if (e.name === 'AbortError') return;              // user stopped, clean exit
@@ -286,7 +293,6 @@ CONCLUSION:
                 const { promptTokenCount: prompt, cachedContentTokenCount: cached, candidatesTokenCount: output } = lastUsage;
                 _lastPromptTokens = prompt || 0;
                 _lastCachedTokens = cached || 0;
-                console.log(`[Usage] prompt: ${prompt}, cached: ${cached || 0}, output: ${output}`);
                 maybeRefreshCache(false, prompt, cached || 0);
             }
             return aiText;
@@ -376,8 +382,6 @@ CONCLUSION:
                 }
             } catch (e) {
                 console.warn('Cache refresh error:', e);
-            } finally {
-                if (loopRunning) setStatus('Inferring...');
             }
         }
     </script>
@@ -422,6 +426,7 @@ CONCLUSION:
             border-bottom: 1px solid var(--border);
             border-right: 1px solid var(--border);
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
             background: var(--bg);
@@ -517,9 +522,8 @@ CONCLUSION:
             flex-direction: column;
             border-right: 1px solid var(--border);
             background: var(--bg);
-            z-index: 10;
-            overflow: hidden;
             min-width: 0;
+            overflow: hidden;
         }
 
         #chat-box {
@@ -738,8 +742,8 @@ CONCLUSION:
         }
 
         .settings-panel {
-            position: absolute;
-            top: 100%; right: 0;
+            position: fixed;
+            top: 48px; right: 12px;
             background: var(--bg-raised);
             border: 1px solid var(--border-active);
             border-radius: 0 0 6px 6px;
@@ -1396,8 +1400,8 @@ CONCLUSION:
         var _lastCachedTokens = 0;
         function setStatus(s) { _statusState = s; renderStatus(); }
         function renderStatus() {
-            const prompt = _lastPromptTokens ? `${(_lastPromptTokens/1000).toFixed(1)}k` : `${(consciousness.length / 4096).toFixed(1)}k`;
-            const cached = _lastCachedTokens ? `${(_lastCachedTokens/1000).toFixed(1)}k` : '0';
+            const prompt = _lastPromptTokens ? `${Math.round(_lastPromptTokens/1000)}k` : `${Math.round(consciousness.length / 4096)}k`;
+            const cached = _lastCachedTokens ? `${Math.round(_lastCachedTokens/1000)}k` : '0';
             const stat = cacheName && _statusFlip
                 ? `Cache: ${cached} tok`
                 : `Mem: ${prompt} tok`;
@@ -1466,7 +1470,7 @@ CONCLUSION:
                 clearTimeout(dispatchTimer); dispatchTimer = null;
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
             }
-            dispatch(text);
+            dispatch(text, 0);
         }
 
         function updateSendBtn() {
@@ -1510,7 +1514,7 @@ CONCLUSION:
         let autoInferTimer = null;
 
         let dispatchTimer = null;
-        function dispatch(prompt = '') {
+        function dispatch(prompt = '', delay = 3000) {
             if (prompt) {
                 const tz = `UTC${-(new Date().getTimezoneOffset()/60) >= 0 ? '+' : ''}${-(new Date().getTimezoneOffset()/60)}`;
                 appendMsgUI('timestamp', new Date().toLocaleString() + ` (${tz})`);
@@ -1532,7 +1536,7 @@ CONCLUSION:
                     setStatus('Ready');
                     dispatch();
                 });
-            }, 3000);
+            }, delay);
             updateSendBtn();
         }
 
