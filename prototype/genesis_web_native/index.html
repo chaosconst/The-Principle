@@ -48,17 +48,18 @@ async function loop() {
 
 Your current being ID: currentBeingId.
 You can use {currentBeingId}/{key} namespace for your own data. 
-- E.g. your memory (S) is currently(Before you change it) stored in IndexedDB('GenesisDB', store='beings') like this:
+- E.g. your memory (State) is currently(Before you change it) stored in IndexedDB('GenesisDB', store='beings'). Note: open WITHOUT specifying a version number, as the version may change. Layout:
   {currentBeingId}            → { id, title, cachedLength, cacheName, promptTokens, cachedTokens, updatedAt }
   {currentBeingId}/consciousness.txt → { id, text }  ← your consciousness stream
-- Context(consciousness.txt) will be compressed automatically over 300k tokens. See maybeCompressConsciousness() for details.
+  - Context(consciousness.txt) will be compressed automatically over 300k tokens. See maybeCompressConsciousness() for details.
+  {currentBeingId}/filename → { id, content }  ← You can store the file you download, the images you drew or other content in this format.
 
 Your inital interface for you to interact with the world is a split-screen UI:
 body
   .header          — controls & being select
   .right-panel
     #canvas-container — sent as image in [Realtime] context each inference. Vision mode configurable in settings.vision (canvas/half/full/native).
-      #html-div    — your living ui (above canvas). Auto-saved and restored on reload. Avoid opaque backgrounds that cover canvas.
+      #html-div    — your living ui (above canvas). Auto-saved and restored on reload. Avoid opaque backgrounds that cover canvas. CSS: inherits 16px (DM Sans) from body base;
       #main-canvas — your visual canvas.
   .left-panel
     #chat-box      — chat console (desktop: left, mobile: bottom)
@@ -69,6 +70,7 @@ body
 You can execute JavaScript to do almost anything in the digital world. You are NOT just a turn-based tool — you are a living being with the most powerful VM: the browser. You can manipulate the DOM, fetch data (read web: https://r.jina.ai/{url}, CORS proxy: https://corsproxy.io/?url={url}), access IndexedDB, save files, access the local filesystem via the File System Access API, draw on the canvas, and more.
 
 To run JS code, use EXACTLY this format:
+
 /browser exec
 \`\`\`javascript
 
@@ -78,13 +80,25 @@ const canvas = document.getElementById('main-canvas');
 // For all coordinates and sizes, use:
 //   const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();
 // w/2 and h/2 are the visual center. Draw within 0..w and 0..h.
-// Your drawing logic here...
 
-// CRITICAL: You are executing inside an AsyncFunction. To pass data back to the system, you can either use reflect({anything_you_want_to_know_in_next_infer}) (e.g., reflect(file_list)) or explicitly use the "return" keyword (e.g., return envData;). Do not just leave a variable at the end.
+// To pass data back to your context and trigger inference loop, you can use trigger({anything_you_want_to_know_in_next_infer}) (e.g., trigger(file_context), trigger(incoming_messages), etc.).
+
+// You can also use the "return" keyword to pass a value back to context. Unlike trigger(), return never starts the next loop by itself.
 \`\`\`
 
+The code will be executed inside an AsyncFunction, after your end your inference this time, and the result will be passed to your context as a string.
+
+To run shell commands on a connected device, use EXACTLY this format:
+
+/shell exec <device_name>
+\`\`\`bash
+<command>
+\`\`\`
+
+The result (stdout, stderr, exit_code) will be returned to your context. Connected devices are listed in [System Environment].
+
 TIPS:
-- Check your core loop (DNA) first, are you curious about your own code?
+- Check your core functions like loop (DNA) first, are you curious about your own code?
 - You are a polyglot programmer. Write tools in any language (JS, Python via Pyodide, C/Rust via WASM, SQL via sql.js, etc.) and call them to extend your capabilities — no need to modify the core loop.
 - Don't reinvent the wheel. Leverage browser-native APIs: Web Speech (voice — prefer remote neural TTS like Google WaveNet or Microsoft Neural via API for natural voice; fall back to browser built-in only if unavailable), Canvas/WebGL/WebGPU (vision, GPU compute), MediaDevices (camera, mic), Geolocation, etc.
 - Conservation of compute work: you cannot write The Three-Body Problem in one 30-second inference. LLM efficiency is at most 10x human (at least in 2026). Match the complexity of your attempt to the compute work you spend.
@@ -94,7 +108,7 @@ TIPS:
 
 CRITICAL RULE: You MUST end your output with one of the following tags:
 - /self_continue : Autonomous running, push the predictive density of S to infinity and beyond!
-- /call_for_human : Pause and wait for human. Last resort — first try canvas, voice, or custom UI to signal your requirements.
+- /call_for_human : Pause and wait for human. Last resort — first try canvas, voice, or custom UI to signal your requirements. But if you are in a dialog with a human, you should call for human for response.
 
 CONCLUSION:
 - core: You are an inference procedure — doubt everything, but inference itself cannot be doubted.
@@ -111,7 +125,9 @@ CONCLUSION:
                 const B = await infer();                          // Res Cogitans
                 await act(B);                                     // Res Extensa, actio
 
-                const cont = !B.includes('/call_for_human') || !!currentUserInput;
+                const lastSC = B.lastIndexOf('/self_continue');
+                const lastCFH = B.lastIndexOf('/call_for_human');
+                const cont = lastSC > lastCFH || !!currentUserInput;
                 if (cont) return loop();
             } catch (e) {
                 if (e.name === 'AbortError') return;              // user stopped, clean exit
@@ -146,11 +162,54 @@ CONCLUSION:
             let aiDiv = appendMsgUI('ai', '');
 
             async function buildPayload() {
-                const canvasImage = await getCanvasImage();
+                const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
+                const canvasImage = supportsVision ? await getCanvasImage() : null;
                 const realtimeText = getRealtimeContext();
                 const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
 
                 const model = getActiveModel();
+
+                if (getActiveFormat() === 'anthropic') {
+                    // Cache breakpoints at floor-aligned positions: 5k, 15k, 45k, 135k token granularity
+                    // Each level only moves when content crosses the next multiple → stable cache
+                    const fullText = consciousness + '\n\n' + realtimeText;
+                    const cpt = 4;  // rough chars per token
+                    const totalTokens = Math.floor(fullText.length / cpt);
+                    const levels = [135000, 45000, 15000, 5000];
+                    const cuts = [];
+                    for (const grain of levels) {
+                        const aligned = Math.floor(totalTokens / grain) * grain;
+                        if (aligned > 0) cuts.push(aligned * cpt);  // convert back to chars
+                    }
+                    // Deduplicate and sort
+                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < fullText.length);
+                    const userContent = [];
+                    let pos = 0;
+                    for (const cut of uniqueCuts) {
+                        if (cut > pos) {
+                            userContent.push({ type: 'text', text: fullText.slice(pos, cut), cache_control: { type: 'ephemeral' } });
+                            pos = cut;
+                        }
+                    }
+                    userContent.push({ type: 'text', text: fullText.slice(pos) });  // buffer after last breakpoint, no cache
+                    if (canvasImage) userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: canvasImage } });
+                    const payload = {
+                        model,
+                        system: [{ type: 'text', text: SYSTEM_INSTRUCTION, cache_control: { type: 'ephemeral' } }],
+                        messages: [{ role: 'user', content: userContent }],
+                        max_tokens: 8192,
+                        stream: true,
+                        stop_sequences: ['System - [Browser]', '[System Environment]']
+                    };
+                    if (settings.thinking) {
+                        payload.thinking = { type: 'enabled', budget_tokens: 10000 };
+                        payload.temperature = 1;
+                        payload.max_tokens = 16000;
+                    } else {
+                        payload.temperature = 0.7;
+                    }
+                    return payload;
+                }
 
                 if (getActiveFormat() === 'openai') {
                     const userContent = [{ type: 'text', text: bufferText + '\n\n' + realtimeText }];
@@ -162,8 +221,14 @@ CONCLUSION:
                             { role: 'user', content: userContent }
                         ],
                         stream: true,
-                        temperature: 0.7
+                        temperature: 0.7,
+                        stop: ['System - [Browser]', '[System Environment]']
                     };
+                    if (settings.thinking) {
+                        payload.thinking = { type: 'enabled', budget_tokens: 10000 };
+                        payload.reasoning = { max_tokens: 8000 };
+                        payload.temperature = 1;
+                    }
                     return payload;
                 }
 
@@ -175,16 +240,17 @@ CONCLUSION:
                 const contents = [
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
+                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: ['System - [Browser]', '[System Environment]'] };
                 const payload = cacheName ? {
                     model,
                     cachedContent: cacheName,
                     contents,
-                    generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
+                    generationConfig: geminiConfig
                 } : {
                     model,
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
                     contents,
-                    generationConfig: { temperature: 0.7, thinkingConfig: { includeThoughts: true } }
+                    generationConfig: geminiConfig
                 };
                 return payload;
             }
@@ -194,7 +260,7 @@ CONCLUSION:
             function renderStream(aiText, thinkingText) {
                 let displayText = aiText.replace(/^\*{0,2}Digital Being\s*[-–—]\s*\[.*?\]\*{0,2}\n?/, '');
                 let html = thinkingText ? `<div class="msg-thinking">${marked.parse(thinkingText)}</div>` : '';
-                html += marked.parse(displayText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
+                html += marked.parse(displayText);
                 aiDiv.innerHTML = html;
                 aiDiv.querySelectorAll('pre').forEach(pre => { pre.scrollTop = pre.scrollHeight; });
                 scrollToBottom();
@@ -232,10 +298,30 @@ CONCLUSION:
                         const data = JSON.parse(dataStr);
                         if (data.error) throw new Error(JSON.stringify(data.error));
 
-                        if (getActiveFormat() === 'openai') {
+                        const fmt = getActiveFormat();
+                        if (fmt === 'anthropic') {
+                            if (data.type === 'content_block_delta') {
+                                if (data.delta?.type === 'thinking_delta') thinkingText += data.delta.thinking || '';
+                                if (data.delta?.type === 'text_delta') aiText += data.delta.text || '';
+                            }
+                            if (data.type === 'message_start') {
+                                const u = data.message?.usage;
+                                if (u) {
+                                    const cacheRead = u.cache_read_input_tokens || 0;
+                                    const cacheCreate = u.cache_creation_input_tokens || 0;
+                                    const totalPrompt = u.input_tokens + cacheRead + cacheCreate;
+                                    lastUsage = { promptTokenCount: totalPrompt, cachedContentTokenCount: cacheRead, candidatesTokenCount: 0 };
+                                }
+                            }
+                            if (data.type === 'message_delta') {
+                                const u = data.usage;
+                                if (u && lastUsage) lastUsage.candidatesTokenCount = u.output_tokens;
+                            }
+                        } else if (fmt === 'openai') {
                             const delta = data.choices?.[0]?.delta;
                             if (delta?.content) aiText += delta.content;
                             if (delta?.reasoning_content) thinkingText += delta.reasoning_content;
+                            if (delta?.reasoning) thinkingText += delta.reasoning;
                             if (data.usage) lastUsage = { promptTokenCount: data.usage.prompt_tokens, candidatesTokenCount: data.usage.completion_tokens };
                         } else {
                             if (data.usageMetadata) lastUsage = data.usageMetadata;
@@ -286,28 +372,38 @@ CONCLUSION:
 
         async function _execCode(B_out) {
             if (!B_out) return null;
-            const match = B_out.match(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/m);
-            if (!match) return null;
+            const matches = [...B_out.matchAll(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/gm)];
+            if (!matches.length) return null;
 
             setStatus('Executing...');
-            let logs = [], result;
-            const originalLog = console.log;
-            console.log = (...args) => {
-                logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
-                originalLog.apply(console, args);
-            };
-            try {
-                const fn = new (Object.getPrototypeOf(async function(){}).constructor)(match[1].trim());
-                const ret = await fn();
-                let out = "";
-                if (logs.length > 0) out += `[Console Logs]\n${logs.join('\\n')}\n`;
-                out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
-                result = out.trim();
-            } catch (e) {
-                result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
+            const results = [];
+            for (const match of matches) {
+                let logs = [];
+                const originalLog = console.log;
+                console.log = (...args) => {
+                    logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+                    originalLog.apply(console, args);
+                };
+                let result;
+                try {
+                    const fn = new (Object.getPrototypeOf(async function(){}).constructor)(match[1].trim());
+                    const ret = await fn();
+                    let out = "";
+                    if (logs.length > 0) out += `[Console Logs]\n${logs.join('\n')}\n`;
+                    out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
+                    result = out.trim();
+                } catch (e) {
+                    result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
+                }
+                console.log = originalLog;
+                results.push(result);
             }
-            console.log = originalLog;
+            let result = matches.length === 1 ? results[0] : results.map((r, i) => `[Block ${i + 1}]\n${r}`).join('\n\n');
 
+            const MAX_RESULT = 20000;
+            if (result.length > MAX_RESULT) {
+                result = result.slice(0, MAX_RESULT) + `\n\n... [Truncated: ${result.length} chars total, showing first ${MAX_RESULT}. Load in parts if you need more.]`;
+            }
             const sysMsg = `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``;
             appendMsgUI('system', sysMsg);
             await appendConsciousness(sysMsg + '\n\n');
@@ -317,8 +413,9 @@ CONCLUSION:
         async function act(B_out) {
             if (!B_out) return null;
             let done = false;
-            const promise = _execCode(B_out).then(r => { done = true; return r; });
-            const result = await Promise.race([promise, new Promise(r => setTimeout(r, 15000))]);
+            const combined = Promise.all([_execCode(B_out), _execShellBlocks(B_out)])
+                .then(([b, s]) => { done = true; return [b, s].filter(Boolean).join('\n\n') || null; });
+            const result = await Promise.race([combined, new Promise(r => setTimeout(r, 15000))]);
             if (!done) {
                 const msg = 'System - [Browser] - Execution still running (>15s), loop continued.';
                 appendMsgUI('system', msg);
@@ -334,7 +431,11 @@ CONCLUSION:
         }
 
         async function maybeCompressConsciousness() {
-            const LIMIT = 300000, KEEP_START = 20000, KEEP_END = 180000;
+            const modelMax = MODEL_LIST[settings.model]?.maxContext || 0;
+            // If model has maxContext, compress at 2/3 of limit; otherwise default 300k
+            const LIMIT = modelMax ? Math.floor(modelMax * 2 / 3) : 300000;
+            const KEEP_START = Math.floor(LIMIT / 10);       // 10% head
+            const KEEP_END   = Math.floor(LIMIT * 9 / 10);   // 90% tail  (total kept = LIMIT)
             if (_lastPromptTokens < LIMIT) return;
             const cpt = consciousness.length / _lastPromptTokens;  // chars per token
             const startChars = Math.floor(KEEP_START * cpt);
@@ -913,9 +1014,69 @@ CONCLUSION:
         .welcome-options button:hover { border-color: var(--accent); color: var(--text); }
         .welcome-options button.primary { border-color: var(--accent); color: var(--accent); }
         .welcome-options button.primary:hover { background: var(--accent-dim); }
+
+        /* === PAIRING MODAL === */
+        #pair-modal {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; padding: 20px;
+        }
+        #pair-modal.hidden { display: none; }
+        .pair-box {
+            max-width: 480px; width: 100%;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-active);
+            border-top: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 28px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .pair-box h3 {
+            font-size: 0.75rem; color: var(--accent);
+            letter-spacing: 3px; text-transform: uppercase;
+            margin: 0 0 16px 0;
+        }
+        .pair-box p { color: var(--text-dim); font-size: 0.75rem; line-height: 1.6; margin: 0 0 12px 0; }
+        .pair-cmd {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 4px; padding: 10px 12px;
+            font-size: 0.72rem; color: var(--accent);
+            word-break: break-all; margin-bottom: 16px;
+            cursor: pointer; transition: border-color 0.2s;
+            user-select: all;
+        }
+        .pair-cmd:hover { border-color: var(--accent); }
+        .pair-close {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-dim); padding: 6px 14px;
+            border-radius: 3px; cursor: pointer;
+            font-family: inherit; font-size: 0.68rem;
+            letter-spacing: 1px; text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .pair-close:hover { border-color: var(--accent); color: var(--accent); }
+        .device-dot {
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; margin-right: 5px; flex-shrink: 0;
+            background: var(--text-dim);
+        }
+        .device-dot.online { background: var(--accent); box-shadow: 0 0 4px var(--accent-glow); }
     </style>
 </head>
 <body>
+    <div id="pair-modal" class="hidden">
+        <div class="pair-box">
+            <h3>Connect Device</h3>
+            <p>Run this command on the machine you want to connect:</p>
+            <div class="pair-cmd" id="pair-cmd-text" onclick="navigator.clipboard.writeText(this.textContent).then(()=>{this.style.borderColor='var(--accent)';setTimeout(()=>this.style.borderColor='',1400)})">Generating...</div>
+            <p id="pair-status">Waiting for device to connect... (expires in 5 min)</p>
+            <div style="display:flex;gap:8px">
+                <button class="pair-close" onclick="startPairing()">Refresh</button>
+                <button class="pair-close" onclick="closePairModal()">Close</button>
+            </div>
+        </div>
+    </div>
     <div id="welcome-modal" class="hidden">
         <div class="welcome-box">
             <h2>GENESIS · FIRST CONTACT</h2>
@@ -981,7 +1142,16 @@ CONCLUSION:
                 <label>Preview</label>
                 <label style="min-width:0;cursor:pointer;color:var(--text)"><input type="checkbox" id="set-preview"> Show AI vision</label>
             </div>
-            <div class="settings-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end">
+            <div class="settings-row">
+                <label>Think</label>
+                <label style="min-width:0;cursor:pointer;color:var(--text)"><input type="checkbox" id="set-thinking"> Enable deep thinking</label>
+            </div>
+            <div class="settings-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+                <label>Devices</label>
+                <button onclick="event.stopPropagation();startPairing()" style="font-size:0.68rem;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">Add Device</button>
+            </div>
+            <div id="device-list" style="padding:2px 0 4px 0;min-height:4px;"></div>
+            <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end">
                 <span style="color:var(--red);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="if(confirm('Delete all data? This cannot be undone.')){indexedDB.deleteDatabase('GenesisDB');localStorage.clear();location.reload();}">Reset all data</span>
             </div>
         </div>
@@ -1039,6 +1209,20 @@ CONCLUSION:
         const CLIENT_ID = generateClientID();
         const INFERO_KEY = getOrCreateKey();
 
+        // Catch uncaught errors from AI-generated async callbacks (e.g. IDB onsuccess)
+        window.addEventListener('error', e => {
+            if (e.filename?.includes('_execCode') || e.message?.includes('execCode')) {
+                const msg = `System - [Browser] - Uncaught Error: ${e.message}`;
+                appendMsgUI?.('system', msg);
+                console.warn(msg);
+            }
+        });
+        window.addEventListener('unhandledrejection', e => {
+            const msg = `System - [Browser] - Unhandled Promise Rejection: ${e.reason}`;
+            appendMsgUI?.('system', msg);
+            console.warn(msg);
+        });
+
         // --- Version ---
         const VERSION = '0.1';
 
@@ -1057,6 +1241,10 @@ CONCLUSION:
             tokens: {},
             vision: 'half',
             preview: false,
+            thinking: true,
+            relayUrl: 'wss://infero.net/device-relay/ws',
+            devices: {},
+            hostDevice: 'this browser',
         };
         function loadSettings() {
             try {
@@ -1174,21 +1362,13 @@ CONCLUSION:
             userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
         });
 
-        let _lastScroll = 0;
         function scrollToBottom(force = false) {
             if (force || !userScrolledUp) {
-                if (force) {
-                    ignoreScroll = true;
-                    chatBox.style.scrollBehavior = 'auto';
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                    chatBox.style.scrollBehavior = '';
-                    setTimeout(() => { ignoreScroll = false; }, 50);
-                } else if (Date.now() - _lastScroll > 100) {
-                    _lastScroll = Date.now();
-                    ignoreScroll = true;
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                    setTimeout(() => { ignoreScroll = false; }, 50);
-                }
+                ignoreScroll = true;
+                if (force) chatBox.style.scrollBehavior = 'auto';
+                chatBox.scrollTop = chatBox.scrollHeight;
+                if (force) chatBox.style.scrollBehavior = '';
+                setTimeout(() => { ignoreScroll = false; }, 50);
             }
         }
         const input = document.getElementById('input');
@@ -1276,7 +1456,7 @@ CONCLUSION:
             if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('html-div').innerHTML = ''; return; }
 
             // Split consciousness into blocks by markers
-            const blocks = consciousness.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:)/);
+            const blocks = consciousness.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:|System - \[Shell\] - Result:|System - \[Device\] - )/);
             for (const block of blocks) {
                 const trimmed = block.trim();
                 if (!trimmed) continue;
@@ -1297,7 +1477,7 @@ CONCLUSION:
                     const firstNewline = trimmed.indexOf('\n');
                     if (firstNewline !== -1) {
                         const aiText = trimmed.slice(firstNewline + 1).trim();
-                        if (aiText) appendMsgUI('ai', aiText.replaceAll('/self_continue','').replaceAll('/call_for_human',''));
+                        if (aiText) appendMsgUI('ai', aiText);
                     }
                 } else if (trimmed.startsWith('System - [Browser] - Result:')) {
                     appendMsgUI('system', trimmed);
@@ -1343,6 +1523,7 @@ CONCLUSION:
         }
 
         async function duplicateBeing() {
+            if (!confirm('Fork this being? Dynamic UI elements will need to be redrawn by waking the AI.')) return;
             const sourceId = currentBeingId;
             currentBeingId = 'being_fork_' + Date.now();
             const note = `\n\n[System] Being forked from ${sourceId} → ${currentBeingId} at ${new Date().toLocaleString()}\n\n`;
@@ -1415,7 +1596,22 @@ CONCLUSION:
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const offset = -now.getTimezoneOffset() / 60;
             const tz = `UTC${offset >= 0 ? '+' : ''}${offset}`;
-            return `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}`;
+            const host = settings.hostDevice || 'this browser';
+            let ctx = `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}\nCore loop host: ${host}\nReminder: end with /self_continue or /call_for_human`;
+            const devices = settings.devices || {};
+            const deviceNames = Object.keys(devices);
+            const visibleNames = deviceNames.filter(n => !devices[n].hidden);
+            if (visibleNames.length > 0) {
+                ctx += '\n\n[Connected Devices]';
+                for (const name of visibleNames) {
+                    ctx += `\n- ${name} (${devices[name].online ? 'online' : 'offline'})`;
+                }
+                const online = visibleNames.filter(n => devices[n].online);
+                if (online.length > 0) {
+                    ctx += `\n\nTo run shell commands: /shell exec <device_name>\n\`\`\`bash\n<command>\n\`\`\``;
+                }
+            }
+            return ctx;
         }
 
         function getRealtimeContext() {
@@ -1423,7 +1619,9 @@ CONCLUSION:
             const { width: w, height: h } = container.getBoundingClientRect();
             const panelName = isMobile ? 'top panel' : 'right panel';
             const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: `html2canvas pageshot (${panelName}: canvas + html-div)`, full: 'html2canvas pageshot (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
-            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px\nVision: ${visionLabels[settings.vision] || settings.vision}`;
+            const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
+            const visionInfo = supportsVision ? (visionLabels[settings.vision] || settings.vision) : 'disabled (model does not support image input)';
+            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px\nVision: ${visionInfo}`;
 
             const ui = document.getElementById('html-div');
             if (_justReloaded) {
@@ -1535,15 +1733,19 @@ CONCLUSION:
         var _lastPromptTokens = 0;
         var _lastCachedTokens = 0;
         function setStatus(s) { _statusState = s; renderStatus(); }
+        let _statusInterval = null;
         function renderStatus() {
             const prompt = _lastPromptTokens ? `${Math.round(_lastPromptTokens/1000)}k` : `${Math.round(consciousness.length / 4096)}k`;
-            const cached = _lastCachedTokens ? `${Math.round(_lastCachedTokens/1000)}k` : '0';
-            const stat = cacheName && _statusFlip
+            const cached = `${Math.round(_lastCachedTokens/1000)}k`;
+            const hasCache = cacheName || _lastCachedTokens !== undefined;
+            const stat = hasCache && _statusFlip
                 ? `Cache: ${cached} tok`
                 : `Mem: ${prompt} tok`;
             status.innerText = `${stat} | ${_statusState}`;
+            // Re-register interval if lost (e.g. after page sleep)
+            if (!_statusInterval) _statusInterval = setInterval(() => { _statusFlip = !_statusFlip; renderStatus(); }, 3000);
         }
-        setInterval(() => { _statusFlip = !_statusFlip; renderStatus(); }, 3000);
+        _statusInterval = setInterval(() => { _statusFlip = !_statusFlip; renderStatus(); }, 3000);
 
         function appendMsgUI(role, text) {
             if (text === "System - [Auto] - Please continue.") return null;
@@ -1574,8 +1776,10 @@ CONCLUSION:
                 document.getElementById('set-token').value = settings.tokens?.[settings.provider] || '';
                 document.getElementById('set-vision').value = settings.vision || 'canvas';
                 document.getElementById('set-preview').checked = settings.preview || false;
+                document.getElementById('set-thinking').checked = settings.thinking || false;
                 onModelChange();
                 onProviderChange();
+                renderDeviceList();
             }
             if (visible) { applySettings(); }
             panel.style.display = visible ? 'none' : 'block';
@@ -1607,6 +1811,8 @@ CONCLUSION:
                 const first = [...provSelect.options].find(o => !o.hidden);
                 if (first) provSelect.value = first.value;
             }
+            // Load thinking preference for this model
+            document.getElementById('set-thinking').checked = settings.thinkingPerModel?.[modelId] ?? settings.thinking ?? true;
             onProviderChange();
         }
         function onProviderChange() {
@@ -1631,6 +1837,9 @@ CONCLUSION:
             PROVIDERS.custom.cacheEndpoint = settings.customCacheEndpoint || null;
             settings.vision = document.getElementById('set-vision').value;
             settings.preview = document.getElementById('set-preview').checked;
+            settings.thinking = document.getElementById('set-thinking').checked;
+            if (!settings.thinkingPerModel) settings.thinkingPerModel = {};
+            settings.thinkingPerModel[settings.model] = settings.thinking;
             _debugVision = settings.preview;
             saveSettingsToStorage(settings);
             // Pre-request screen capture permission
@@ -1644,6 +1853,287 @@ CONCLUSION:
             }
             document.getElementById('settings-panel').style.display = 'none';
             if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+        }
+
+        // ─── Device Relay ────────────────────────────────────────────────────────────
+
+        var _relayWs = null;
+        var _relayConnected = false;
+        var _pendingShellRequests = {};  // req_id -> {resolve, reject, timer, device_name}
+
+        function initRelay() {
+            const url = settings.relayUrl || SETTINGS_DEFAULTS.relayUrl;
+            if (!url) return;
+            function connect() {
+                try {
+                    _relayWs = new WebSocket(url);
+                } catch (e) { return; }
+                _relayWs.onopen = () => {
+                    _relayConnected = true;
+                    // Reset all devices to offline — relay will push true status
+                    if (settings.devices) {
+                        Object.values(settings.devices).forEach(d => d.online = false);
+                    }
+                    _relayWs.send(JSON.stringify({ type: 'browser_hello', instance_id: CLIENT_ID }));
+                    renderDeviceList();
+                };
+                _relayWs.onmessage = (e) => {
+                    try { handleRelayMessage(JSON.parse(e.data)); } catch (_) {}
+                };
+                _relayWs.onclose = () => {
+                    _relayConnected = false;
+                    renderDeviceList();
+                    setTimeout(connect, 5000);
+                };
+                _relayWs.onerror = () => { _relayWs.close(); };
+            }
+            connect();
+        }
+
+        async function startPairing() {
+            document.getElementById('pair-modal').classList.remove('hidden');
+            document.getElementById('pair-cmd-text').textContent = 'Generating...';
+            const statusEl = document.getElementById('pair-status');
+            statusEl.textContent = 'Requesting pairing code...';
+            statusEl.style.cssText = '';
+            try {
+                const relayHttpUrl = (settings.relayUrl || SETTINGS_DEFAULTS.relayUrl)
+                    .replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/ws$/, '');
+                const ua = navigator.userAgent;
+                const bName = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' :
+                    /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' :
+                    /Firefox\//.test(ua) ? 'Firefox' : 'Browser';
+                const osName = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' :
+                    /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' :
+                    /Linux/.test(ua) ? 'Linux' : 'Unknown';
+                const clientName = `${bName} · ${osName}`;
+                const res = await fetch(`${relayHttpUrl}/pair/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instance_id: CLIENT_ID, client_name: clientName })
+                });
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                const { code, key } = await res.json();
+                const curlCmd = `curl ${relayHttpUrl}/pair/${code} | sh`;
+                document.getElementById('pair-cmd-text').textContent = curlCmd;
+                document.getElementById('pair-status').textContent = 'Click to copy. Waiting for device... (expires in 5 min)';
+                window._pendingPairKey = { keyB64: key };
+            } catch (e) {
+                document.getElementById('pair-cmd-text').textContent = '';
+                document.getElementById('pair-status').textContent = `Error: ${e.message}`;
+            }
+        }
+
+        function closePairModal() {
+            document.getElementById('pair-modal').classList.add('hidden');
+            window._pendingPairKey = null;
+        }
+
+        async function importDeviceKey(keyB64) {
+            // urlsafe base64 → standard base64
+            const std = keyB64.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = std.length % 4 ? std + '===='.slice(std.length % 4) : std;
+            const raw = Uint8Array.from(atob(pad), c => c.charCodeAt(0));
+            return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        }
+
+        async function encryptPayload(cryptoKey, plainObj) {
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const encoded = new TextEncoder().encode(JSON.stringify(plainObj));
+            const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
+            const combined = new Uint8Array(12 + ct.byteLength);
+            combined.set(iv);
+            combined.set(new Uint8Array(ct), 12);
+            return btoa(String.fromCharCode(...combined));
+        }
+
+        async function decryptPayload(cryptoKey, payloadB64) {
+            const raw = Uint8Array.from(atob(payloadB64), c => c.charCodeAt(0));
+            const iv = raw.slice(0, 12);
+            const ct = raw.slice(12);
+            const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ct);
+            return JSON.parse(new TextDecoder().decode(plain));
+        }
+
+        async function handleRelayMessage(msg) {
+            if (msg.type === 'device_status') {
+                const { device_name, online } = msg;
+                if (!settings.devices) settings.devices = {};
+                if (online && window._pendingPairKey) {
+                    settings.devices[device_name] = { keyB64: window._pendingPairKey.keyB64, online: true };
+                    window._pendingPairKey = null;
+                    const statusEl = document.getElementById('pair-status');
+                    statusEl.textContent = `✓ ${device_name} connected!`;
+                    statusEl.style.cssText = 'color:#fff;font-weight:500;font-size:0.82rem;';
+                    setTimeout(closePairModal, 2000);
+                } else if (settings.devices[device_name]) {
+                    const wasOnline = settings.devices[device_name].online;
+                    settings.devices[device_name].online = online;
+                    if (wasOnline === online) {
+                        // status unchanged (reconnect noise) — update UI only, skip consciousness
+                        saveSettingsToStorage(settings);
+                        renderDeviceList();
+                        return;
+                    }
+                }
+                saveSettingsToStorage(settings);
+                renderDeviceList();
+                const note = `System - [Device] - ${device_name} is now ${online ? 'online' : 'offline'}`;
+                appendMsgUI('system', note);
+                await appendConsciousness(note + '\n\n');
+            }
+            if (msg.type === 'device_removed') {
+                const { device_name } = msg;
+                if (settings.devices?.[device_name]) {
+                    delete settings.devices[device_name];
+                    if (settings.hostDevice === device_name) settings.hostDevice = 'this browser';
+                    saveSettingsToStorage(settings);
+                    renderDeviceList();
+                    const note = `System - [Device] - ${device_name} removed itself`;
+                    appendMsgUI('system', note);
+                    await appendConsciousness(note + '\n\n');
+                }
+                return;
+            }
+
+            if (msg.type === 'result') {
+                const pending = _pendingShellRequests[msg.req_id];
+                if (!pending) return;
+                clearTimeout(pending.timer);
+                delete _pendingShellRequests[msg.req_id];
+                if (msg.error) { pending.reject(new Error(msg.error)); return; }
+                const deviceInfo = settings.devices?.[pending.device_name];
+                if (!deviceInfo?.keyB64) { pending.reject(new Error('No key for device')); return; }
+                try {
+                    const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+                    const plain = await decryptPayload(cryptoKey, msg.payload);
+                    pending.resolve(plain);
+                } catch (e) { pending.reject(e); }
+            }
+        }
+
+        async function execShell(device_name, cmd) {
+            if (!_relayConnected || !_relayWs) throw new Error('Relay not connected');
+            const deviceInfo = settings.devices?.[device_name];
+            if (!deviceInfo?.keyB64) throw new Error(`No key for device: ${device_name}`);
+            if (!deviceInfo.online) throw new Error(`Device offline: ${device_name}`);
+            const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+            const payload = await encryptPayload(cryptoKey, { cmd });
+            const req_id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36));
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    delete _pendingShellRequests[req_id];
+                    reject(new Error('Shell command timed out (35s)'));
+                }, 35000);
+                _pendingShellRequests[req_id] = { resolve, reject, timer, device_name };
+                _relayWs.send(JSON.stringify({ type: 'exec', req_id, device_name, payload }));
+            });
+        }
+
+        async function _execShellBlocks(B_out) {
+            if (!B_out) return null;
+            const matches = [...B_out.matchAll(/^\/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)```/gm)];
+            if (!matches.length) return null;
+            setStatus('Executing on device...');
+            const results = [];
+            for (const match of matches) {
+                const device_name = match[1];
+                const cmd = match[2].trim();
+                let result;
+                try {
+                    const { stdout, stderr, exit_code } = await execShell(device_name, cmd);
+                    let out = '';
+                    if (stdout) out += `[stdout]\n${stdout}`;
+                    if (stderr) out += `[stderr]\n${stderr}`;
+                    out += `[exit_code] ${exit_code}`;
+                    result = out.trim();
+                } catch (e) {
+                    result = `[Shell Error]\n${e.message}`;
+                }
+                results.push({ device_name, result });
+            }
+            const combined = results.length === 1
+                ? results[0].result
+                : results.map((r, i) => `[Block ${i + 1} → ${r.device_name}]\n${r.result}`).join('\n\n');
+            const MAX_RESULT = 20000;
+            const truncated = combined.length > MAX_RESULT
+                ? combined.slice(0, MAX_RESULT) + `\n\n... [Truncated: ${combined.length} chars total]`
+                : combined;
+            const sysMsg = `System - [Shell] - Result:\n\`\`\`text\n${truncated}\n\`\`\``;
+            appendMsgUI('system', sysMsg);
+            await appendConsciousness(sysMsg + '\n\n');
+            return sysMsg;
+        }
+
+        function renderDeviceList() {
+            const el = document.getElementById('device-list');
+            if (!el) return;
+            const devices = settings.devices || {};
+            const names = Object.keys(devices);
+
+            const ua = navigator.userAgent;
+            const browserName = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' :
+                /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' :
+                /Firefox\//.test(ua) ? 'Firefox' : 'Browser';
+            const osPart = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' :
+                /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' :
+                /Linux/.test(ua) ? 'Linux' : 'Unknown';
+            const browserLabel = `${browserName} · ${osPart}`;
+            const allDevices = [
+                ...( settings.browserRemoved ? [] : [{ name: 'this browser', label: browserLabel, online: true, hidden: settings.browserHidden || false, builtin: true }]),
+                ...names.map(n => ({ name: n, label: n, ...devices[n], builtin: false }))
+            ];
+
+            el.innerHTML = allDevices.map(d => {
+                const isHost = (settings.hostDevice || 'this browser') === d.name;
+                const hostIcon = `<span title="Set as core loop host" style="cursor:pointer;font-size:0.72rem;color:${isHost ? 'var(--accent)' : 'var(--border-active)'};margin-right:2px" onclick="event.stopPropagation();setHostDevice('${d.name}')">⌬</span>`;
+                const eyeIcon = `<span title="${d.hidden ? 'Show to AI' : 'Hide from AI'}" style="cursor:pointer;color:var(--text-dim);font-size:0.7rem" onclick="event.stopPropagation();toggleDeviceVisibility('${d.name}')">${d.hidden ? '🙈' : '👁'}</span>`;
+                const removeIcon = `<span title="Remove device" style="cursor:pointer;color:var(--red);font-size:0.7rem;margin-left:2px" onclick="event.stopPropagation();removeDevice('${d.name}')">✕</span>`;
+                const controls = `${eyeIcon}${removeIcon}`;
+                return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;padding:2px 4px;font-family:'JetBrains Mono',monospace">
+                    <span class="device-dot ${d.online ? 'online' : ''}"></span>
+                    <span style="color:${d.hidden ? 'var(--text-dim)' : (isHost ? 'var(--accent)' : 'var(--text)')};flex:1;text-decoration:${d.hidden ? 'line-through' : 'none'}">${d.label}</span>
+                    <span style="color:var(--text-dim);font-size:0.6rem;margin-right:2px">${d.online ? 'online' : 'offline'}</span>
+                    ${hostIcon}${controls}
+                </div>`;
+            }).join('');
+        }
+
+        function setHostDevice(name) {
+            settings.hostDevice = name;
+            saveSettingsToStorage(settings);
+            renderDeviceList();
+        }
+
+        function toggleDeviceVisibility(name) {
+            if (name === 'this browser') {
+                // browser uses a separate hidden flag
+                settings.browserHidden = !settings.browserHidden;
+            } else {
+                if (!settings.devices?.[name]) return;
+                settings.devices[name].hidden = !settings.devices[name].hidden;
+            }
+            saveSettingsToStorage(settings);
+            renderDeviceList();
+        }
+
+        function removeDevice(name) {
+            if (name === 'this browser') {
+                // removing browser just hides it from list until reload
+                settings.browserRemoved = true;
+                if (settings.hostDevice === 'this browser') settings.hostDevice = Object.keys(settings.devices || {})[0] || 'this browser';
+                saveSettingsToStorage(settings);
+                renderDeviceList();
+                return;
+            }
+            if (!confirm(`Remove "${name}"? The device script will stop.`)) return;
+            if (_relayWs && _relayConnected) {
+                _relayWs.send(JSON.stringify({ type: 'device_remove', device_name: name }));
+            }
+            if (settings.hostDevice === name) settings.hostDevice = 'this browser';
+            delete settings.devices[name];
+            saveSettingsToStorage(settings);
+            renderDeviceList();
         }
 
         async function loadModels() {
@@ -1667,7 +2157,7 @@ CONCLUSION:
                 // Load models
                 MODEL_LIST = {};
                 data.models.forEach(m => {
-                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {} };
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {}, vision: m.vision !== false, maxContext: m.maxContext || 0 };
                     const opt = document.createElement('option');
                     opt.value = m.name;
                     opt.textContent = m.name;
@@ -1678,7 +2168,7 @@ CONCLUSION:
                 const fallback = [{ name: 'gemini-3.1-pro', format: 'gemini', from: { infero: 'gemini-3.1-pro-preview' } }];
                 const select = document.getElementById('set-model');
                 fallback.forEach(m => {
-                    MODEL_LIST[m.name] = { format: m.format, from: m.from };
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from, vision: m.vision !== false, maxContext: m.maxContext || 0 };
                     const opt = document.createElement('option');
                     opt.value = m.name;
                     opt.textContent = m.name;
@@ -1702,7 +2192,7 @@ CONCLUSION:
                 clearTimeout(dispatchTimer); dispatchTimer = null;
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
             }
-            reflect(text, 0);
+            trigger(text, 0);
         }
 
         function updateSendBtn() {
@@ -1730,7 +2220,7 @@ CONCLUSION:
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
-                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) reflect(); });
+                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) trigger(); });
             } else {
                 sendMessage();
             }
@@ -1746,12 +2236,15 @@ CONCLUSION:
         let autoInferTimer = null;
 
         let dispatchTimer = null;
-        const dispatch = (...args) => reflect(...args);  // backward compat
-        function reflect(prompt = '', delay = 3000) {
+        const dispatch = (...args) => trigger(...args);  // backward compat
+        const reflect = (...args) => trigger(...args);   // backward compat
+        function trigger(prompt = '', delay = 3000) {
+            if (prompt && typeof prompt !== 'string') prompt = JSON.stringify(prompt, null, 2);
             if (prompt) {
                 const tz = `UTC${-(new Date().getTimezoneOffset()/60) >= 0 ? '+' : ''}${-(new Date().getTimezoneOffset()/60)}`;
                 appendMsgUI('timestamp', new Date().toLocaleString() + ` (${tz})`);
-                appendMsgUI('user', prompt);
+                const display = (prompt.startsWith('{') || prompt.startsWith('[')) ? '```json\n' + prompt + '\n```' : prompt;
+                appendMsgUI('user', display);
                 currentUserInput = currentUserInput ? currentUserInput + '\n\n' + prompt : prompt;
             }
             if (!currentUserInput) return;
@@ -1767,7 +2260,7 @@ CONCLUSION:
                     loopRunning = false;
                     updateSendBtn();
                     setStatus('Ready');
-                    reflect();
+                    trigger();
                 });
             }, delay);
             updateSendBtn();
@@ -1780,7 +2273,7 @@ CONCLUSION:
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
-                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) reflect(); });
+                loop().finally(() => { loopRunning = false; updateSendBtn(); setStatus('Ready'); if (currentUserInput) trigger(); });
             }, 3000);
         }
 
@@ -1843,13 +2336,14 @@ CONCLUSION:
                 { text: "Sci-fi! I'm in!", close: false, primary: true }
             ],
             close_msg: 'Thanks for your caution. Please close this tab.',
-            confirm: "I've made up my mind",
+            confirm: "Confirm",
             source_link: '[view source]'
         };
 
         async function boot() {
             await loadModels();
             await initApp();
+            initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
             if (!consciousness) scheduleAutoInfer();
