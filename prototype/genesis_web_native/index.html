@@ -2331,7 +2331,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             el.innerHTML = allDevices.map(d => {
                 const isHost = (settings.hostDevice || 'this browser') === d.name;
+                const isPreferred = settings.preferredHost === d.name;
                 const hostIcon = `<span title="Set as core loop host" style="cursor:pointer;font-size:0.72rem;color:${isHost ? 'var(--accent)' : 'var(--border-active)'};margin-right:2px" onclick="event.stopPropagation();setHostDevice('${d.name}')">⌬</span>`;
+                const starIcon = d.name !== 'this browser' ? `<span title="${isPreferred ? 'Preferred host' : 'Set as preferred host'}" style="cursor:pointer;font-size:0.62rem;color:${isPreferred ? 'var(--accent)' : 'var(--border-active)'};margin-right:1px" onclick="event.stopPropagation();settings.preferredHost='${d.name}';saveSettingsToStorage(settings);renderDeviceList()">${isPreferred ? '★' : '☆'}</span>` : '';
                 const eyeIcon = `<span title="${d.hidden ? 'Show to AI' : 'Hide from AI'}" style="cursor:pointer;color:var(--text-dim);font-size:0.7rem" onclick="event.stopPropagation();toggleDeviceVisibility('${d.name}')">${d.hidden ? '🙈' : '👁'}</span>`;
                 const removeIcon = isHost
                     ? `<span title="Switch host before removing" style="cursor:not-allowed;color:var(--border);font-size:0.7rem;margin-left:2px">✕</span>`
@@ -2341,7 +2343,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     <span class="device-dot ${d.online ? 'online' : ''}"></span>
                     <span style="color:${d.hidden ? 'var(--text-dim)' : (isHost ? 'var(--accent)' : 'var(--text)')};flex:1;text-decoration:${d.hidden ? 'line-through' : 'none'}">${d.label}</span>
                     <span style="color:var(--text-dim);font-size:0.6rem;margin-right:2px">${d.online ? 'online' : 'offline'}</span>
-                    ${hostIcon}${controls}
+                    ${starIcon}${hostIcon}${controls}
                 </div>`;
             }).join('');
         }
