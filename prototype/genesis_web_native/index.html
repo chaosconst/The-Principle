@@ -1224,7 +1224,7 @@ CONCLUSION:
             vision: 'half',
             preview: false,
             thinking: true,
-            relayUrl: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws`,
+            relayUrl: location.host && !location.host.startsWith('localhost') ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws` : 'wss://infero.net/device-relay/ws',
             devices: {},
             hostDevice: 'this browser',
         };
