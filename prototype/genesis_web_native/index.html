@@ -2359,6 +2359,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function setHostDevice(name) {
             const oldHost = settings.hostDevice || 'this browser';
             settings.hostDevice = name;
+            settings.preferredHost = name;
             saveSettingsToStorage(settings);
             renderDeviceList();
 
