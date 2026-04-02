@@ -134,6 +134,7 @@ class GenesisWorker:
         self.llm_settings = {}  # model, provider, token, format, thinking, endpoint
         self.running = False
         self.pending_user_input = None
+        self._stopped_sent = False
         self._pending_exec = {}  # req_id -> asyncio.Future
 
     def _log(self, msg):
@@ -149,6 +150,7 @@ class GenesisWorker:
         self.llm_settings = data.get('settings', {})
         loop_was_running = data.get('loopWasRunning', False)
         self.running = True
+        self._stopped_sent = False
         self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
@@ -157,9 +159,12 @@ class GenesisWorker:
             self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
             self.running = False
-            await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
-            self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
+            if not self._stopped_sent:
+                self._stopped_sent = True
+                await self.send_relay({'type': 'loop_status', 'status': 'stopped',
+                    'device_name': DEVICE_NAME,
+                    'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
+                self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
     async def run_loop(self, loop_was_running=False):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
@@ -465,9 +470,15 @@ class GenesisWorker:
         self.pending_user_input = msg.get('text', '')
         self._log(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
 
-    def on_loop_stop(self):
+    async def on_loop_stop(self):
         self._log(f"[{ts()}] [infero] Loop stop requested")
         self.running = False
+        if not self._stopped_sent:
+            self._stopped_sent = True
+            await self.send_relay({'type': 'loop_status', 'status': 'stopped',
+                'device_name': DEVICE_NAME,
+                'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
+            self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
 # ─── Connection handler ───────────────────────────────────────────────────────
 
@@ -527,7 +538,7 @@ async def connect_instance(cfg):
                         w = workers.get(being_id)
                         log(cfg['relay_ws'], f"[{ts()}] [infero] MSG loop_stop for being={being_id}, worker={w is not None}")
                         if w:
-                            w.on_loop_stop()
+                            await w.on_loop_stop()
                         else:
                             await ws.send(json.dumps({'type': 'loop_status', 'status': 'stopped',
                                 'device_name': DEVICE_NAME, 'payload': None}))
