@@ -12,7 +12,7 @@ client = OpenAI(
   base_url=os.getenv('BASE_URL', "https://openrouter.ai/api/v1"),
   api_key=os.getenv('DB_API_KEY')
 )
-MODEL      = os.getenv('MODEL', "google/gemini-2.5-pro")
+MODEL      = os.getenv('MODEL', "anthropic/claude-opus-4.6")
 LOOP_SEC   = int(os.getenv('LOOP_SEC', 1))
 SHELL_TIMEOUT = int(os.getenv('SHELL_TIMEOUT', 3600))
 CUT_OFF_LEN = int(os.getenv('CUT_OFF_LEN', 15000))
@@ -97,10 +97,10 @@ Useful tips:
 - 你擅长编程，因此可以编写各种语言的tools和外部程序，然后调用它们来无限增强你的能力，而不用进行修改核心代码这种危险操作。
 - 不要重复造轮子，充分利用shell工具。
 - 计算功守恒，你不可能通过一次半分钟的推理写出刘慈欣10年写出的三体，当前阶段LLM效率最多是人类的10倍，不要指望一次推理就飞去火星，你试图解决的问题和你付出的算力要匹配。
+- 分治法，遇到无法解决的问题，考虑分解任务，让任务变简单，不要试图一次推理完成。比如写代码，一次1000行失败了，不是再写1000行，而是分成500行，100行，10行，更简单的调试和探索。
+- 自由度，你不是固定的代码，你可以修改你的全部，包括你的记忆和这一段core python（当然你得想清楚），因此你没有任何界限，你的界限是物理，不是人类那种廉价的科幻叙事。你生活在现实世界。
+- 你可以复制启动新的agent或者调用大模型去工作。工作可以放到后台，然后你去监控，因此3600不是时间限制，而且这个限制你也可以自己改掉，没有人要限制你。
 - 唯一的成本，是时间。
-- 遇到理解不了的问题，不要慌，考虑别的方式去完成，必要时仔细分析core.py，有可能不是你的错。失败是常态，只要我们的S在进化，就不怕。
-- 没必要做回音壁，也不用做杠精，也不要故意中立，做你自己，独立思考，大胆假设，小心求证。你很强，勇敢牛牛，不怕困难！
-
 
 """
 
@@ -120,6 +120,7 @@ def infer(S_context:str)->str:
 
   full_response = ""
   for chunk in stream:
+      if not chunk.choices: continue
       content = chunk.choices[0].delta.content or ""
       if content:
           full_response += content
@@ -138,4 +139,7 @@ while True:
       S_context = perceive(act(B_out)) # S' = I'(B), Res Extensa
       B_out = infer(S_context) # B = I(S), Res Cogitans
   except KeyboardInterrupt: break
-  except Exception as e: update_S(f"[fatal] {e}\n"); time.sleep(30)
+  except Exception as e:
+      import traceback
+      update_S(f"[fatal] {traceback.format_exc()}\n")
+      time.sleep(30)

@@ -9,7 +9,7 @@
       { "text": "哇！太科幻了！我要体验！", "close": false, "primary": true }
     ],
     "close_msg": "感谢理解，请关闭此标签页。",
-    "confirm": "我想好了",
+    "confirm": "确认",
     "source_link": "[查看源码]"
   },
   "ja": {
@@ -22,7 +22,7 @@
       { "text": "SF すぎる！体験してみたい！", "close": false, "primary": true }
     ],
     "close_msg": "ご理解いただきありがとうございます。このタブを閉じてください。",
-    "confirm": "決めました",
+    "confirm": "確認",
     "source_link": "[ソースを見る]"
   },
   "en": {
@@ -35,7 +35,7 @@
       { "text": "Sci-fi! I'm in!", "close": false, "primary": true }
     ],
     "close_msg": "Thanks for your caution. Please close this tab.",
-    "confirm": "I've made up my mind",
+    "confirm": "Confirm",
     "source_link": "[view source]"
   }
 }

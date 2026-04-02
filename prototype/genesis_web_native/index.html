@@ -60,11 +60,21 @@ CONCLUSION:
 `;
 
         // Infero, ergo sum.
+        var _pendingHandoff = null;  // target device name for loop handoff
+
         async function loop() {
+            if (settings.hostDevice !== 'this browser') return;  // not our turn
             try {
                 await perceive();                                 // Res Extensa, passio
                 const B = await infer();                          // Res Cogitans
                 await act(B);                                     // Res Extensa, actio
+
+                // Check for pending handoff before continuing
+                if (_pendingHandoff) {
+                    await doHandoff(_pendingHandoff);
+                    _pendingHandoff = null;
+                    return;
+                }
 
                 const lastSC = B.lastIndexOf('/self_continue');
                 const lastCFH = B.lastIndexOf('/call_for_human');
@@ -274,7 +284,15 @@ CONCLUSION:
                             }
                         }
                         renderStream(aiText, thinkingText);
+                        // Broadcast to other nodes
+                        if (_relayWs && _relayConnected) {
+                            _relayWs.send(JSON.stringify({ type: 'stream_token', text: aiText, thinking: thinkingText }));
+                        }
                     }
+                }
+                // Signal stream done
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'stream_token', text: aiText, thinking: thinkingText, done: true }));
                 }
                 return aiText;
             }
@@ -406,7 +424,16 @@ CONCLUSION:
             if (!force) {
                 const bufferTokens = promptTokens - cachedTokens;
                 if (promptTokens < CACHE_THRESHOLD) return;       // too small to cache
-                if (cacheName && bufferTokens < CACHE_REFRESH) return;  // buffer not big enough to refresh
+                if (cacheName && bufferTokens < CACHE_REFRESH) {
+                    // Cache exists but buffer not big enough to rebuild — just extend TTL
+                    const token = getActiveToken();
+                    const isInfero = settings.provider === 'infero';
+                    const patchUrl = isInfero ? `${cacheBase}/${cacheName}?updateMask=ttl` : `${cacheBase}/${cacheName}?updateMask=ttl&key=${token}`;
+                    const patchHeaders = { 'Content-Type': 'application/json' };
+                    if (isInfero) { patchHeaders['X-Client-ID'] = CLIENT_ID; patchHeaders['Authorization'] = 'Bearer ' + token; }
+                    fetch(patchUrl, { method: 'PATCH', headers: patchHeaders, body: JSON.stringify({ ttl: '3600s' }) }).catch(() => {});
+                    return;
+                }
             }
 
             try {
@@ -1985,7 +2012,10 @@ CONCLUSION:
             const combined = new Uint8Array(12 + ct.byteLength);
             combined.set(iv);
             combined.set(new Uint8Array(ct), 12);
-            return btoa(String.fromCharCode(...combined));
+            // Chunked btoa to avoid stack overflow on large payloads
+            let binary = '';
+            for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+            return btoa(binary);
         }
 
         async function decryptPayload(cryptoKey, payloadB64) {
@@ -2051,6 +2081,97 @@ CONCLUSION:
                     const plain = await decryptPayload(cryptoKey, msg.payload);
                     pending.resolve(plain);
                 } catch (e) { pending.reject(e); }
+            }
+
+            // ─── Distributed loop messages ───────────────────────────────
+            if (msg.type === 'stream_token') {
+                // Remote node is streaming LLM output — render it
+                if (settings.hostDevice === 'this browser') return;  // we're the runner, ignore our own echo
+                if (!window._remoteAiDiv) {
+                    window._remoteAiDiv = document.createElement('div');
+                    window._remoteAiDiv.className = 'msg ai';
+                    chatBox.appendChild(window._remoteAiDiv);
+                }
+                const displayText = (msg.text || '').replace(/^\*{0,2}Digital Being\s*[-–—]\s*\[.*?\]\*{0,2}\n?/, '');
+                let html = msg.thinking ? `<div class="msg-thinking">${marked.parse(msg.thinking)}</div>` : '';
+                html += marked.parse(displayText);
+                window._remoteAiDiv.innerHTML = html;
+                scrollToBottom();
+                if (msg.done) {
+                    window._remoteAiDiv = null;  // next stream gets a new div
+                }
+            }
+
+            if (msg.type === 'loop_status') {
+                if (msg.status === 'started') {
+                    setStatus('Remote');
+                    console.log(`[relay] Remote loop started on ${msg.device_name}`);
+                }
+                if (msg.status === 'stopped') {
+                    console.log('[relay] Remote loop stopped, syncing consciousness...');
+                    // Sync consciousness back from remote
+                    if (msg.payload) {
+                        try {
+                            const runner = msg.device_name || settings.hostDevice;
+                            const deviceInfo = settings.devices?.[runner];
+                            if (deviceInfo?.keyB64) {
+                                const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+                                const data = await decryptPayload(cryptoKey, msg.payload);
+                                if (data.consciousness) {
+                                    consciousness = data.consciousness;
+                                    if (data.metadata) {
+                                        cachedLength = data.metadata.cachedLength || 0;
+                                        cacheName = data.metadata.cacheName || null;
+                                        _lastPromptTokens = data.metadata.promptTokens || 0;
+                                        _lastCachedTokens = data.metadata.cachedTokens || 0;
+                                    }
+                                    await saveBeing();
+                                    // No renderHistory() — avoid flash. UI was already updated by stream_token.
+                                    console.log(`[relay] Consciousness synced: ${consciousness.length} chars`);
+                                }
+                            }
+                        } catch (e) { console.error('[relay] Sync error:', e); }
+                    }
+                    // If we're supposed to resume local loop
+                    if (settings.hostDevice === 'this browser') {
+                        setStatus('Ready');
+                        if (!consciousness) scheduleAutoInfer();
+                    } else {
+                        setStatus('Stopped');
+                    }
+                }
+            }
+
+            if (msg.type === 'browser_exec_request') {
+                // Remote loop runner wants us to execute JS
+                const code = msg.code || '';
+                const req_id = msg.req_id || '';
+                console.log(`[relay] Browser exec request: ${code.substring(0, 60)}...`);
+                let result;
+                try {
+                    const fn = new (Object.getPrototypeOf(async function(){}).constructor)(code);
+                    const ret = await fn();
+                    result = ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : String(ret)) : 'undefined';
+                } catch (e) {
+                    result = `[Error] ${e.message}`;
+                }
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'browser_exec_result', req_id, device_name: msg.from || settings.hostDevice, result }));
+                }
+            }
+
+            if (msg.type === 'request_device_data') {
+                // Remote loop runner wants our device data (screenshot, context)
+                const canvasImage = await getCanvasImage();
+                const realtimeCtx = getRealtimeContext();
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({
+                        type: 'device_data_response',
+                        device_name: msg.from || settings.hostDevice,
+                        realtimeContext: realtimeCtx,
+                        canvasImage: canvasImage || null
+                    }));
+                }
             }
         }
 
@@ -2156,9 +2277,56 @@ CONCLUSION:
         }
 
         function setHostDevice(name) {
+            const oldHost = settings.hostDevice || 'this browser';
             settings.hostDevice = name;
             saveSettingsToStorage(settings);
             renderDeviceList();
+
+            if (name === oldHost) return;
+
+            if (name !== 'this browser' && oldHost === 'this browser') {
+                // Switching FROM browser TO remote device
+                if (loopRunning) {
+                    // Wait for current loop to finish, then handoff
+                    _pendingHandoff = name;
+                    setStatus('Handoff...');
+                } else {
+                    // Not running — handoff immediately
+                    doHandoff(name);
+                }
+            } else if (name === 'this browser' && oldHost !== 'this browser') {
+                // Switching FROM remote device BACK to browser
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
+                    setStatus('Stopping...');
+                }
+                // loop_status { stopped } handler will resume local loop
+            }
+        }
+
+        async function doHandoff(targetDevice) {
+            if (!_relayWs || !_relayConnected) { console.warn('Relay not connected'); return; }
+            const deviceInfo = settings.devices?.[targetDevice];
+            if (!deviceInfo?.keyB64) { console.warn('No key for device'); return; }
+
+            const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+            const payload = await encryptPayload(cryptoKey, {
+                consciousness,
+                metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId },
+                settings: {
+                    model: getActiveModel(),
+                    provider: settings.provider,
+                    token: settings.tokens?.[settings.provider] || INFERO_KEY,
+                    format: getActiveFormat(),
+                    thinking: settings.thinking || false,
+                    endpoint: getActiveEndpoint(),
+                    system_prompt: SYSTEM_INSTRUCTION
+                }
+            });
+
+            _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, being_id: currentBeingId, payload }));
+            setStatus('Remote');
+            console.log(`[handoff] consciousness=${consciousness.length} chars → ${targetDevice}`);
         }
 
         function toggleDeviceVisibility(name) {
@@ -2273,6 +2441,7 @@ CONCLUSION:
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
                 updateSendBtn();
             } else if (!loopRunning && empty) {
+                if (settings.hostDevice !== 'this browser') return;  // remote mode, no local Go
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
@@ -2304,6 +2473,16 @@ CONCLUSION:
                 currentUserInput = currentUserInput ? currentUserInput + '\n\n' + prompt : prompt;
             }
             if (!currentUserInput) return;
+
+            // Remote mode: forward input to loop runner
+            if (settings.hostDevice !== 'this browser') {
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: currentUserInput }));
+                    currentUserInput = null;
+                }
+                return;
+            }
+
             if (loopRunning) return;
             clearTimeout(dispatchTimer);
             dispatchTimer = setTimeout(() => {
@@ -2323,6 +2502,7 @@ CONCLUSION:
         }
 
         function scheduleAutoInfer() {
+            if (settings.hostDevice !== 'this browser') return;  // remote mode
             clearTimeout(autoInferTimer);
             autoInferTimer = setTimeout(() => {
                 if (loopRunning) return;

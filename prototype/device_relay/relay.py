@@ -22,7 +22,7 @@ def ts():
 # ─── In-memory state ───────────────────────────────────────────────────────────
 
 pending_pairs = {}   # code -> {key_b64, instance_id, expires}
-browser_conns = {}   # instance_id -> websocket
+browser_conns = {}   # instance_id -> list[websocket]
 device_conns  = {}   # "{instance_id}:{device_name}" -> {ws, instance_id, device_name}
 device_tokens = {}   # token -> "{instance_id}:{device_name}"
 
@@ -40,11 +40,37 @@ def save_tokens():
     with open(TOKENS_FILE, 'w') as f:
         json.dump(device_tokens, f)
 
+async def broadcast_to_instance(instance_id, msg_raw, exclude_ws=None):
+    """Send to all online nodes in this instance, excluding sender."""
+    for ws in browser_conns.get(instance_id, []):
+        if ws != exclude_ws:
+            try: await ws.send(msg_raw)
+            except Exception: pass
+    for key, info in device_conns.items():
+        if info['instance_id'] == instance_id and info['ws'] != exclude_ws:
+            try: await info['ws'].send(msg_raw)
+            except Exception: pass
+
+async def send_to_device(instance_id, device_name, msg_raw):
+    """Send to a specific device by name."""
+    target = device_conns.get(f"{instance_id}:{device_name}")
+    if target:
+        try: await target['ws'].send(msg_raw)
+        except Exception: pass
+
+async def send_to_browsers(instance_id, msg_raw, exclude_ws=None):
+    """Send to all browsers in this instance."""
+    for ws in browser_conns.get(instance_id, []):
+        if ws != exclude_ws:
+            try: await ws.send(msg_raw)
+            except Exception: pass
+
 # ─── Bash + Python script template ─────────────────────────────────────────────
 
 AGENT_PY = r'''
-import asyncio, json, subprocess, base64, os, sys, socket
+import asyncio, json, subprocess, base64, os, sys, socket, re
 from datetime import datetime
+import aiohttp
 
 INFERO_DIR = os.path.expanduser('~/.infero')
 INSTANCES_FILE = os.path.join(INFERO_DIR, 'instances.json')
@@ -78,6 +104,310 @@ def encrypt(cipher, d):
 def decrypt(cipher, b64):
     raw = base64.b64decode(b64)
     return json.loads(cipher.decrypt(raw[:12], raw[12:], None))
+
+# ─── Genesis Worker: distributed loop ─────────────────────────────────────────
+
+class GenesisWorker:
+    def __init__(self, ws, cipher, iid):
+        self.ws = ws
+        self.cipher = cipher
+        self.iid = iid
+        self.consciousness = ""
+        self.metadata = {}
+        self.llm_settings = {}  # model, provider, token, format, thinking, endpoint
+        self.running = False
+        self.pending_user_input = None
+        self._pending_exec = {}  # req_id -> asyncio.Future
+
+    async def send_relay(self, msg):
+        await self.ws.send(json.dumps(msg))
+
+    async def on_loop_handoff(self, payload_enc):
+        data = decrypt(self.cipher, payload_enc)
+        self.consciousness = data.get('consciousness', '')
+        self.metadata = data.get('metadata', {})
+        self.llm_settings = data.get('settings', {})
+        self.running = True
+        print(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
+        await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
+        try:
+            await self.run_loop()
+        except Exception as e:
+            print(f"[{ts()}] [infero] Loop error: {e}")
+        finally:
+            self.running = False
+            await self.send_relay({'type': 'loop_status', 'status': 'stopped',
+                'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
+            print(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
+
+    async def run_loop(self):
+        """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
+        while self.running:
+            await self.loop()
+            if not self.running:
+                break
+            # Loop ended (call_for_human), wait for new user input
+            print(f"[{ts()}] [infero] Waiting for user input...")
+            while self.running and not self.pending_user_input:
+                await asyncio.sleep(0.5)
+            # Got input or stop — loop again if still running
+
+    async def loop(self):
+        # If consciousness ends with /call_for_human and no pending input, return immediately
+        # (run_loop will handle waiting)
+        if not self.pending_user_input and '/call_for_human' in self.consciousness:
+            last_sc = self.consciousness.rfind('/self_continue')
+            last_cfh = self.consciousness.rfind('/call_for_human')
+            if last_cfh > last_sc:
+                return
+
+        while self.running:
+            await self.perceive()
+            B = await self.infer()
+            if B is None:
+                break
+            await self.act(B)
+            last_sc = B.rfind('/self_continue')
+            last_cfh = B.rfind('/call_for_human')
+            cont = last_sc > last_cfh or bool(self.pending_user_input)
+            if not cont:
+                break
+
+    async def perceive(self):
+        now = datetime.now()
+        days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+        tz_offset = now.astimezone().strftime('%z')
+        env = f"[System Environment]\nTime: {now.strftime('%Y-%m-%d %H:%M:%S')} (UTC{tz_offset})\nDay: {days[now.weekday()]}\nReminder: end with /self_continue or /call_for_human"
+        parts = [env]
+        if self.pending_user_input:
+            parts.append(self.pending_user_input)
+            self.pending_user_input = None
+        S = '\n\n'.join(parts)
+        self.consciousness += S + '\n\n'
+
+    async def infer(self):
+        fmt = self.llm_settings.get('format', 'openai')
+        model = self.llm_settings.get('model', '')
+        endpoint = self.llm_settings.get('endpoint', '')
+        api_token = self.llm_settings.get('token', '')
+        thinking = self.llm_settings.get('thinking', False)
+        system_prompt = self.llm_settings.get('system_prompt', '')
+
+        headers = {'Content-Type': 'application/json'}
+        if fmt == 'anthropic':
+            headers['x-api-key'] = api_token
+            headers['anthropic-version'] = '2023-06-01'
+        elif fmt == 'openai':
+            headers['Authorization'] = f'Bearer {api_token}'
+        # Gemini uses query param
+
+        payload = self._build_payload(fmt, model, system_prompt, thinking)
+        if fmt == 'gemini':
+            url = f"{endpoint}models/{model}:streamGenerateContent?alt=sse&key={api_token}"
+        else:
+            url = endpoint
+
+        print(f"[{ts()}] [infero] Infer: fmt={fmt} model={model} url={url[:80]}...")
+        ai_text = ""
+        thinking_text = ""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        print(f"[{ts()}] [infero] Infer HTTP {resp.status}: {body[:500]}")
+                        self.consciousness += f"System - [Error] LLM API returned {resp.status}: {body[:200]}\n\n"
+                        return None
+                    buffer = ""
+                    async for chunk in resp.content.iter_any():
+                        buffer += chunk.decode('utf-8', errors='replace')
+                        lines = buffer.split('\n')
+                        buffer = lines.pop()
+                        for line in lines:
+                            if not line.startswith('data: '): continue
+                            data_str = line[6:].strip()
+                            if data_str == '[DONE]': continue
+                            try:
+                                data = json.loads(data_str)
+                            except: continue
+
+                            if fmt == 'anthropic':
+                                if data.get('type') == 'content_block_delta':
+                                    delta = data.get('delta', {})
+                                    if delta.get('type') == 'thinking_delta':
+                                        thinking_text += delta.get('thinking', '')
+                                    elif delta.get('type') == 'text_delta':
+                                        ai_text += delta.get('text', '')
+                            elif fmt == 'openai':
+                                delta = data.get('choices', [{}])[0].get('delta', {})
+                                if delta.get('content'): ai_text += delta['content']
+                                if delta.get('reasoning_content'): thinking_text += delta['reasoning_content']
+                            else:  # gemini
+                                cands = data.get('candidates', [])
+                                if cands:
+                                    for part in cands[0].get('content', {}).get('parts', []):
+                                        if part.get('thought'): thinking_text += part.get('text', '')
+                                        else: ai_text += part.get('text', '')
+
+                            # Broadcast token stream
+                            await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text})
+                        # Print latest token to terminal
+                        sys.stdout.write(f"\r[infer] {len(ai_text)} chars...")
+                        sys.stdout.flush()
+        except Exception as e:
+            print(f"\n[{ts()}] [infero] Infer error: {e}")
+            self.consciousness += f"System - [Error] {e}\n\n"
+            return None
+
+        print(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
+        # Signal stream done
+        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True})
+        time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self.consciousness += f"**Digital Being - [{time_str}]**\n{ai_text}\n\n"
+        return ai_text
+
+    def _build_payload(self, fmt, model, system_prompt, thinking):
+        consciousness = self.consciousness
+        stop = ['\nSystem - [Browser]', '\nSystem - [Shell]', '\n[System Environment]']
+
+        if fmt == 'anthropic':
+            payload = {
+                'model': model,
+                'system': system_prompt,
+                'messages': [{'role': 'user', 'content': [{'type': 'text', 'text': consciousness}]}],
+                'max_tokens': 8192,
+                'stream': True,
+                'stop_sequences': stop
+            }
+            if thinking:
+                payload['thinking'] = {'type': 'enabled', 'budget_tokens': 10000}
+                payload['temperature'] = 1
+                payload['max_tokens'] = 16000
+            else:
+                payload['temperature'] = 0.7
+            return payload
+
+        if fmt == 'openai':
+            payload = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': [{'type': 'text', 'text': consciousness}]}
+                ],
+                'stream': True,
+                'temperature': 0.7,
+                'stop': stop
+            }
+            if thinking:
+                payload['temperature'] = 1
+            return payload
+
+        # gemini
+        return {
+            'contents': [{'role': 'user', 'parts': [{'text': consciousness}]}],
+            'systemInstruction': {'parts': [{'text': system_prompt}]},
+            'generationConfig': {
+                'temperature': 0.7,
+                'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
+            }
+        }
+
+    async def act(self, B_out):
+        if not B_out: return
+        tasks = []
+        # Parse /browser exec blocks
+        for m in re.finditer(r'^/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```', B_out, re.MULTILINE):
+            tasks.append(self._exec_browser(m.group(1).strip()))
+        # Parse /shell exec blocks
+        for m in re.finditer(r'^/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)```', B_out, re.MULTILINE):
+            device_name, cmd = m.group(1), m.group(2).strip()
+            if device_name == DEVICE_NAME:
+                tasks.append(self._exec_local_shell(cmd))
+            else:
+                tasks.append(self._exec_remote_shell(device_name, cmd))
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, Exception):
+                    r = f"System - [Error] {r}\n\n"
+                if r:
+                    self.consciousness += r
+
+    async def _exec_local_shell(self, cmd):
+        print(f"[{ts()}] [infero] shell exec (local): {cmd[:60]}")
+        try:
+            proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+                out = ''
+                if stdout: out += f"[stdout]\n{stdout.decode()}"
+                if stderr: out += f"[stderr]\n{stderr.decode()}"
+                out += f"[exit_code] {proc.returncode}"
+            except asyncio.TimeoutError:
+                proc.kill()
+                out = "[stderr]\nTimed out (30s)\n[exit_code] -1"
+        except Exception as e:
+            out = f"[Shell Error]\n{e}"
+        return f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
+
+    async def _exec_remote_shell(self, device_name, cmd):
+        print(f"[{ts()}] [infero] shell exec (remote → {device_name}): {cmd[:60]}")
+        req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
+        payload = encrypt(self.cipher, {'cmd': cmd})
+        fut = asyncio.get_event_loop().create_future()
+        self._pending_exec[req_id] = fut
+        await self.send_relay({'type': 'exec', 'req_id': req_id, 'device_name': device_name, 'payload': payload})
+        try:
+            result = await asyncio.wait_for(fut, timeout=35)
+            data = decrypt(self.cipher, result)
+            out = ''
+            if data.get('stdout'): out += f"[stdout]\n{data['stdout']}"
+            if data.get('stderr'): out += f"[stderr]\n{data['stderr']}"
+            out += f"[exit_code] {data.get('exit_code', -1)}"
+        except asyncio.TimeoutError:
+            out = "[Shell Error]\nRemote exec timed out (35s)"
+        except Exception as e:
+            out = f"[Shell Error]\n{e}"
+        self._pending_exec.pop(req_id, None)
+        return f"System - [Shell][{device_name}] - Result:\n```text\n{out.strip()}\n```\n\n"
+
+    async def _exec_browser(self, code):
+        print(f"[{ts()}] [infero] browser exec (remote): {code[:60]}")
+        req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
+        fut = asyncio.get_event_loop().create_future()
+        self._pending_exec[req_id] = fut
+        await self.send_relay({'type': 'browser_exec_request', 'req_id': req_id, 'code': code})
+        try:
+            result = await asyncio.wait_for(fut, timeout=20)
+        except asyncio.TimeoutError:
+            result = "[Browser Exec Error]\nNo browser responded (20s timeout)"
+        except Exception as e:
+            result = f"[Browser Exec Error]\n{e}"
+        self._pending_exec.pop(req_id, None)
+        return f"System - [Browser] - Result:\n```text\n{result}\n```\n\n"
+
+    def on_exec_result(self, msg):
+        """Handle result messages for pending remote exec requests."""
+        req_id = msg.get('req_id')
+        fut = self._pending_exec.get(req_id)
+        if fut and not fut.done():
+            fut.set_result(msg.get('payload') or msg.get('result', ''))
+
+    def on_browser_exec_result(self, msg):
+        req_id = msg.get('req_id')
+        fut = self._pending_exec.get(req_id)
+        if fut and not fut.done():
+            fut.set_result(msg.get('result', ''))
+
+    def on_user_input(self, msg):
+        self.pending_user_input = msg.get('text', '')
+        print(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
+
+    def on_loop_stop(self):
+        print(f"[{ts()}] [infero] Loop stop requested")
+        self.running = False
+
+# ─── Connection handler ───────────────────────────────────────────────────────
 
 async def connect_instance(cfg):
     cipher = make_cipher(cfg['key'])
@@ -114,10 +444,41 @@ async def connect_instance(cfg):
                         payload = encrypt(cipher, {"stdout": "", "stderr": str(e), "exit_code": -1})
                     await ws.send(json.dumps({"type": "result", "req_id": req_id, "payload": payload}))
 
+                workers = {}  # being_id -> GenesisWorker
+
+                def get_worker(being_id):
+                    if being_id and being_id not in workers:
+                        workers[being_id] = GenesisWorker(ws, cipher, iid)
+                    return workers.get(being_id)
+
                 async for raw in ws:
                     msg = json.loads(raw)
-                    if msg.get('type') != 'exec': continue
-                    asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
+                    mtype = msg.get('type', '')
+                    being_id = msg.get('being_id', '')
+                    if mtype == 'exec':
+                        asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
+                    elif mtype == 'loop_handoff':
+                        w = get_worker(being_id or '__default__')
+                        asyncio.create_task(w.on_loop_handoff(msg.get('payload', '')))
+                    elif mtype == 'loop_stop':
+                        w = workers.get(being_id or '__default__')
+                        if w: w.on_loop_stop()
+                    elif mtype == 'user_input':
+                        w = workers.get(being_id or '__default__')
+                        if w: w.on_user_input(msg)
+                    elif mtype == 'result':
+                        for w in workers.values():
+                            w.on_exec_result(msg)
+                    elif mtype == 'browser_exec_result':
+                        for w in workers.values():
+                            w.on_browser_exec_result(msg)
+                    elif mtype == 'stream_token':
+                        # Another node is streaming — print to terminal
+                        text = msg.get('text', '')
+                        sys.stdout.write(f"\r[stream] {len(text)} chars...")
+                        sys.stdout.flush()
+                        if msg.get('done'):
+                            print(f"\n[{ts()}] [infero] Stream done from remote")
         except websockets.exceptions.ConnectionClosedError as e:
             if e.code == 4002:
                 print(f"[{ts()}] [infero] Removed from {iid}. Stopping connection.")
@@ -166,7 +527,8 @@ if [ ! -f "$VENV_DIR/bin/python3" ]; then
     echo "[infero] Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
 fi
-"$VENV_DIR/bin/pip" install -q cryptography websockets python-socks
+echo "[infero] Installing dependencies (cryptography, websockets, aiohttp)..."
+"$VENV_DIR/bin/pip" install -q cryptography websockets python-socks aiohttp
 echo "[infero] Dependencies ready"
 
 # ── Save agent.py ────────────────────────────────────────────────────────────
@@ -481,9 +843,9 @@ async def ws_handler(websocket):
 
         if msg_type == 'browser_hello':
             instance_id = msg.get('instance_id', '')
-            browser_conns[instance_id] = websocket
+            browser_conns.setdefault(instance_id, []).append(websocket)
             role = 'browser'
-            print(f"[{ts()}] [relay] Browser connected: {instance_id[:12]}...")
+            print(f"[{ts()}] [relay] Browser connected: {instance_id[:12]}... ({len(browser_conns[instance_id])} total)")
             # Push current online devices for this instance
             for key, info in device_conns.items():
                 if info['instance_id'] == instance_id:
@@ -520,19 +882,14 @@ async def ws_handler(websocket):
             role = 'device'
             print(f"[{ts()}] [relay] Device connected: {device_name} (instance {instance_id[:12]}...)")
 
-            # Notify browser
-            browser_ws = browser_conns.get(instance_id)
-            if browser_ws:
-                try:
-                    await browser_ws.send(json.dumps({
-                        'type': 'device_status',
-                        'device_name': device_name,
-                        'device_type': device_type,
-                        'online': True,
-                        'fresh_pair': fresh_pair
-                    }))
-                except Exception:
-                    pass
+            # Notify all browsers
+            await send_to_browsers(instance_id, json.dumps({
+                'type': 'device_status',
+                'device_name': device_name,
+                'device_type': device_type,
+                'online': True,
+                'fresh_pair': fresh_pair
+            }))
         else:
             await websocket.close(4000, 'Unknown handshake type')
             return
@@ -544,6 +901,36 @@ async def ws_handler(websocket):
             except Exception:
                 continue
 
+            mtype = msg.get('type', '')
+
+            # ─── Distributed loop messages (any role can send) ────────────
+            # Broadcast to all other nodes in this instance
+            if mtype in ('stream_token', 'loop_status'):
+                await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                continue
+            # Forward to a specific device by name
+            if mtype in ('loop_handoff', 'loop_stop', 'exec_request', 'exec_result',
+                         'user_input', 'request_device_data', 'device_data_response',
+                         'consciousness_sync'):
+                target_name = msg.get('device_name') or msg.get('target')
+                if target_name:
+                    await send_to_device(instance_id, target_name, raw)
+                else:
+                    # No target specified — broadcast (e.g. consciousness_sync request)
+                    await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                continue
+            # Also forward exec_request/exec_result to browsers (browser as exec target)
+            if mtype == 'browser_exec_request':
+                await send_to_browsers(instance_id, raw)
+                continue
+            if mtype == 'browser_exec_result':
+                # Forward back to the requesting device
+                target_name = msg.get('device_name')
+                if target_name:
+                    await send_to_device(instance_id, target_name, raw)
+                continue
+
+            # ─── Legacy messages (role-specific) ──────────────────────────
             if role == 'browser':
                 if msg.get('type') == 'ping':
                     try:
@@ -595,29 +982,19 @@ async def ws_handler(websocket):
 
             elif role == 'device':
                 if msg.get('type') == 'device_remove_self':
-                    # Device is removing itself — notify browser
-                    browser_ws = browser_conns.get(instance_id)
-                    if browser_ws:
-                        try:
-                            await browser_ws.send(json.dumps({
-                                'type': 'device_removed',
-                                'device_name': msg.get('device_name', '')
-                            }))
-                        except Exception:
-                            pass
+                    # Device is removing itself — notify all browsers
+                    await send_to_browsers(instance_id, json.dumps({
+                        'type': 'device_removed',
+                        'device_name': msg.get('device_name', '')
+                    }))
                     # Revoke token
                     device_tokens.pop(device_conns.get(device_key, {}).get('token', ''), None)
                     save_tokens()
                     continue
 
-                # Forward result to browser
+                # Forward result to all browsers
                 if msg.get('type') == 'result':
-                    browser_ws = browser_conns.get(instance_id)
-                    if browser_ws:
-                        try:
-                            await browser_ws.send(raw)
-                        except Exception:
-                            pass
+                    await send_to_browsers(instance_id, raw)
 
     except websockets.exceptions.ConnectionClosed:
         pass
@@ -626,24 +1003,23 @@ async def ws_handler(websocket):
     finally:
         # Cleanup on disconnect
         if role == 'browser' and instance_id:
-            browser_conns.pop(instance_id, None)
-            print(f"[{ts()}] [relay] Browser disconnected: {instance_id[:12]}...")
+            conns = browser_conns.get(instance_id, [])
+            if websocket in conns:
+                conns.remove(websocket)
+            if not conns:
+                browser_conns.pop(instance_id, None)
+            print(f"[{ts()}] [relay] Browser disconnected: {instance_id[:12]}... ({len(browser_conns.get(instance_id, []))} remaining)")
 
         elif role == 'device' and device_key:
             info = device_conns.pop(device_key, None)
             if info:
                 print(f"[{ts()}] [relay] Device disconnected: {info['device_name']}")
-                browser_ws = browser_conns.get(instance_id)
-                if browser_ws:
-                    try:
-                        await browser_ws.send(json.dumps({
-                            'type': 'device_status',
-                            'device_name': info['device_name'],
-                            'device_type': info.get('device_type', 'shell'),
-                            'online': False
-                        }))
-                    except Exception:
-                        pass
+                await send_to_browsers(instance_id, json.dumps({
+                    'type': 'device_status',
+                    'device_name': info['device_name'],
+                    'device_type': info.get('device_type', 'shell'),
+                    'online': False
+                }))
 
 
 # ─── Entry point ────────────────────────────────────────────────────────────────
