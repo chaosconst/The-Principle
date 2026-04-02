@@ -2120,6 +2120,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 scrollToBottom();
                 if (msg.done) {
                     window._remoteAiDiv = null;
+                    if (msg.usage) {
+                        _lastPromptTokens = msg.usage.promptTokens || 0;
+                        _lastCachedTokens = msg.usage.cachedTokens || 0;
+                    }
                     setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
                 } else if (!msg._statusSet) {
                     setStatus('Inferring...');

@@ -246,6 +246,7 @@ class GenesisWorker:
 
         ai_text = ""
         thinking_text = ""
+        usage = {}  # {promptTokens, cachedTokens, outputTokens}
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
@@ -269,16 +270,29 @@ class GenesisWorker:
                                         thinking_text += delta.get('thinking', '')
                                     elif delta.get('type') == 'text_delta':
                                         ai_text += delta.get('text', '')
+                                if data.get('type') == 'message_start':
+                                    u = data.get('message', {}).get('usage', {})
+                                    if u:
+                                        usage = {'promptTokens': u.get('input_tokens', 0) + u.get('cache_read_input_tokens', 0) + u.get('cache_creation_input_tokens', 0),
+                                                 'cachedTokens': u.get('cache_read_input_tokens', 0)}
+                                if data.get('type') == 'message_delta':
+                                    u = data.get('usage', {})
+                                    if u: usage['outputTokens'] = u.get('output_tokens', 0)
                             elif fmt == 'openai':
                                 delta = data.get('choices', [{}])[0].get('delta', {})
                                 if delta.get('content'): ai_text += delta['content']
                                 if delta.get('reasoning_content'): thinking_text += delta['reasoning_content']
+                                if data.get('usage'):
+                                    usage = {'promptTokens': data['usage'].get('prompt_tokens', 0), 'outputTokens': data['usage'].get('completion_tokens', 0)}
                             else:  # gemini
                                 cands = data.get('candidates', [])
                                 if cands:
                                     for part in cands[0].get('content', {}).get('parts', []):
                                         if part.get('thought'): thinking_text += part.get('text', '')
                                         else: ai_text += part.get('text', '')
+                                if data.get('usageMetadata'):
+                                    u = data['usageMetadata']
+                                    usage = {'promptTokens': u.get('promptTokenCount', 0), 'cachedTokens': u.get('cachedContentTokenCount', 0), 'outputTokens': u.get('candidatesTokenCount', 0)}
 
                             # Broadcast token stream
                             await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text})
@@ -292,7 +306,7 @@ class GenesisWorker:
 
         self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
-        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True})
+        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage})
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.consciousness += f"**Digital Being - [{time_str}]**\n{ai_text}\n\n"
         return ai_text
