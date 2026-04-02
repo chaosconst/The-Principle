@@ -2134,8 +2134,12 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                             }
                         } catch (e) { console.error('[relay] Sync error:', e); }
                     }
-                    // If we're supposed to resume local loop
-                    if (settings.hostDevice === 'this browser') {
+                    // Check for pending handoff (remote A → remote B)
+                    if (_pendingHandoff) {
+                        const target = _pendingHandoff;
+                        _pendingHandoff = null;
+                        doHandoff(target);
+                    } else if (settings.hostDevice === 'this browser') {
                         setStatus('Ready');
                         if (!consciousness) scheduleAutoInfer();
                     } else {
@@ -2287,22 +2291,28 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (name === oldHost) return;
 
             if (name !== 'this browser' && oldHost === 'this browser') {
-                // Switching FROM browser TO remote device
+                // browser → remote: handoff
                 if (loopRunning) {
-                    // Wait for current loop to finish, then handoff
                     _pendingHandoff = name;
                     setStatus('Handoff...');
                 } else {
-                    // Not running — handoff immediately
                     doHandoff(name);
                 }
             } else if (name === 'this browser' && oldHost !== 'this browser') {
-                // Switching FROM remote device BACK to browser
+                // remote → browser: takeover
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
-                    setStatus('Stopping...');
+                    setStatus('Taking...');
                 }
                 // loop_status { stopped } handler will resume local loop
+            } else if (name !== 'this browser' && oldHost !== 'this browser') {
+                // remote A → remote B: stop A, then handoff to B after sync
+                _pendingHandoff = name;
+                if (_relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
+                    setStatus('Handoff...');
+                }
+                // loop_status { stopped } handler will sync consciousness, then doHandoff(_pendingHandoff)
             }
         }
 
