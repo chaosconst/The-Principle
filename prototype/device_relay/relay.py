@@ -79,6 +79,22 @@ DEVICE_NAME = socket.gethostname().removesuffix('.local')
 def ts():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+def get_log_file(relay_ws):
+    """Return log file path based on relay environment."""
+    if 'dev.' in relay_ws:
+        log_dir = os.path.expanduser('~/.infero-dev')
+        os.makedirs(log_dir, exist_ok=True)
+        return os.path.join(log_dir, 'agent.log')
+    return None  # prod: stdout only (captured by launchd)
+
+def log(relay_ws, msg):
+    """Log to stdout and optionally to env-specific log file."""
+    print(msg)
+    log_file = get_log_file(relay_ws)
+    if log_file:
+        with open(log_file, 'a') as f:
+            f.write(msg + '\n')
+
 def load_instances():
     try:
         return json.load(open(INSTANCES_FILE))
@@ -131,7 +147,7 @@ class GenesisWorker:
         print(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
-            await self.loop()
+            await self.run_loop()
         except Exception as e:
             print(f"[{ts()}] [infero] Loop error: {e}")
         finally:
@@ -140,7 +156,25 @@ class GenesisWorker:
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
             print(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
+    async def run_loop(self):
+        """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
+        while self.running:
+            await self.loop()
+            if not self.running:
+                break
+            # Loop ended (/call_for_human), wait for next user input
+            print(f"[{ts()}] [infero] Waiting for user input...")
+            while self.running and not self.pending_user_input:
+                await asyncio.sleep(0.5)
+
     async def loop(self):
+        # If consciousness ends with /call_for_human and no pending input, return immediately
+        if not self.pending_user_input and '/call_for_human' in self.consciousness:
+            last_sc = self.consciousness.rfind('/self_continue')
+            last_cfh = self.consciousness.rfind('/call_for_human')
+            if last_cfh > last_sc:
+                return
+
         while self.running:
             await self.perceive()
             B = await self.infer()
@@ -395,10 +429,6 @@ async def connect_instance(cfg):
     cipher = make_cipher(cfg['key'])
     backoff = 1
     iid = cfg['instance_id'][:8]
-    # Extract short relay label for log prefix, e.g. "infero.net" or "dev.infero.net"
-    import re as _re
-    _m = _re.search(r'://([^/]+)', cfg.get('relay_ws', ''))
-    relay_tag = _m.group(1) if _m else cfg.get('relay_ws', '')[:20]
     while True:
         try:
             async with websockets.connect(cfg['relay_ws']) as ws:
@@ -410,11 +440,11 @@ async def connect_instance(cfg):
                     "device_name": DEVICE_NAME,
                     "device_type": "shell"
                 }))
-                print(f"[{ts()}] [{relay_tag}] Connected: {DEVICE_NAME} → {iid}...")
+                log(cfg['relay_ws'], f"[{ts()}] [infero] Connected: {DEVICE_NAME} → {iid}...")
                 async def handle_exec(req_id, payload_raw):
                     try:
                         cmd = decrypt(cipher, payload_raw)['cmd']
-                        print(f"[{ts()}] [{relay_tag}] exec ({iid}): {cmd[:60]}")
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] exec ({iid}): {cmd[:60]}")
                         proc = await asyncio.create_subprocess_shell(
                             cmd,
                             stdout=asyncio.subprocess.PIPE,
@@ -430,23 +460,34 @@ async def connect_instance(cfg):
                         payload = encrypt(cipher, {"stdout": "", "stderr": str(e), "exit_code": -1})
                     await ws.send(json.dumps({"type": "result", "req_id": req_id, "payload": payload}))
 
-                worker = GenesisWorker(ws, cipher, iid)
+                workers = {}  # being_id -> GenesisWorker
+
+                def get_worker(being_id):
+                    if being_id and being_id not in workers:
+                        workers[being_id] = GenesisWorker(ws, cipher, iid)
+                    return workers.get(being_id)
 
                 async for raw in ws:
                     msg = json.loads(raw)
                     mtype = msg.get('type', '')
+                    being_id = msg.get('being_id', '__default__')
                     if mtype == 'exec':
                         asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
                     elif mtype == 'loop_handoff':
-                        asyncio.create_task(worker.on_loop_handoff(msg.get('payload', '')))
+                        w = get_worker(being_id)
+                        asyncio.create_task(w.on_loop_handoff(msg.get('payload', '')))
                     elif mtype == 'loop_stop':
-                        worker.on_loop_stop()
+                        w = workers.get(being_id)
+                        if w: w.on_loop_stop()
                     elif mtype == 'user_input':
-                        worker.on_user_input(msg)
+                        w = workers.get(being_id)
+                        if w: w.on_user_input(msg)
                     elif mtype == 'result':
-                        worker.on_exec_result(msg)
+                        for w in workers.values():
+                            w.on_exec_result(msg)
                     elif mtype == 'browser_exec_result':
-                        worker.on_browser_exec_result(msg)
+                        for w in workers.values():
+                            w.on_browser_exec_result(msg)
                     elif mtype == 'stream_token':
                         # Another node is streaming — print to terminal
                         text = msg.get('text', '')
@@ -456,15 +497,15 @@ async def connect_instance(cfg):
                             print(f"\n[{ts()}] [infero] Stream done from remote")
         except websockets.exceptions.ConnectionClosedError as e:
             if e.code == 4002:
-                print(f"[{ts()}] [{relay_tag}] Removed from {iid}. Stopping connection.")
+                log(cfg['relay_ws'], f"[{ts()}] [infero] Removed from {iid}. Stopping connection.")
                 instances = [i for i in load_instances() if i['instance_id'] != cfg['instance_id']]
                 save_instances(instances)
                 return
-            print(f"[{ts()}] [{relay_tag}] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
+            log(cfg['relay_ws'], f"[{ts()}] [infero] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
         except Exception as e:
-            print(f"[{ts()}] [{relay_tag}] Error ({iid}): {e}. Retry in {backoff}s...")
+            log(cfg['relay_ws'], f"[{ts()}] [infero] Error ({iid}): {e}. Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
 

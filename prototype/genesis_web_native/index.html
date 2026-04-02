@@ -2291,7 +2291,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (loopRunning) {
                     // Wait for current loop to finish, then handoff
                     _pendingHandoff = name;
-                    setStatus(`Handing off to ${name}...`);
+                    setStatus('Handoff...');
                 } else {
                     // Not running — handoff immediately
                     doHandoff(name);
@@ -2299,8 +2299,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             } else if (name === 'this browser' && oldHost !== 'this browser') {
                 // Switching FROM remote device BACK to browser
                 if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost }));
-                    setStatus('Waiting for remote loop to stop...');
+                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
+                    setStatus('Stopping...');
                 }
                 // loop_status { stopped } handler will resume local loop
             }
@@ -2327,8 +2327,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
             });
 
-            _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, payload }));
-            setStatus(`Loop handed off to ${targetDevice}`);
+            _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, being_id: currentBeingId, payload }));
+            setStatus('Remote');
             console.log(`[handoff] consciousness=${consciousness.length} chars → ${targetDevice}`);
         }
 
@@ -2480,7 +2480,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Remote mode: forward input to loop runner
             if (settings.hostDevice !== 'this browser') {
                 if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, text: currentUserInput }));
+                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: currentUserInput }));
                     currentUserInput = null;
                 }
                 return;
