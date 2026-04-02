@@ -147,12 +147,11 @@ class GenesisWorker:
         self.consciousness = data.get('consciousness', '')
         self.metadata = data.get('metadata', {})
         self.llm_settings = data.get('settings', {})
-        loop_was_running = data.get('loopWasRunning', False)
         self.running = True
-        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
+        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
-            await self.run_loop(loop_was_running)
+            await self.run_loop()
         except Exception as e:
             self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
@@ -161,13 +160,8 @@ class GenesisWorker:
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
             self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
-    async def run_loop(self, loop_was_running=False):
+    async def run_loop(self):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
-        if not loop_was_running:
-            # Loop was not running at handoff — wait for user input first
-            self._log(f"[{ts()}] [infero] Handoff received in idle state, waiting for user input...")
-            while self.running and not self.pending_user_input:
-                await asyncio.sleep(0.5)
         while self.running:
             await self.loop()
             if not self.running:
@@ -334,6 +328,7 @@ class GenesisWorker:
             'systemInstruction': {'parts': [{'text': system_prompt}]},
             'generationConfig': {
                 'temperature': 0.7,
+                'thinkingConfig': {'includeThoughts': True},
                 'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
             }
         }
