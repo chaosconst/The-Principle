@@ -2384,8 +2384,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._forkPoint = 0;
                 return false;
             } else if (remoteDelta && localDelta) {
-                consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
-                appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
+                // Browser delta in middle, device (runner) delta at tail — tail is most important for LLM (lost-in-the-middle)
+                consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars, appended below]\n${remoteDelta}`;
+                appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} appended`);
                 console.log(`[relay] Fork merged. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
             } else if (remoteDelta && !localDelta) {
                 consciousness = remoteConsciousness;
