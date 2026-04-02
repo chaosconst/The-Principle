@@ -131,7 +131,7 @@ class GenesisWorker:
         print(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
-            await self.run_loop()
+            await self.loop()
         except Exception as e:
             print(f"[{ts()}] [infero] Loop error: {e}")
         finally:
@@ -140,27 +140,7 @@ class GenesisWorker:
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
             print(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
-    async def run_loop(self):
-        """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
-        while self.running:
-            await self.loop()
-            if not self.running:
-                break
-            # Loop ended (call_for_human), wait for new user input
-            print(f"[{ts()}] [infero] Waiting for user input...")
-            while self.running and not self.pending_user_input:
-                await asyncio.sleep(0.5)
-            # Got input or stop — loop again if still running
-
     async def loop(self):
-        # If consciousness ends with /call_for_human and no pending input, return immediately
-        # (run_loop will handle waiting)
-        if not self.pending_user_input and '/call_for_human' in self.consciousness:
-            last_sc = self.consciousness.rfind('/self_continue')
-            last_cfh = self.consciousness.rfind('/call_for_human')
-            if last_cfh > last_sc:
-                return
-
         while self.running:
             await self.perceive()
             B = await self.infer()
@@ -193,7 +173,10 @@ class GenesisWorker:
         thinking = self.llm_settings.get('thinking', False)
         system_prompt = self.llm_settings.get('system_prompt', '')
 
+        client_id = self.llm_settings.get('client_id', '')
         headers = {'Content-Type': 'application/json'}
+        if client_id:
+            headers['X-Client-ID'] = client_id
         if fmt == 'anthropic':
             headers['x-api-key'] = api_token
             headers['anthropic-version'] = '2023-06-01'
@@ -203,21 +186,20 @@ class GenesisWorker:
 
         payload = self._build_payload(fmt, model, system_prompt, thinking)
         if fmt == 'gemini':
-            url = f"{endpoint}models/{model}:streamGenerateContent?alt=sse&key={api_token}"
+            # Standard Gemini API: endpoint ends with /v1beta/ — append models/{model}:stream...
+            # Infero proxy: endpoint is a full URL (e.g. /api/relay) — use as-is
+            if endpoint.endswith('/'):
+                url = f"{endpoint}models/{model}:streamGenerateContent?alt=sse&key={api_token}"
+            else:
+                url = endpoint  # infero proxy, POST directly
         else:
             url = endpoint
 
-        print(f"[{ts()}] [infero] Infer: fmt={fmt} model={model} url={url[:80]}...")
         ai_text = ""
         thinking_text = ""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
-                    if resp.status != 200:
-                        body = await resp.text()
-                        print(f"[{ts()}] [infero] Infer HTTP {resp.status}: {body[:500]}")
-                        self.consciousness += f"System - [Error] LLM API returned {resp.status}: {body[:200]}\n\n"
-                        return None
                     buffer = ""
                     async for chunk in resp.content.iter_any():
                         buffer += chunk.decode('utf-8', errors='replace')
@@ -444,34 +426,23 @@ async def connect_instance(cfg):
                         payload = encrypt(cipher, {"stdout": "", "stderr": str(e), "exit_code": -1})
                     await ws.send(json.dumps({"type": "result", "req_id": req_id, "payload": payload}))
 
-                workers = {}  # being_id -> GenesisWorker
-
-                def get_worker(being_id):
-                    if being_id and being_id not in workers:
-                        workers[being_id] = GenesisWorker(ws, cipher, iid)
-                    return workers.get(being_id)
+                worker = GenesisWorker(ws, cipher, iid)
 
                 async for raw in ws:
                     msg = json.loads(raw)
                     mtype = msg.get('type', '')
-                    being_id = msg.get('being_id', '')
                     if mtype == 'exec':
                         asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
                     elif mtype == 'loop_handoff':
-                        w = get_worker(being_id or '__default__')
-                        asyncio.create_task(w.on_loop_handoff(msg.get('payload', '')))
+                        asyncio.create_task(worker.on_loop_handoff(msg.get('payload', '')))
                     elif mtype == 'loop_stop':
-                        w = workers.get(being_id or '__default__')
-                        if w: w.on_loop_stop()
+                        worker.on_loop_stop()
                     elif mtype == 'user_input':
-                        w = workers.get(being_id or '__default__')
-                        if w: w.on_user_input(msg)
+                        worker.on_user_input(msg)
                     elif mtype == 'result':
-                        for w in workers.values():
-                            w.on_exec_result(msg)
+                        worker.on_exec_result(msg)
                     elif mtype == 'browser_exec_result':
-                        for w in workers.values():
-                            w.on_browser_exec_result(msg)
+                        worker.on_browser_exec_result(msg)
                     elif mtype == 'stream_token':
                         # Another node is streaming — print to terminal
                         text = msg.get('text', '')
@@ -527,7 +498,6 @@ if [ ! -f "$VENV_DIR/bin/python3" ]; then
     echo "[infero] Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
 fi
-echo "[infero] Installing dependencies (cryptography, websockets, aiohttp)..."
 "$VENV_DIR/bin/pip" install -q cryptography websockets python-socks aiohttp
 echo "[infero] Dependencies ready"
 

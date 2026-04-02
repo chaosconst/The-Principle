@@ -2012,10 +2012,7 @@ CONCLUSION:
             const combined = new Uint8Array(12 + ct.byteLength);
             combined.set(iv);
             combined.set(new Uint8Array(ct), 12);
-            // Chunked btoa to avoid stack overflow on large payloads
-            let binary = '';
-            for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
-            return btoa(binary);
+            return btoa(String.fromCharCode(...combined));
         }
 
         async function decryptPayload(cryptoKey, payloadB64) {
@@ -2104,7 +2101,7 @@ CONCLUSION:
 
             if (msg.type === 'loop_status') {
                 if (msg.status === 'started') {
-                    setStatus('Remote');
+                    setStatus(`Loop: ${msg.device_name || 'remote'}`);
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
                 }
                 if (msg.status === 'stopped') {
@@ -2126,7 +2123,7 @@ CONCLUSION:
                                         _lastCachedTokens = data.metadata.cachedTokens || 0;
                                     }
                                     await saveBeing();
-                                    // No renderHistory() — avoid flash. UI was already updated by stream_token.
+                                    await renderHistory();
                                     console.log(`[relay] Consciousness synced: ${consciousness.length} chars`);
                                 }
                             }
@@ -2137,7 +2134,7 @@ CONCLUSION:
                         setStatus('Ready');
                         if (!consciousness) scheduleAutoInfer();
                     } else {
-                        setStatus('Stopped');
+                        setStatus(`Loop stopped on ${msg.device_name || 'remote'}`);
                     }
                 }
             }
@@ -2289,7 +2286,7 @@ CONCLUSION:
                 if (loopRunning) {
                     // Wait for current loop to finish, then handoff
                     _pendingHandoff = name;
-                    setStatus('Handoff...');
+                    setStatus(`Handing off to ${name}...`);
                 } else {
                     // Not running — handoff immediately
                     doHandoff(name);
@@ -2297,8 +2294,8 @@ CONCLUSION:
             } else if (name === 'this browser' && oldHost !== 'this browser') {
                 // Switching FROM remote device BACK to browser
                 if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
-                    setStatus('Stopping...');
+                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost }));
+                    setStatus('Waiting for remote loop to stop...');
                 }
                 // loop_status { stopped } handler will resume local loop
             }
@@ -2320,12 +2317,13 @@ CONCLUSION:
                     format: getActiveFormat(),
                     thinking: settings.thinking || false,
                     endpoint: getActiveEndpoint(),
-                    system_prompt: SYSTEM_INSTRUCTION
+                    system_prompt: SYSTEM_INSTRUCTION,
+                    client_id: CLIENT_ID
                 }
             });
 
-            _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, being_id: currentBeingId, payload }));
-            setStatus('Remote');
+            _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, payload }));
+            setStatus(`Loop handed off to ${targetDevice}`);
             console.log(`[handoff] consciousness=${consciousness.length} chars → ${targetDevice}`);
         }
 
@@ -2477,7 +2475,7 @@ CONCLUSION:
             // Remote mode: forward input to loop runner
             if (settings.hostDevice !== 'this browser') {
                 if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: currentUserInput }));
+                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, text: currentUserInput }));
                     currentUserInput = null;
                 }
                 return;
