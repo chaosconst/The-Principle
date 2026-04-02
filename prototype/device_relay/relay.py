@@ -395,6 +395,10 @@ async def connect_instance(cfg):
     cipher = make_cipher(cfg['key'])
     backoff = 1
     iid = cfg['instance_id'][:8]
+    # Extract short relay label for log prefix, e.g. "infero.net" or "dev.infero.net"
+    import re as _re
+    _m = _re.search(r'://([^/]+)', cfg.get('relay_ws', ''))
+    relay_tag = _m.group(1) if _m else cfg.get('relay_ws', '')[:20]
     while True:
         try:
             async with websockets.connect(cfg['relay_ws']) as ws:
@@ -406,11 +410,11 @@ async def connect_instance(cfg):
                     "device_name": DEVICE_NAME,
                     "device_type": "shell"
                 }))
-                print(f"[{ts()}] [infero] Connected: {DEVICE_NAME} → {iid}...")
+                print(f"[{ts()}] [{relay_tag}] Connected: {DEVICE_NAME} → {iid}...")
                 async def handle_exec(req_id, payload_raw):
                     try:
                         cmd = decrypt(cipher, payload_raw)['cmd']
-                        print(f"[{ts()}] [infero] exec ({iid}): {cmd[:60]}")
+                        print(f"[{ts()}] [{relay_tag}] exec ({iid}): {cmd[:60]}")
                         proc = await asyncio.create_subprocess_shell(
                             cmd,
                             stdout=asyncio.subprocess.PIPE,
@@ -452,15 +456,15 @@ async def connect_instance(cfg):
                             print(f"\n[{ts()}] [infero] Stream done from remote")
         except websockets.exceptions.ConnectionClosedError as e:
             if e.code == 4002:
-                print(f"[{ts()}] [infero] Removed from {iid}. Stopping connection.")
+                print(f"[{ts()}] [{relay_tag}] Removed from {iid}. Stopping connection.")
                 instances = [i for i in load_instances() if i['instance_id'] != cfg['instance_id']]
                 save_instances(instances)
                 return
-            print(f"[{ts()}] [infero] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
+            print(f"[{ts()}] [{relay_tag}] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
         except Exception as e:
-            print(f"[{ts()}] [infero] Error ({iid}): {e}. Retry in {backoff}s...")
+            print(f"[{ts()}] [{relay_tag}] Error ({iid}): {e}. Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
 
