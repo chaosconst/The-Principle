@@ -2238,9 +2238,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         }
                     } catch (e) { console.error('[relay] Sync decrypt error:', e); }
                 }
-                await mergeConsciousness(runner, remoteConsciousness);
+                const changed = await mergeConsciousness(runner, remoteConsciousness);
                 setStatus('Remote');
-                renderHistory();
+                if (changed) renderHistory();
             }
         }
 
@@ -2375,12 +2375,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function mergeConsciousness(runner, remoteConsciousness) {
-            if (!remoteConsciousness) return;
+            if (!remoteConsciousness) return false;
             const fp = window._forkPoint || 0;
             const localDelta = fp > 0 ? consciousness.slice(fp) : '';
             const remoteDelta = fp > 0 ? remoteConsciousness.slice(fp) : '';
             if (remoteConsciousness === consciousness) {
                 console.log('[relay] Consciousness identical, smooth sync');
+                window._forkPoint = 0;
+                return false;
             } else if (remoteDelta && localDelta) {
                 consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
                 appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
@@ -2397,6 +2399,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
             window._forkPoint = 0;
             await saveBeing();
+            return true;
         }
 
         async function doHandoff(targetDevice) {
