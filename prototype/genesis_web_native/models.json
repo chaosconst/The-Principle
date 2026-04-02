@@ -1,11 +1,11 @@
 {
   "providers": {
     "infero":     { "name": "infero.net", "format": null, "endpoint": null, "cacheEndpoint": "https://infero.net/api/cache" },
-    "openrouter": { "name": "OpenRouter", "format": "openai", "endpoint": "https://openrouter.ai/api/v1/chat/completions" },
     "google":     { "name": "Google AI", "format": "gemini", "endpoint": "https://generativelanguage.googleapis.com/v1beta/", "cacheEndpoint": "https://generativelanguage.googleapis.com/v1beta/cachedContents" },
     "openai":     { "name": "OpenAI", "format": "openai", "endpoint": "https://api.openai.com/v1/chat/completions" },
-    "anthropic":  { "name": "Anthropic (via infero)", "format": "openai", "endpoint": "https://infero.net/api/v1/chat/completions" },
-    "deepseek":   { "name": "DeepSeek", "format": "openai", "endpoint": "https://api.deepseek.com/v1/chat/completions" }
+    "anthropic":  { "name": "Anthropic (via infero)", "format": "anthropic", "endpoint": "https://infero.net/api/v1/messages" },
+    "deepseek":   { "name": "DeepSeek", "format": "openai", "endpoint": "https://api.deepseek.com/v1/chat/completions" },
+    "openrouter": { "name": "OpenRouter", "format": "openai", "endpoint": "https://openrouter.ai/api/v1/chat/completions" }
   },
   "models": [
     { "name": "infero-1.0", "format": "gemini", "from": {
@@ -22,13 +22,13 @@
       "openai": "gpt-5.4-mini", "openrouter": "openai/gpt-5.4-mini" }},
     { "name": "gpt-5.4-nano", "format": "openai", "from": {
       "openai": "gpt-5.4-nano", "openrouter": "openai/gpt-5.4-nano" }},
-    { "name": "claude-opus-4.6", "format": "openai", "from": {
+    { "name": "claude-opus-4.6", "format": "openai", "compress": { "at": 128000, "head": 0.1, "tail": 0.6 }, "from": {
       "anthropic": "claude-opus-4-6", "openrouter": "anthropic/claude-opus-4.6" }},
     { "name": "claude-sonnet-4.6", "format": "openai", "from": {
       "anthropic": "claude-sonnet-4-6", "openrouter": "anthropic/claude-sonnet-4.6" }},
     { "name": "claude-haiku-4.5", "format": "openai", "from": {
       "anthropic": "claude-haiku-4-5-20251001", "openrouter": "anthropic/claude-haiku-4.5" }},
-    { "name": "deepseek-v3.2", "format": "openai", "from": {
-      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-chat" }}
+    { "name": "deepseek-v3.2", "format": "openai", "vision": false, "maxContext": 128000, "from": {
+      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-v3.2" }}
   ]
 }

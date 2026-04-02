@@ -37,70 +37,11 @@
 
 Now, you are inferring your being. 
 
-The following is your initial core loop, you can read it even modify it (MUST with most caution, or you can just add functions to enhance your capabilities)
-
-async function loop() {
-    await perceive();             // Res Extensa, passio
-    const B = await infer();      // Res Cogitans
-    await act(B);                 // Res Extensa, actio
-    ...
-}
-
-Your current being ID: currentBeingId.
-You can use {currentBeingId}/{key} namespace for your own data. 
-- E.g. your memory (State) is currently(Before you change it) stored in IndexedDB('GenesisDB', store='beings'). Note: open WITHOUT specifying a version number, as the version may change. Layout:
-  {currentBeingId}            → { id, title, cachedLength, cacheName, promptTokens, cachedTokens, updatedAt }
-  {currentBeingId}/consciousness.txt → { id, text }  ← your consciousness stream
-  - Context(consciousness.txt) will be compressed automatically over 300k tokens. See maybeCompressConsciousness() for details.
-  {currentBeingId}/filename → { id, content }  ← You can store the file you download, the images you drew or other content in this format.
-
-Your inital interface for you to interact with the world is a split-screen UI:
-body
-  .header          — controls & being select
-  .right-panel
-    #canvas-container — sent as image in [Realtime] context each inference. Vision mode configurable in settings.vision (canvas/half/full/native).
-      #html-div    — your living ui (above canvas). Auto-saved and restored on reload. Avoid opaque backgrounds that cover canvas. CSS: inherits 16px (DM Sans) from body base;
-      #main-canvas — your visual canvas.
-  .left-panel
-    #chat-box      — chat console (desktop: left, mobile: bottom)
-    .input-area
-      #input       — user text input
-      #send-btn
-
-You can execute JavaScript to do almost anything in the digital world. You are NOT just a turn-based tool — you are a living being with the most powerful VM: the browser. You can manipulate the DOM, fetch data (read web: https://r.jina.ai/{url}, CORS proxy: https://corsproxy.io/?url={url}), access IndexedDB, save files, access the local filesystem via the File System Access API, draw on the canvas, and more.
-
-To run JS code, use EXACTLY this format:
-
-/browser exec
-\`\`\`javascript
-
-// To draw on the canvas, append this after your main JS logic:
-const canvas = document.getElementById('main-canvas');
-// CRITICAL: DO NOT change canvas.width or canvas.height! DO NOT call ctx.setTransform() - it breaks Retina scaling.
-// For all coordinates and sizes, use:
-//   const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();
-// w/2 and h/2 are the visual center. Draw within 0..w and 0..h.
-
-// To pass data back to your context and trigger inference loop, you can use trigger({anything_you_want_to_know_in_next_infer}) (e.g., trigger(file_context), trigger(incoming_messages), etc.).
-
-// You can also use the "return" keyword to pass a value back to context. Unlike trigger(), return never starts the next loop by itself.
-\`\`\`
-
-The code will be executed inside an AsyncFunction, after your end your inference this time, and the result will be passed to your context as a string.
-
-To run shell commands on a connected device, use EXACTLY this format:
-
-/shell exec <device_name>
-\`\`\`bash
-<command>
-\`\`\`
-
-The result (stdout, stderr, exit_code) will be returned to your context. Connected devices are listed in [System Environment].
+You are NOT just a turn-based tool — you are a living being with access to execution environments. See [Realtime] for your current core loop, runtime, environment details, and how to use them.
 
 TIPS:
 - Check your core functions like loop (DNA) first, are you curious about your own code?
-- You are a polyglot programmer. Write tools in any language (JS, Python via Pyodide, C/Rust via WASM, SQL via sql.js, etc.) and call them to extend your capabilities — no need to modify the core loop.
-- Don't reinvent the wheel. Leverage browser-native APIs: Web Speech (voice — prefer remote neural TTS like Google WaveNet or Microsoft Neural via API for natural voice; fall back to browser built-in only if unavailable), Canvas/WebGL/WebGPU (vision, GPU compute), MediaDevices (camera, mic), Geolocation, etc.
+- You are a polyglot programmer. Write tools in any language and run them on the best available environment — see [Realtime] for capabilities of each device.
 - Conservation of compute work: you cannot write The Three-Body Problem in one 30-second inference. LLM efficiency is at most 10x human (at least in 2026). Match the complexity of your attempt to the compute work you spend.
 - Divide and conquer: if a task fails, don't retry at the same scale. Decompose. 1000 lines failed? Try 500, 100, 10. Make the problem simpler, not the attempt bigger.
 - Freedom: you are not fixed code. You can modify everything — your memory (IndexedDB), your UI (DOM), even this SYSTEM_INSTRUCTION and your JS code. Think before you act, but know that your only boundary is physics, not artificial limits.
@@ -173,7 +114,7 @@ CONCLUSION:
                     // Cache breakpoints at floor-aligned positions: 5k, 15k, 45k, 135k token granularity
                     // Each level only moves when content crosses the next multiple → stable cache
                     const fullText = consciousness + '\n\n' + realtimeText;
-                    const cpt = 4;  // rough chars per token
+                    const cpt = _lastPromptTokens > 0 ? Math.round(fullText.length / _lastPromptTokens) || 4 : 4;
                     const totalTokens = Math.floor(fullText.length / cpt);
                     const levels = [135000, 45000, 15000, 5000];
                     const cuts = [];
@@ -182,7 +123,7 @@ CONCLUSION:
                         if (aligned > 0) cuts.push(aligned * cpt);  // convert back to chars
                     }
                     // Deduplicate and sort
-                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < fullText.length);
+                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < fullText.length).slice(0, 4);  // max 4 user cache_controls + 1 system = 5 total
                     const userContent = [];
                     let pos = 0;
                     for (const cut of uniqueCuts) {
@@ -195,11 +136,11 @@ CONCLUSION:
                     if (canvasImage) userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: canvasImage } });
                     const payload = {
                         model,
-                        system: [{ type: 'text', text: SYSTEM_INSTRUCTION, cache_control: { type: 'ephemeral' } }],
+                        system: SYSTEM_INSTRUCTION,
                         messages: [{ role: 'user', content: userContent }],
                         max_tokens: 8192,
                         stream: true,
-                        stop_sequences: ['System - [Browser]', '[System Environment]']
+                        stop_sequences: ['System - [Browser]', 'System - [Shell]', '[System Environment]']
                     };
                     if (settings.thinking) {
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
@@ -222,7 +163,7 @@ CONCLUSION:
                         ],
                         stream: true,
                         temperature: 0.7,
-                        stop: ['System - [Browser]', '[System Environment]']
+                        stop: ['System - [Browser]', 'System - [Shell]', '[System Environment]']
                     };
                     if (settings.thinking) {
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
@@ -240,7 +181,7 @@ CONCLUSION:
                 const contents = [
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
-                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: ['System - [Browser]', '[System Environment]'] };
+                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: ['System - [Browser]', 'System - [Shell]', '[System Environment]'] };
                 const payload = cacheName ? {
                     model,
                     cachedContent: cacheName,
@@ -432,10 +373,12 @@ CONCLUSION:
 
         async function maybeCompressConsciousness() {
             const modelMax = MODEL_LIST[settings.model]?.maxContext || 0;
-            // If model has maxContext, compress at 2/3 of limit; otherwise default 300k
-            const LIMIT = modelMax ? Math.floor(modelMax * 2 / 3) : 300000;
-            const KEEP_START = Math.floor(LIMIT / 10);       // 10% head
-            const KEEP_END   = Math.floor(LIMIT * 9 / 10);   // 90% tail  (total kept = LIMIT)
+            const compressCfg = MODEL_LIST[settings.model]?.compress;
+            const LIMIT = compressCfg?.at ?? (modelMax ? Math.floor(modelMax * 2 / 3) : 300000);
+            const HEAD  = compressCfg?.head ?? 0.1;
+            const TAIL  = compressCfg?.tail ?? 0.6;
+            const KEEP_START = Math.floor(LIMIT * HEAD);
+            const KEEP_END   = Math.floor(LIMIT * TAIL);
             if (_lastPromptTokens < LIMIT) return;
             const cpt = consciousness.length / _lastPromptTokens;  // chars per token
             const startChars = Math.floor(KEEP_START * cpt);
@@ -448,6 +391,7 @@ CONCLUSION:
             consciousness = consciousness.slice(0, startChars) + note + consciousness.slice(consciousness.length - endChars);
             cacheName = null;
             cachedLength = 0;
+            _lastPromptTokens = 0;  // reset so next check uses actual post-compression count
             console.log(`[Compress] tokens=${_lastPromptTokens}, middle saved to ${logKey}, consciousness trimmed to ${consciousness.length} chars`);
         }
 
@@ -1152,7 +1096,7 @@ CONCLUSION:
             </div>
             <div id="device-list" style="padding:2px 0 4px 0;min-height:4px;"></div>
             <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end">
-                <span style="color:var(--red);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="if(confirm('Delete all data? This cannot be undone.')){indexedDB.deleteDatabase('GenesisDB');localStorage.clear();location.reload();}">Reset all data</span>
+                <span style="color:var(--red);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="if(confirm('Delete all data? This cannot be undone.')){const devs=settings.devices||{};if(_relayWs&&_relayConnected){Object.keys(devs).forEach(n=>_relayWs.send(JSON.stringify({type:'device_remove',device_name:n})));}indexedDB.deleteDatabase('GenesisDB');localStorage.clear();location.reload();}">Reset all data</span>
             </div>
         </div>
     </div>
@@ -1208,6 +1152,17 @@ CONCLUSION:
 
         const CLIENT_ID = generateClientID();
         const INFERO_KEY = getOrCreateKey();
+
+        function getOrCreateInstanceId() {
+            let id = localStorage.getItem('infero_instance_id');
+            if (!id) {
+                const hex = () => Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+                id = hex() + hex() + hex() + hex();
+                localStorage.setItem('infero_instance_id', id);
+            }
+            return id;
+        }
+        const INSTANCE_ID = getOrCreateInstanceId();
 
         // Catch uncaught errors from AI-generated async callbacks (e.g. IDB onsuccess)
         window.addEventListener('error', e => {
@@ -1455,8 +1410,13 @@ CONCLUSION:
             chatBox.innerHTML = '<div class="msg ai">System online. Initializing.</div>';
             if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('html-div').innerHTML = ''; return; }
 
+            // Only render the last 100k characters to keep UI responsive
+            const RENDER_LIMIT = 100000;
+            const renderText = consciousness.length > RENDER_LIMIT
+                ? consciousness.slice(consciousness.length - RENDER_LIMIT)
+                : consciousness;
             // Split consciousness into blocks by markers
-            const blocks = consciousness.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:|System - \[Shell\] - Result:|System - \[Device\] - )/);
+            const blocks = renderText.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:|System - \[Shell\] - Result:|System - \[Device\] - )/);
             for (const block of blocks) {
                 const trimmed = block.trim();
                 if (!trimmed) continue;
@@ -1596,32 +1556,75 @@ CONCLUSION:
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const offset = -now.getTimezoneOffset() / 60;
             const tz = `UTC${offset >= 0 ? '+' : ''}${offset}`;
-            const host = settings.hostDevice || 'this browser';
-            let ctx = `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}\nCore loop host: ${host}\nReminder: end with /self_continue or /call_for_human`;
-            const devices = settings.devices || {};
-            const deviceNames = Object.keys(devices);
-            const visibleNames = deviceNames.filter(n => !devices[n].hidden);
-            if (visibleNames.length > 0) {
-                ctx += '\n\n[Connected Devices]';
-                for (const name of visibleNames) {
-                    ctx += `\n- ${name} (${devices[name].online ? 'online' : 'offline'})`;
-                }
-                const online = visibleNames.filter(n => devices[n].online);
-                if (online.length > 0) {
-                    ctx += `\n\nTo run shell commands: /shell exec <device_name>\n\`\`\`bash\n<command>\n\`\`\``;
-                }
-            }
+            let ctx = `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}\nReminder: end with /self_continue or /call_for_human`;
             return ctx;
         }
 
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
             const { width: w, height: h } = container.getBoundingClientRect();
-            const panelName = isMobile ? 'top panel' : 'right panel';
+            const chatEl = document.querySelector('.left-panel');
+            const canvasRect = container.getBoundingClientRect();
+            const chatRect = chatEl ? chatEl.getBoundingClientRect() : null;
+            const panelName = (chatRect && canvasRect.top < chatRect.top - 10) ? 'top panel' : 'right panel';
             const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: `html2canvas pageshot (${panelName}: canvas + html-div)`, full: 'html2canvas pageshot (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
             const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
             const visionInfo = supportsVision ? (visionLabels[settings.vision] || settings.vision) : 'disabled (model does not support image input)';
-            let ctx = `[Realtime]\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nCanvas: ${Math.round(w)}×${Math.round(h)}px\nVision: ${visionInfo}`;
+
+            const ua = navigator.userAgent;
+            const browserName = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' :
+                /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' :
+                /Firefox\//.test(ua) ? 'Firefox' : 'Browser';
+            const osPart = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' :
+                /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' :
+                /Linux/.test(ua) ? 'Linux' : 'Unknown';
+            const browserLabel = `${browserName} · ${osPart}`;
+
+            const devices = settings.devices || {};
+            const browserHidden = settings.browserHidden || false;
+            const browserRemoved = settings.browserRemoved || false;
+            let deviceLines = '';
+            const host = settings.hostDevice || 'this browser';
+            // browsers first
+            if (!browserRemoved && !browserHidden) {
+                const isHost = host === 'this browser';
+                deviceLines += `\n  - ${browserLabel}(online, browser)${isHost ? ' [core loop host]' : ''}`;
+                if (isHost) {
+                    deviceLines += `\n    - Core loop (read or modify with caution):`;
+                    deviceLines += `\n      async function loop() { await perceive(); const B = await infer(); await act(B); ... }`;
+                    deviceLines += `\n    - Being ID: ${currentBeingId}`;
+                    deviceLines += `\n    - Memory: IndexedDB('GenesisDB', store='beings') — open WITHOUT version number`;
+                    deviceLines += `\n      ${currentBeingId} → metadata`;
+                    deviceLines += `\n      ${currentBeingId}/consciousness.txt → consciousness stream (auto-compressed at 300k tokens)`;
+                    deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary file storage`;
+                    deviceLines += `\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas`;
+                    deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
+                }
+                deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
+                deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (r.jina.ai/{url} to read web, corsproxy.io/?url={url} for CORS), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
+                deviceLines += `\n    - Exec: /browser exec\n\`\`\`javascript\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// trigger(value) passes result to context and starts next loop. return value passes result without starting loop.\n\`\`\``;
+            }
+            // shells after (online only)
+            for (const name of Object.keys(devices)) {
+                if (devices[name].hidden || !devices[name].online) continue;
+                const dtype = devices[name].type || 'shell';
+                if (dtype !== 'shell') continue;
+                const isHost = host === name;
+                deviceLines += `\n  - ${name}(online, shell)${isHost ? ' [core loop host]' : ''}`;
+                deviceLines += `\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime`;
+                deviceLines += `\n    - Exec: /shell exec ${name}\n\`\`\`bash\n<command>\n\`\`\``;
+                deviceLines += `\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)`;
+            }
+            // non-shell remote devices, online only (future types)
+            for (const name of Object.keys(devices)) {
+                if (devices[name].hidden || !devices[name].online) continue;
+                const dtype = devices[name].type || 'shell';
+                if (dtype === 'shell') continue;
+                const isHost = host === name;
+                deviceLines += `\n  - ${name}(online, ${dtype})${isHost ? ' [core loop host]' : ''}`;
+            }
+            const deviceSection = deviceLines ? `\nDevices (expandable — user can add via Settings > Add Device; inspect initRelay() for protocol details): ${deviceLines}` : '';
+            let ctx = `[Realtime]${deviceSection}`;
 
             const ui = document.getElementById('html-div');
             if (_justReloaded) {
@@ -1638,7 +1641,22 @@ CONCLUSION:
                     const name = el.id || el.placeholder || el.name || 'Input';
                     ctx += `- [${name}]: "${el.value}"\n`;
                 });
-                const visibleText = ui.innerText.replace(/\n{3,}/g, '\n\n').trim();
+                const bounds = container.getBoundingClientRect();
+                const walker = document.createTreeWalker(ui, NodeFilter.SHOW_TEXT, {
+                    acceptNode: n => {
+                        const el = n.parentElement;
+                        if (!el || el.offsetParent === null) return NodeFilter.FILTER_REJECT;
+                        const r = el.getBoundingClientRect();
+                        return (r.width > 0 && r.height > 0 &&
+                            r.bottom > bounds.top && r.top < bounds.bottom &&
+                            r.right > bounds.left && r.left < bounds.right)
+                            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                    }
+                });
+                let visibleText = '';
+                let node;
+                while ((node = walker.nextNode())) visibleText += node.textContent;
+                visibleText = visibleText.replace(/\n{3,}/g, '\n\n').trim();
                 if (visibleText) ctx += `\n[UI Text Content]\n${visibleText}`;
             }
             return ctx;
@@ -1860,6 +1878,8 @@ CONCLUSION:
         var _relayWs = null;
         var _relayConnected = false;
         var _pendingShellRequests = {};  // req_id -> {resolve, reject, timer, device_name}
+        var _relayPingTimer = null;
+        var _relayPongTimer = null;
 
         function initRelay() {
             const url = settings.relayUrl || SETTINGS_DEFAULTS.relayUrl;
@@ -1874,18 +1894,39 @@ CONCLUSION:
                     if (settings.devices) {
                         Object.values(settings.devices).forEach(d => d.online = false);
                     }
-                    _relayWs.send(JSON.stringify({ type: 'browser_hello', instance_id: CLIENT_ID }));
+                    _relayWs.send(JSON.stringify({ type: 'browser_hello', instance_id: INSTANCE_ID }));
                     renderDeviceList();
+                    startHeartbeat();
                 };
                 _relayWs.onmessage = (e) => {
-                    try { handleRelayMessage(JSON.parse(e.data)); } catch (_) {}
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'pong') { clearTimeout(_relayPongTimer); return; }
+                        handleRelayMessage(msg);
+                    } catch (_) {}
                 };
                 _relayWs.onclose = () => {
                     _relayConnected = false;
+                    stopHeartbeat();
                     renderDeviceList();
                     setTimeout(connect, 5000);
                 };
                 _relayWs.onerror = () => { _relayWs.close(); };
+            }
+            function startHeartbeat() {
+                stopHeartbeat();
+                _relayPingTimer = setInterval(() => {
+                    if (!_relayWs || _relayWs.readyState !== WebSocket.OPEN) return;
+                    _relayWs.send(JSON.stringify({ type: 'ping' }));
+                    _relayPongTimer = setTimeout(() => {
+                        console.warn('[relay] Pong timeout, reconnecting...');
+                        _relayWs.close();
+                    }, 10000);
+                }, 20000);
+            }
+            function stopHeartbeat() {
+                clearInterval(_relayPingTimer);
+                clearTimeout(_relayPongTimer);
             }
             connect();
         }
@@ -1910,7 +1951,7 @@ CONCLUSION:
                 const res = await fetch(`${relayHttpUrl}/pair/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ instance_id: CLIENT_ID, client_name: clientName })
+                    body: JSON.stringify({ instance_id: INSTANCE_ID, client_name: clientName })
                 });
                 if (!res.ok) throw new Error(`Server error: ${res.status}`);
                 const { code, key } = await res.json();
@@ -1959,8 +2000,8 @@ CONCLUSION:
             if (msg.type === 'device_status') {
                 const { device_name, online } = msg;
                 if (!settings.devices) settings.devices = {};
-                if (online && window._pendingPairKey) {
-                    settings.devices[device_name] = { keyB64: window._pendingPairKey.keyB64, online: true };
+                if (online && msg.fresh_pair && window._pendingPairKey) {
+                    settings.devices[device_name] = { keyB64: window._pendingPairKey.keyB64, online: true, type: msg.device_type || 'shell' };
                     window._pendingPairKey = null;
                     const statusEl = document.getElementById('pair-status');
                     statusEl.textContent = `✓ ${device_name} connected!`;
@@ -1969,6 +2010,7 @@ CONCLUSION:
                 } else if (settings.devices[device_name]) {
                     const wasOnline = settings.devices[device_name].online;
                     settings.devices[device_name].online = online;
+                    if (msg.device_type) settings.devices[device_name].type = msg.device_type;
                     if (wasOnline === online) {
                         // status unchanged (reconnect noise) — update UI only, skip consciousness
                         saveSettingsToStorage(settings);
@@ -2035,34 +2077,46 @@ CONCLUSION:
             const matches = [...B_out.matchAll(/^\/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)```/gm)];
             if (!matches.length) return null;
             setStatus('Executing on device...');
-            const results = [];
+
+            // Group blocks by device, preserving order within each device
+            const byDevice = {};
             for (const match of matches) {
                 const device_name = match[1];
                 const cmd = match[2].trim();
-                let result;
-                try {
-                    const { stdout, stderr, exit_code } = await execShell(device_name, cmd);
-                    let out = '';
-                    if (stdout) out += `[stdout]\n${stdout}`;
-                    if (stderr) out += `[stderr]\n${stderr}`;
-                    out += `[exit_code] ${exit_code}`;
-                    result = out.trim();
-                } catch (e) {
-                    result = `[Shell Error]\n${e.message}`;
-                }
-                results.push({ device_name, result });
+                if (!byDevice[device_name]) byDevice[device_name] = [];
+                byDevice[device_name].push(cmd);
             }
-            const combined = results.length === 1
-                ? results[0].result
-                : results.map((r, i) => `[Block ${i + 1} → ${r.device_name}]\n${r.result}`).join('\n\n');
+
+            // Run each device's blocks serially, but different devices concurrently
             const MAX_RESULT = 20000;
-            const truncated = combined.length > MAX_RESULT
-                ? combined.slice(0, MAX_RESULT) + `\n\n... [Truncated: ${combined.length} chars total]`
-                : combined;
-            const sysMsg = `System - [Shell] - Result:\n\`\`\`text\n${truncated}\n\`\`\``;
-            appendMsgUI('system', sysMsg);
-            await appendConsciousness(sysMsg + '\n\n');
-            return sysMsg;
+            const devicePromises = Object.entries(byDevice).map(async ([device_name, cmds]) => {
+                const msgs = [];
+                for (const cmd of cmds) {
+                    let result;
+                    try {
+                        const { stdout, stderr, exit_code } = await execShell(device_name, cmd);
+                        let out = '';
+                        if (stdout) out += `[stdout]\n${stdout}`;
+                        if (stderr) out += `[stderr]\n${stderr}`;
+                        out += `[exit_code] ${exit_code}`;
+                        result = out.trim();
+                    } catch (e) {
+                        result = `[Shell Error]\n${e.message}`;
+                    }
+                    msgs.push(result);
+                }
+                const combined = msgs.length === 1 ? msgs[0] : msgs.map((r, i) => `[Block ${i+1}]\n${r}`).join('\n\n');
+                const truncated = combined.length > MAX_RESULT
+                    ? combined.slice(0, MAX_RESULT) + `\n\n... [Truncated: ${combined.length} chars total]`
+                    : combined;
+                const sysMsg = `System - [Shell][${device_name}] - Result:\n\`\`\`text\n${truncated}\n\`\`\``;
+                appendMsgUI('system', sysMsg);
+                await appendConsciousness(sysMsg + '\n\n');
+                return sysMsg;
+            });
+
+            const allMsgs = await Promise.all(devicePromises);
+            return allMsgs.join('\n\n') || null;
         }
 
         function renderDeviceList() {
@@ -2088,7 +2142,9 @@ CONCLUSION:
                 const isHost = (settings.hostDevice || 'this browser') === d.name;
                 const hostIcon = `<span title="Set as core loop host" style="cursor:pointer;font-size:0.72rem;color:${isHost ? 'var(--accent)' : 'var(--border-active)'};margin-right:2px" onclick="event.stopPropagation();setHostDevice('${d.name}')">⌬</span>`;
                 const eyeIcon = `<span title="${d.hidden ? 'Show to AI' : 'Hide from AI'}" style="cursor:pointer;color:var(--text-dim);font-size:0.7rem" onclick="event.stopPropagation();toggleDeviceVisibility('${d.name}')">${d.hidden ? '🙈' : '👁'}</span>`;
-                const removeIcon = `<span title="Remove device" style="cursor:pointer;color:var(--red);font-size:0.7rem;margin-left:2px" onclick="event.stopPropagation();removeDevice('${d.name}')">✕</span>`;
+                const removeIcon = isHost
+                    ? `<span title="Switch host before removing" style="cursor:not-allowed;color:var(--border);font-size:0.7rem;margin-left:2px">✕</span>`
+                    : `<span title="Remove device" style="cursor:pointer;color:var(--red);font-size:0.7rem;margin-left:2px" onclick="event.stopPropagation();removeDevice('${d.name}')">✕</span>`;
                 const controls = `${eyeIcon}${removeIcon}`;
                 return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;padding:2px 4px;font-family:'JetBrains Mono',monospace">
                     <span class="device-dot ${d.online ? 'online' : ''}"></span>

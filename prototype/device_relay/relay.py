@@ -11,9 +11,13 @@ import json
 import os
 import secrets
 import time
+from datetime import datetime
 
 import websockets
 from aiohttp import web
+
+def ts():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # ─── In-memory state ───────────────────────────────────────────────────────────
 
@@ -28,7 +32,7 @@ def load_tokens():
     try:
         with open(TOKENS_FILE) as f:
             device_tokens.update(json.load(f))
-        print(f"[relay] Loaded {len(device_tokens)} tokens from {TOKENS_FILE}")
+        print(f"[{ts()}] [relay] Loaded {len(device_tokens)} tokens from {TOKENS_FILE}")
     except FileNotFoundError:
         pass
 
@@ -40,10 +44,14 @@ def save_tokens():
 
 AGENT_PY = r'''
 import asyncio, json, subprocess, base64, os, sys, socket
+from datetime import datetime
 
 INFERO_DIR = os.path.expanduser('~/.infero')
 INSTANCES_FILE = os.path.join(INFERO_DIR, 'instances.json')
 DEVICE_NAME = socket.gethostname().removesuffix('.local')
+
+def ts():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def load_instances():
     try:
@@ -83,43 +91,53 @@ async def connect_instance(cfg):
                     "type": "device_hello",
                     "instance_id": cfg['instance_id'],
                     "token": cfg['token'],
-                    "device_name": DEVICE_NAME
+                    "device_name": DEVICE_NAME,
+                    "device_type": "shell"
                 }))
-                print(f"[infero] Connected: {DEVICE_NAME} → {iid}...")
-                async for raw in ws:
-                    msg = json.loads(raw)
-                    if msg.get('type') != 'exec': continue
-                    req_id = msg['req_id']
+                print(f"[{ts()}] [infero] Connected: {DEVICE_NAME} → {iid}...")
+                async def handle_exec(req_id, payload_raw):
                     try:
-                        cmd = decrypt(cipher, msg['payload'])['cmd']
-                        print(f"[infero] exec ({iid}): {cmd[:60]}")
-                        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-                        payload = encrypt(cipher, {"stdout": r.stdout, "stderr": r.stderr, "exit_code": r.returncode})
-                    except subprocess.TimeoutExpired:
-                        payload = encrypt(cipher, {"stdout": "", "stderr": "Timed out (30s)", "exit_code": -1})
+                        cmd = decrypt(cipher, payload_raw)['cmd']
+                        print(f"[{ts()}] [infero] exec ({iid}): {cmd[:60]}")
+                        proc = await asyncio.create_subprocess_shell(
+                            cmd,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        try:
+                            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+                            payload = encrypt(cipher, {"stdout": stdout.decode(), "stderr": stderr.decode(), "exit_code": proc.returncode})
+                        except asyncio.TimeoutError:
+                            proc.kill()
+                            payload = encrypt(cipher, {"stdout": "", "stderr": "Timed out (30s)", "exit_code": -1})
                     except Exception as e:
                         payload = encrypt(cipher, {"stdout": "", "stderr": str(e), "exit_code": -1})
                     await ws.send(json.dumps({"type": "result", "req_id": req_id, "payload": payload}))
+
+                async for raw in ws:
+                    msg = json.loads(raw)
+                    if msg.get('type') != 'exec': continue
+                    asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
         except websockets.exceptions.ConnectionClosedError as e:
             if e.code == 4002:
-                print(f"[infero] Removed from {iid}. Stopping connection.")
+                print(f"[{ts()}] [infero] Removed from {iid}. Stopping connection.")
                 instances = [i for i in load_instances() if i['instance_id'] != cfg['instance_id']]
                 save_instances(instances)
                 return
-            print(f"[infero] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
+            print(f"[{ts()}] [infero] Disconnected from {iid} ({e.code}). Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
         except Exception as e:
-            print(f"[infero] Error ({iid}): {e}. Retry in {backoff}s...")
+            print(f"[{ts()}] [infero] Error ({iid}): {e}. Retry in {backoff}s...")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
 
 async def main():
     instances = load_instances()
     if not instances:
-        print("[infero] No instances. Run: infero pair <CODE>")
+        print(f"[{ts()}] [infero] No instances. Run: infero pair <CODE>")
         return
-    print(f"[infero] Starting agent — {len(instances)} instance(s), device: {DEVICE_NAME}")
+    print(f"[{ts()}] [infero] Starting agent — {len(instances)} instance(s), device: {DEVICE_NAME}")
     await asyncio.gather(*[connect_instance(c) for c in instances])
 
 asyncio.run(main())
@@ -170,7 +188,8 @@ first_added = existing.get('first_added') if existing else datetime.now().strfti
 instances = [i for i in instances if i.get('instance_id') != iid]
 instances.append({'instance_id': iid, 'token': os.environ['TOKEN'],
                   'key': os.environ['KEY'], 'relay_ws': os.environ['RELAY_WS'],
-                  'client_name': os.environ['CLIENT_NAME'], 'first_added': first_added})
+                  'client_name': os.environ['CLIENT_NAME'],
+                  'first_added': first_added})
 json.dump(instances, open(f, 'w'), indent=2)
 "
 echo "[infero] Instance saved"
@@ -316,6 +335,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   <key>Label</key><string>net.infero.device</string>
   <key>ProgramArguments</key><array>
     <string>$VENV_DIR/bin/python3</string>
+    <string>-u</string>
     <string>$AGENT</string>
   </array>
   <key>RunAtLoad</key><true/>
@@ -336,7 +356,7 @@ Description=Infero Device Agent
 After=network.target
 
 [Service]
-ExecStart=$VENV_DIR/bin/python3 $AGENT
+ExecStart=$VENV_DIR/bin/python3 -u $AGENT
 Restart=always
 RestartSec=5
 
@@ -463,7 +483,7 @@ async def ws_handler(websocket):
             instance_id = msg.get('instance_id', '')
             browser_conns[instance_id] = websocket
             role = 'browser'
-            print(f"[relay] Browser connected: {instance_id[:12]}...")
+            print(f"[{ts()}] [relay] Browser connected: {instance_id[:12]}...")
             # Push current online devices for this instance
             for key, info in device_conns.items():
                 if info['instance_id'] == instance_id:
@@ -479,12 +499,14 @@ async def ws_handler(websocket):
         elif msg_type == 'device_hello':
             token = msg.get('token', '')
             device_name = msg.get('device_name', 'unknown')
+            device_type = msg.get('device_type', 'shell')
             instance_id = msg.get('instance_id', '')
 
             if token not in device_tokens:
                 await websocket.close(4001, 'Invalid token')
                 return
 
+            fresh_pair = device_tokens[token].endswith(':__pending__')
             device_key = f"{instance_id}:{device_name}"
             device_tokens[token] = device_key
             save_tokens()
@@ -492,10 +514,11 @@ async def ws_handler(websocket):
                 'ws': websocket,
                 'instance_id': instance_id,
                 'device_name': device_name,
+                'device_type': device_type,
                 'token': token
             }
             role = 'device'
-            print(f"[relay] Device connected: {device_name} (instance {instance_id[:12]}...)")
+            print(f"[{ts()}] [relay] Device connected: {device_name} (instance {instance_id[:12]}...)")
 
             # Notify browser
             browser_ws = browser_conns.get(instance_id)
@@ -504,7 +527,9 @@ async def ws_handler(websocket):
                     await browser_ws.send(json.dumps({
                         'type': 'device_status',
                         'device_name': device_name,
-                        'online': True
+                        'device_type': device_type,
+                        'online': True,
+                        'fresh_pair': fresh_pair
                     }))
                 except Exception:
                     pass
@@ -520,6 +545,13 @@ async def ws_handler(websocket):
                 continue
 
             if role == 'browser':
+                if msg.get('type') == 'ping':
+                    try:
+                        await websocket.send(json.dumps({'type': 'pong'}))
+                    except Exception:
+                        pass
+                    continue
+
                 if msg.get('type') == 'device_remove':
                     target_key = f"{instance_id}:{msg.get('device_name', '')}"
                     target = device_conns.get(target_key)
@@ -590,23 +622,24 @@ async def ws_handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         pass
     except Exception as e:
-        print(f"[relay] WS error ({role}): {e}")
+        print(f"[{ts()}] [relay] WS error ({role}): {e}")
     finally:
         # Cleanup on disconnect
         if role == 'browser' and instance_id:
             browser_conns.pop(instance_id, None)
-            print(f"[relay] Browser disconnected: {instance_id[:12]}...")
+            print(f"[{ts()}] [relay] Browser disconnected: {instance_id[:12]}...")
 
         elif role == 'device' and device_key:
             info = device_conns.pop(device_key, None)
             if info:
-                print(f"[relay] Device disconnected: {info['device_name']}")
+                print(f"[{ts()}] [relay] Device disconnected: {info['device_name']}")
                 browser_ws = browser_conns.get(instance_id)
                 if browser_ws:
                     try:
                         await browser_ws.send(json.dumps({
                             'type': 'device_status',
                             'device_name': info['device_name'],
+                            'device_type': info.get('device_type', 'shell'),
                             'online': False
                         }))
                     except Exception:
@@ -628,12 +661,12 @@ async def main():
     http_port = int(os.environ.get('HTTP_PORT', 8080))
     site = web.TCPSite(runner, '0.0.0.0', http_port)
     await site.start()
-    print(f"[relay] HTTP listening on :{http_port}")
+    print(f"[{ts()}] [relay] HTTP listening on :{http_port}")
 
     # WebSocket server
     ws_port = int(os.environ.get('WS_PORT', 8081))
     async with websockets.serve(ws_handler, '0.0.0.0', ws_port):
-        print(f"[relay] WebSocket listening on :{ws_port}")
+        print(f"[{ts()}] [relay] WebSocket listening on :{ws_port}")
         await asyncio.Future()  # run forever
 
 
