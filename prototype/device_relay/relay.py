@@ -348,14 +348,25 @@ class GenesisWorker:
             return payload
 
         # gemini
-        return {
-            'contents': [{'role': 'user', 'parts': [{'text': consciousness}]}],
-            'systemInstruction': {'parts': [{'text': system_prompt}]},
-            'generationConfig': {
-                'temperature': 0.7,
-                'thinkingConfig': {'includeThoughts': True},
-                'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
+        cache_name = self.metadata.get('cacheName')
+        cached_length = self.metadata.get('cachedLength', 0)
+        buffer_text = consciousness[cached_length:] if cache_name else consciousness
+        gemini_config = {
+            'temperature': 0.7,
+            'thinkingConfig': {'includeThoughts': True},
+            'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
+        }
+        contents = [{'role': 'user', 'parts': [{'text': buffer_text}]}]
+        if cache_name:
+            return {
+                'cachedContent': cache_name,
+                'contents': contents,
+                'generationConfig': gemini_config
             }
+        return {
+            'contents': contents,
+            'systemInstruction': {'parts': [{'text': system_prompt}]},
+            'generationConfig': gemini_config
         }
 
     async def act(self, B_out):
