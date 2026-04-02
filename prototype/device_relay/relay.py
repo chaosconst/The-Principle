@@ -124,16 +124,20 @@ def decrypt(cipher, b64):
 # ─── Genesis Worker: distributed loop ─────────────────────────────────────────
 
 class GenesisWorker:
-    def __init__(self, ws, cipher, iid):
+    def __init__(self, ws, cipher, iid, relay_ws=''):
         self.ws = ws
         self.cipher = cipher
         self.iid = iid
+        self.relay_ws = relay_ws
         self.consciousness = ""
         self.metadata = {}
         self.llm_settings = {}  # model, provider, token, format, thinking, endpoint
         self.running = False
         self.pending_user_input = None
         self._pending_exec = {}  # req_id -> asyncio.Future
+
+    def _log(self, msg):
+        log(self.relay_ws, msg)
 
     async def send_relay(self, msg):
         await self.ws.send(json.dumps(msg))
@@ -144,17 +148,17 @@ class GenesisWorker:
         self.metadata = data.get('metadata', {})
         self.llm_settings = data.get('settings', {})
         self.running = True
-        print(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
+        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
             await self.run_loop()
         except Exception as e:
-            print(f"[{ts()}] [infero] Loop error: {e}")
+            self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
             self.running = False
             await self.send_relay({'type': 'loop_status', 'status': 'stopped',
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
-            print(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
+            self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
     async def run_loop(self):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
@@ -163,7 +167,7 @@ class GenesisWorker:
             if not self.running:
                 break
             # Loop ended (/call_for_human), wait for next user input
-            print(f"[{ts()}] [infero] Waiting for user input...")
+            self._log(f"[{ts()}] [infero] Waiting for user input...")
             while self.running and not self.pending_user_input:
                 await asyncio.sleep(0.5)
 
@@ -271,11 +275,11 @@ class GenesisWorker:
                         sys.stdout.write(f"\r[infer] {len(ai_text)} chars...")
                         sys.stdout.flush()
         except Exception as e:
-            print(f"\n[{ts()}] [infero] Infer error: {e}")
+            self._log(f"\n[{ts()}] [infero] Infer error: {e}")
             self.consciousness += f"System - [Error] {e}\n\n"
             return None
 
-        print(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
+        self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
         await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True})
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -350,7 +354,7 @@ class GenesisWorker:
                     self.consciousness += r
 
     async def _exec_local_shell(self, cmd):
-        print(f"[{ts()}] [infero] shell exec (local): {cmd[:60]}")
+        self._log(f"[{ts()}] [infero] shell exec (local): {cmd[:60]}")
         try:
             proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
@@ -367,7 +371,7 @@ class GenesisWorker:
         return f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
 
     async def _exec_remote_shell(self, device_name, cmd):
-        print(f"[{ts()}] [infero] shell exec (remote → {device_name}): {cmd[:60]}")
+        self._log(f"[{ts()}] [infero] shell exec (remote → {device_name}): {cmd[:60]}")
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
         payload = encrypt(self.cipher, {'cmd': cmd})
         fut = asyncio.get_running_loop().create_future()
@@ -388,7 +392,7 @@ class GenesisWorker:
         return f"System - [Shell][{device_name}] - Result:\n```text\n{out.strip()}\n```\n\n"
 
     async def _exec_browser(self, code):
-        print(f"[{ts()}] [infero] browser exec (remote): {code[:60]}")
+        self._log(f"[{ts()}] [infero] browser exec (remote): {code[:60]}")
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
         fut = asyncio.get_running_loop().create_future()
         self._pending_exec[req_id] = fut
@@ -417,10 +421,10 @@ class GenesisWorker:
 
     def on_user_input(self, msg):
         self.pending_user_input = msg.get('text', '')
-        print(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
+        self._log(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
 
     def on_loop_stop(self):
-        print(f"[{ts()}] [infero] Loop stop requested")
+        self._log(f"[{ts()}] [infero] Loop stop requested")
         self.running = False
 
 # ─── Connection handler ───────────────────────────────────────────────────────
@@ -464,7 +468,7 @@ async def connect_instance(cfg):
 
                 def get_worker(being_id):
                     if being_id and being_id not in workers:
-                        workers[being_id] = GenesisWorker(ws, cipher, iid)
+                        workers[being_id] = GenesisWorker(ws, cipher, iid, cfg['relay_ws'])
                     return workers.get(being_id)
 
                 async for raw in ws:
