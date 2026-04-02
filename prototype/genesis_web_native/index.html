@@ -2396,6 +2396,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 console.log(`[relay] No fork point, remote longer (${remoteConsciousness.length} > ${consciousness.length}), taking remote`);
             } else {
                 console.log(`[relay] Keeping browser consciousness (${consciousness.length} chars)`);
+                window._forkPoint = 0;
+                return false;
             }
             window._forkPoint = 0;
             await saveBeing();
