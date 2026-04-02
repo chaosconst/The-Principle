@@ -1224,7 +1224,7 @@ CONCLUSION:
             vision: 'half',
             preview: false,
             thinking: true,
-            relayUrl: 'wss://infero.net/device-relay/ws',
+            relayUrl: 'ws://localhost:9083',
             devices: {},
             hostDevice: 'this browser',
         };
@@ -2317,7 +2317,8 @@ CONCLUSION:
                     format: getActiveFormat(),
                     thinking: settings.thinking || false,
                     endpoint: getActiveEndpoint(),
-                    system_prompt: SYSTEM_INSTRUCTION
+                    system_prompt: SYSTEM_INSTRUCTION,
+                    client_id: CLIENT_ID
                 }
             });
 

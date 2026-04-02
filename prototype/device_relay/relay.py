@@ -173,7 +173,10 @@ class GenesisWorker:
         thinking = self.llm_settings.get('thinking', False)
         system_prompt = self.llm_settings.get('system_prompt', '')
 
+        client_id = self.llm_settings.get('client_id', '')
         headers = {'Content-Type': 'application/json'}
+        if client_id:
+            headers['X-Client-ID'] = client_id
         if fmt == 'anthropic':
             headers['x-api-key'] = api_token
             headers['anthropic-version'] = '2023-06-01'
@@ -183,7 +186,12 @@ class GenesisWorker:
 
         payload = self._build_payload(fmt, model, system_prompt, thinking)
         if fmt == 'gemini':
-            url = f"{endpoint}models/{model}:streamGenerateContent?alt=sse&key={api_token}"
+            # Standard Gemini API: endpoint ends with /v1beta/ — append models/{model}:stream...
+            # Infero proxy: endpoint is a full URL (e.g. /api/relay) — use as-is
+            if endpoint.endswith('/'):
+                url = f"{endpoint}models/{model}:streamGenerateContent?alt=sse&key={api_token}"
+            else:
+                url = endpoint  # infero proxy, POST directly
         else:
             url = endpoint
 
