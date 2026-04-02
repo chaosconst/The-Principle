@@ -147,11 +147,12 @@ class GenesisWorker:
         self.consciousness = data.get('consciousness', '')
         self.metadata = data.get('metadata', {})
         self.llm_settings = data.get('settings', {})
+        loop_was_running = data.get('loopWasRunning', False)
         self.running = True
-        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
+        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
-            await self.run_loop()
+            await self.run_loop(loop_was_running)
         except Exception as e:
             self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
@@ -160,13 +161,14 @@ class GenesisWorker:
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
             self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
-    async def run_loop(self):
+    async def run_loop(self, loop_was_running=False):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
-        # Check consciousness state — if last directive is /self_continue, start immediately
+        # Only auto-continue if loop was actively running AND consciousness ends with /self_continue
         last_sc = self.consciousness.rfind('/self_continue')
         last_cfh = self.consciousness.rfind('/call_for_human')
-        if last_cfh > last_sc and not self.pending_user_input:
-            self._log(f"[{ts()}] [infero] Waiting for user input (/call_for_human)...")
+        should_auto_run = loop_was_running and last_sc > last_cfh
+        if not should_auto_run and not self.pending_user_input:
+            self._log(f"[{ts()}] [infero] Waiting for user input...")
             while self.running and not self.pending_user_input:
                 await asyncio.sleep(0.5)
         while self.running:
