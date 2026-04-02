@@ -2341,7 +2341,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const controls = `${eyeIcon}${removeIcon}`;
                 return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;padding:2px 4px;font-family:'JetBrains Mono',monospace">
                     ${settings.preferredHost === d.name
-                        ? `<span style="font-size:8px;margin-right:5px;flex-shrink:0;cursor:pointer;color:var(--accent)" title="Preferred host" onclick="event.stopPropagation();setPreferredHost('${d.name}')">♥</span>`
+                        ? `<span style="font-size:9px;margin-right:5px;flex-shrink:0;cursor:pointer;color:var(--accent)" title="Preferred host" onclick="event.stopPropagation();setPreferredHost('${d.name}')">♥</span>`
                         : `<span class="device-dot ${d.online ? 'online' : ''}" style="cursor:pointer" title="Set as preferred" onclick="event.stopPropagation();setPreferredHost('${d.name}')"></span>`}
                     <span style="color:${d.hidden ? 'var(--text-dim)' : (isHost ? 'var(--accent)' : 'var(--text)')};flex:1;text-decoration:${d.hidden ? 'line-through' : 'none'}">${d.label}</span>
                     <span style="color:var(--text-dim);font-size:0.6rem;margin-right:2px">${d.online ? 'online' : 'offline'}</span>
