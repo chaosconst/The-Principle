@@ -2119,7 +2119,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._remoteAiDiv.innerHTML = html;
                 scrollToBottom();
                 if (msg.done) {
-                    window._remoteAiDiv = null;  // next stream gets a new div
+                    window._remoteAiDiv = null;
+                    setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
+                } else if (!msg._statusSet) {
+                    setStatus('Inferring...');
                 }
             }
 
