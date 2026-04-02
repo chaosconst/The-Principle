@@ -2055,6 +2055,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const note = `System - [Device] - ${device_name} is now ${online ? 'online' : 'offline'}`;
                 appendMsgUI('system', note);
                 await appendConsciousness(note + '\n\n');
+                // Auto takeover if core loop host went offline
+                if (!online && settings.hostDevice === device_name) {
+                    console.log(`[relay] Core loop host ${device_name} went offline, auto takeover`);
+                    settings.hostDevice = 'this browser';
+                    saveSettingsToStorage(settings);
+                    renderDeviceList();
+                    setStatus('Ready');
+                }
             }
             if (msg.type === 'device_removed') {
                 const { device_name } = msg;
