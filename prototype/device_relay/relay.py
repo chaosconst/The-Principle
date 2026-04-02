@@ -162,6 +162,13 @@ class GenesisWorker:
 
     async def run_loop(self):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
+        # Check consciousness state — if last directive is /self_continue, start immediately
+        last_sc = self.consciousness.rfind('/self_continue')
+        last_cfh = self.consciousness.rfind('/call_for_human')
+        if last_cfh > last_sc and not self.pending_user_input:
+            self._log(f"[{ts()}] [infero] Waiting for user input (/call_for_human)...")
+            while self.running and not self.pending_user_input:
+                await asyncio.sleep(0.5)
         while self.running:
             await self.loop()
             if not self.running:
