@@ -2066,11 +2066,18 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 // Preferred device came back online — sync consciousness and handoff
                 if (online && settings.preferredHost === device_name && settings.hostDevice !== device_name) {
                     console.log(`[relay] Preferred host ${device_name} is back online, syncing...`);
-                    // Record fork point for later merge
                     window._forkPoint = consciousness.length;
-                    // Ask device to stop and return its consciousness
                     if (_relayWs && _relayConnected) {
                         _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name, being_id: currentBeingId }));
+                        setStatus('Syncing...');
+                    }
+                }
+                // Host device is online (e.g. browser refresh) — sync consciousness without stopping
+                if (online && settings.hostDevice === device_name) {
+                    console.log(`[relay] Host ${device_name} is online, requesting consciousness sync...`);
+                    window._forkPoint = consciousness.length;
+                    if (_relayWs && _relayConnected) {
+                        _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name, being_id: currentBeingId, action: 'request' }));
                         setStatus('Syncing...');
                     }
                 }
@@ -2159,27 +2166,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     }
 
                     // Merge consciousness
-                    if (remoteConsciousness) {
-                        const fp = window._forkPoint || 0;
-                        const localDelta = fp > 0 ? consciousness.slice(fp) : '';
-                        const remoteDelta = fp > 0 ? remoteConsciousness.slice(fp) : '';
-                        if (remoteConsciousness === consciousness) {
-                            console.log('[relay] Consciousness identical, smooth sync');
-                        } else if (remoteDelta && localDelta) {
-                            // Both diverged — merge: browser main, device appended
-                            consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
-                            appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
-                            console.log(`[relay] Fork merged. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
-                        } else if (remoteDelta && !localDelta) {
-                            consciousness = remoteConsciousness;
-                            console.log(`[relay] Device added ${remoteDelta.length} chars, taking device version`);
-                        } else {
-                            // Browser has more or no fork point — keep browser version
-                            console.log(`[relay] Keeping browser consciousness (${consciousness.length} chars)`);
-                        }
-                        window._forkPoint = 0;
-                    }
-                    await saveBeing();
+                    await mergeConsciousness(runner, remoteConsciousness);
 
                     // Decide next action
                     if (_pendingHandoff) {
@@ -2228,6 +2215,32 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         canvasImage: canvasImage || null
                     }));
                 }
+            }
+
+            // consciousness_sync response from remote runner
+            if (msg.type === 'consciousness_sync' && msg.action === 'response') {
+                const runner = msg.device_name || settings.hostDevice;
+                console.log(`[relay] Consciousness sync response from ${runner}`);
+                let remoteConsciousness = null;
+                if (msg.payload) {
+                    try {
+                        const deviceInfo = settings.devices?.[runner];
+                        if (deviceInfo?.keyB64) {
+                            const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+                            const data = await decryptPayload(cryptoKey, msg.payload);
+                            remoteConsciousness = data.consciousness || null;
+                            if (data.metadata) {
+                                cachedLength = data.metadata.cachedLength || 0;
+                                cacheName = data.metadata.cacheName || null;
+                                _lastPromptTokens = data.metadata.promptTokens || 0;
+                                _lastCachedTokens = data.metadata.cachedTokens || 0;
+                            }
+                        }
+                    } catch (e) { console.error('[relay] Sync decrypt error:', e); }
+                }
+                await mergeConsciousness(runner, remoteConsciousness);
+                setStatus('Remote');
+                renderHistory();
             }
         }
 
@@ -2359,6 +2372,31 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 // loop_status { stopped } handler will resume local loop
             }
+        }
+
+        async function mergeConsciousness(runner, remoteConsciousness) {
+            if (!remoteConsciousness) return;
+            const fp = window._forkPoint || 0;
+            const localDelta = fp > 0 ? consciousness.slice(fp) : '';
+            const remoteDelta = fp > 0 ? remoteConsciousness.slice(fp) : '';
+            if (remoteConsciousness === consciousness) {
+                console.log('[relay] Consciousness identical, smooth sync');
+            } else if (remoteDelta && localDelta) {
+                consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
+                appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
+                console.log(`[relay] Fork merged. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
+            } else if (remoteDelta && !localDelta) {
+                consciousness = remoteConsciousness;
+                console.log(`[relay] Device added ${remoteDelta.length} chars, taking device version`);
+            } else if (!fp && remoteConsciousness.length > consciousness.length) {
+                // No fork point and remote is longer — take remote (browser refresh scenario)
+                consciousness = remoteConsciousness;
+                console.log(`[relay] No fork point, remote longer (${remoteConsciousness.length} > ${consciousness.length}), taking remote`);
+            } else {
+                console.log(`[relay] Keeping browser consciousness (${consciousness.length} chars)`);
+            }
+            window._forkPoint = 0;
+            await saveBeing();
         }
 
         async function doHandoff(targetDevice) {

@@ -536,6 +536,21 @@ async def connect_instance(cfg):
                     elif mtype == 'browser_exec_result':
                         for w in workers.values():
                             w.on_browser_exec_result(msg)
+                    elif mtype == 'consciousness_sync' and msg.get('action') == 'request':
+                        w = workers.get(being_id)
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG consciousness_sync request for being={being_id}, worker={w is not None}")
+                        if w and w.consciousness:
+                            resp_payload = encrypt(cipher, {
+                                'consciousness': w.consciousness,
+                                'metadata': w.metadata
+                            })
+                            await ws.send(json.dumps({
+                                'type': 'consciousness_sync',
+                                'action': 'response',
+                                'device_name': DEVICE_NAME,
+                                'being_id': being_id,
+                                'payload': resp_payload
+                            }))
                     elif mtype == 'stream_token':
                         # Another node is streaming — print to terminal
                         text = msg.get('text', '')
@@ -991,6 +1006,10 @@ async def ws_handler(websocket):
                 target_name = msg.get('device_name')
                 if target_name:
                     await send_to_device(instance_id, target_name, raw)
+                continue
+            # consciousness_sync response from device → broadcast to browsers
+            if mtype == 'consciousness_sync' and msg.get('action') == 'response':
+                await send_to_browsers(instance_id, raw)
                 continue
 
             # ─── Legacy messages (role-specific) ──────────────────────────
