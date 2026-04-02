@@ -545,17 +545,23 @@ async def connect_instance(cfg):
                         w = workers.get(being_id)
                         log(cfg['relay_ws'], f"[{ts()}] [infero] MSG consciousness_sync request for being={being_id}, worker={w is not None}")
                         if w and w.consciousness:
-                            resp_payload = encrypt(cipher, {
-                                'consciousness': w.consciousness,
-                                'metadata': w.metadata
-                            })
-                            await ws.send(json.dumps({
-                                'type': 'consciousness_sync',
-                                'action': 'response',
-                                'device_name': DEVICE_NAME,
-                                'being_id': being_id,
-                                'payload': resp_payload
-                            }))
+                            try:
+                                resp_payload = encrypt(cipher, {
+                                    'consciousness': w.consciousness,
+                                    'metadata': w.metadata
+                                })
+                                await ws.send(json.dumps({
+                                    'type': 'consciousness_sync',
+                                    'action': 'response',
+                                    'device_name': DEVICE_NAME,
+                                    'being_id': being_id,
+                                    'payload': resp_payload
+                                }))
+                                log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync response sent: {len(w.consciousness)} chars")
+                            except Exception as e:
+                                log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync error: {e}")
+                        else:
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no worker or empty consciousness")
                     elif mtype == 'stream_token':
                         # Another node is streaming — print to terminal
                         text = msg.get('text', '')
@@ -993,13 +999,11 @@ async def ws_handler(websocket):
                 continue
             # Forward to a specific device by name
             if mtype in ('loop_handoff', 'loop_stop', 'exec_request', 'exec_result',
-                         'user_input', 'request_device_data', 'device_data_response',
-                         'consciousness_sync'):
+                         'user_input', 'request_device_data', 'device_data_response'):
                 target_name = msg.get('device_name') or msg.get('target')
                 if target_name:
                     await send_to_device(instance_id, target_name, raw)
                 else:
-                    # No target specified — broadcast (e.g. consciousness_sync request)
                     await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
                 continue
             # Also forward exec_request/exec_result to browsers (browser as exec target)
@@ -1012,9 +1016,16 @@ async def ws_handler(websocket):
                 if target_name:
                     await send_to_device(instance_id, target_name, raw)
                 continue
-            # consciousness_sync response from device → broadcast to browsers
-            if mtype == 'consciousness_sync' and msg.get('action') == 'response':
-                await send_to_browsers(instance_id, raw)
+            # consciousness_sync: request → forward to target device, response → broadcast to browsers
+            if mtype == 'consciousness_sync':
+                if msg.get('action') == 'request':
+                    target_name = msg.get('device_name')
+                    if target_name:
+                        await send_to_device(instance_id, target_name, raw)
+                    else:
+                        await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                else:  # response
+                    await send_to_browsers(instance_id, raw)
                 continue
 
             # ─── Legacy messages (role-specific) ──────────────────────────
