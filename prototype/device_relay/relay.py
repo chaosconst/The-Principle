@@ -250,6 +250,11 @@ class GenesisWorker:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status >= 400:
+                        err_body = await resp.text()
+                        self._log(f"\n[{ts()}] [infero] Infer HTTP {resp.status}: {err_body[:500]}")
+                        self.consciousness += f"System - [Error] HTTP {resp.status}: {err_body[:200]}\n\n"
+                        return None
                     buffer = ""
                     async for chunk in resp.content.iter_any():
                         buffer += chunk.decode('utf-8', errors='replace')
