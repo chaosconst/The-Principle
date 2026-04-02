@@ -2015,7 +2015,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const combined = new Uint8Array(12 + ct.byteLength);
             combined.set(iv);
             combined.set(new Uint8Array(ct), 12);
-            return btoa(String.fromCharCode(...combined));
+            let binary = '';
+            for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+            return btoa(binary);
         }
 
         async function decryptPayload(cryptoKey, payloadB64) {
