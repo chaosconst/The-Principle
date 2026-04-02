@@ -2145,7 +2145,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 if (msg.status === 'stopped') {
                     const runner = msg.device_name || settings.hostDevice;
-                    console.log(`[relay] Remote loop stopped from ${runner}, syncing...`);
+                    console.log(`[relay] Remote loop stopped from ${runner}, syncing... (msg.device_name=${msg.device_name}, hostDevice=${settings.hostDevice})`);
 
                     // Decrypt remote consciousness if present
                     let remoteConsciousness = null;
