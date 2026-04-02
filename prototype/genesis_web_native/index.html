@@ -2063,6 +2063,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     renderDeviceList();
                     setStatus('Ready');
                 }
+                // Preferred device came back online — sync consciousness and handoff
+                if (online && settings.preferredHost === device_name && settings.hostDevice !== device_name) {
+                    console.log(`[relay] Preferred host ${device_name} is back online, syncing...`);
+                    // Record fork point for later merge
+                    window._forkPoint = consciousness.length;
+                    // Ask device to stop and return its consciousness
+                    if (_relayWs && _relayConnected) {
+                        _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name, being_id: currentBeingId }));
+                        setStatus('Syncing...');
+                    }
+                }
             }
             if (msg.type === 'device_removed') {
                 const { device_name } = msg;
@@ -2118,32 +2129,60 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
                 }
                 if (msg.status === 'stopped') {
-                    console.log('[relay] Remote loop stopped, syncing consciousness...');
-                    // Sync consciousness back from remote
+                    const runner = msg.device_name || settings.hostDevice;
+                    console.log(`[relay] Remote loop stopped from ${runner}, syncing...`);
+
+                    // Decrypt remote consciousness if present
+                    let remoteConsciousness = null;
                     if (msg.payload) {
                         try {
-                            const runner = msg.device_name || settings.hostDevice;
                             const deviceInfo = settings.devices?.[runner];
                             if (deviceInfo?.keyB64) {
                                 const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
                                 const data = await decryptPayload(cryptoKey, msg.payload);
-                                if (data.consciousness) {
-                                    consciousness = data.consciousness;
-                                    if (data.metadata) {
-                                        cachedLength = data.metadata.cachedLength || 0;
-                                        cacheName = data.metadata.cacheName || null;
-                                        _lastPromptTokens = data.metadata.promptTokens || 0;
-                                        _lastCachedTokens = data.metadata.cachedTokens || 0;
-                                    }
-                                    await saveBeing();
-                                    // No renderHistory() — avoid flash. UI was already updated by stream_token.
-                                    console.log(`[relay] Consciousness synced: ${consciousness.length} chars`);
+                                remoteConsciousness = data.consciousness || null;
+                                if (data.metadata) {
+                                    cachedLength = data.metadata.cachedLength || 0;
+                                    cacheName = data.metadata.cacheName || null;
+                                    _lastPromptTokens = data.metadata.promptTokens || 0;
+                                    _lastCachedTokens = data.metadata.cachedTokens || 0;
                                 }
                             }
-                        } catch (e) { console.error('[relay] Sync error:', e); }
+                        } catch (e) { console.error('[relay] Sync decrypt error:', e); }
                     }
-                    // If we're supposed to resume local loop
-                    if (settings.hostDevice === 'this browser') {
+
+                    // Merge consciousness
+                    if (remoteConsciousness) {
+                        const fp = window._forkPoint || 0;
+                        const localDelta = fp > 0 ? consciousness.slice(fp) : '';
+                        const remoteDelta = fp > 0 ? remoteConsciousness.slice(fp) : '';
+                        if (remoteConsciousness === consciousness) {
+                            console.log('[relay] Consciousness identical, smooth sync');
+                        } else if (remoteDelta && localDelta) {
+                            // Both diverged — merge: browser main, device appended
+                            consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
+                            appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
+                            console.log(`[relay] Fork merged. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
+                        } else if (remoteDelta && !localDelta) {
+                            consciousness = remoteConsciousness;
+                            console.log(`[relay] Device added ${remoteDelta.length} chars, taking device version`);
+                        } else {
+                            // Browser has more or no fork point — keep browser version
+                            console.log(`[relay] Keeping browser consciousness (${consciousness.length} chars)`);
+                        }
+                        window._forkPoint = 0;
+                    }
+                    await saveBeing();
+
+                    // Decide next action
+                    if (_pendingHandoff) {
+                        const target = _pendingHandoff;
+                        _pendingHandoff = null;
+                        doHandoff(target);
+                    } else if (settings.preferredHost === runner && settings.hostDevice !== runner) {
+                        console.log(`[relay] Synced with preferred host ${runner}, handing off`);
+                        doHandoff(runner);
+                    } else if (settings.hostDevice === 'this browser') {
                         setStatus('Ready');
                         if (!consciousness) scheduleAutoInfer();
                     } else {
@@ -2289,6 +2328,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function setHostDevice(name) {
             const oldHost = settings.hostDevice || 'this browser';
             settings.hostDevice = name;
+            if (name !== 'this browser') settings.preferredHost = name;
             saveSettingsToStorage(settings);
             renderDeviceList();
 

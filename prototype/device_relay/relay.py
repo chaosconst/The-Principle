@@ -483,7 +483,12 @@ async def connect_instance(cfg):
                         asyncio.create_task(w.on_loop_handoff(msg.get('payload', '')))
                     elif mtype == 'loop_stop':
                         w = workers.get(being_id)
-                        if w: w.on_loop_stop()
+                        if w:
+                            w.on_loop_stop()
+                        else:
+                            # No worker — respond with empty consciousness
+                            await ws.send(json.dumps({'type': 'loop_status', 'status': 'stopped',
+                                'device_name': DEVICE_NAME, 'payload': None}))
                     elif mtype == 'user_input':
                         w = workers.get(being_id)
                         if w: w.on_user_input(msg)
