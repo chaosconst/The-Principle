@@ -1630,7 +1630,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
-                deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/fetch?url={url} to read web as text, corsproxy.io/?url={url} for CORS), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
+                deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/fetch?url={url} to read web as text, r.jina.ai/{url} as fallback, corsproxy.io/?url={url} for CORS), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/browser exec\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.\n\`\`\``;
             }
