@@ -370,7 +370,7 @@ class GenesisWorker:
         print(f"[{ts()}] [infero] shell exec (remote → {device_name}): {cmd[:60]}")
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
         payload = encrypt(self.cipher, {'cmd': cmd})
-        fut = asyncio.get_event_loop().create_future()
+        fut = asyncio.get_running_loop().create_future()
         self._pending_exec[req_id] = fut
         await self.send_relay({'type': 'exec', 'req_id': req_id, 'device_name': device_name, 'payload': payload})
         try:
@@ -390,7 +390,7 @@ class GenesisWorker:
     async def _exec_browser(self, code):
         print(f"[{ts()}] [infero] browser exec (remote): {code[:60]}")
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
-        fut = asyncio.get_event_loop().create_future()
+        fut = asyncio.get_running_loop().create_future()
         self._pending_exec[req_id] = fut
         await self.send_relay({'type': 'browser_exec_request', 'req_id': req_id, 'code': code})
         try:
