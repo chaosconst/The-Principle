@@ -2436,6 +2436,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             });
 
             _relayWs.send(JSON.stringify({ type: 'loop_handoff', device_name: targetDevice, being_id: currentBeingId, payload }));
+            settings.hostDevice = targetDevice;
+            saveSettingsToStorage(settings);
+            renderDeviceList();
             setStatus('Remote');
             console.log(`[handoff] consciousness=${consciousness.length} chars → ${targetDevice}`);
         }
