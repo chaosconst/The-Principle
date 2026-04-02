@@ -1622,7 +1622,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n    - Core loop (read or modify with caution):`;
                     deviceLines += `\n      async function loop() { await perceive(); const B = await infer(); await act(B); ... }`;
                     deviceLines += `\n    - Being ID: ${currentBeingId}`;
-                    deviceLines += `\n    - Memory: use DB.get(key) / DB.put({id:key,...}) helpers (already in scope) — do NOT use raw indexedDB API`;
+                    deviceLines += `\n    - Memory: IndexedDB('GenesisDB', store='beings', keyPath='id') — each record is {id, ...fields}`;
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, text} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
