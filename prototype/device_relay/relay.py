@@ -742,6 +742,14 @@ if not instances: print('[infero] No instances left.')
         echo "  infero remove <instance_id>"
     fi
     ;;
+  offline)
+    _stop_agent
+    echo "[infero] Device offline."
+    ;;
+  online)
+    _restart_agent
+    echo "[infero] Device online."
+    ;;
   uninstall)
     _stop_agent
     rm -rf "\$INFERO_DIR"
@@ -751,7 +759,7 @@ if not instances: print('[infero] No instances left.')
     echo "[infero] Uninstalled."
     ;;
   *)
-    echo "Usage: infero <pair CODE | list | remove [id] | uninstall>"
+    echo "Usage: infero <pair CODE | list | remove [id] | online | offline | uninstall>"
     ;;
 esac
 ENDOFCLI
@@ -836,6 +844,8 @@ fi
 echo "  Commands:"
 echo "    infero list            — show paired instances"
 echo "    infero pair CODE       — pair another Genesis instance"
+echo "    infero online          — start device agent"
+echo "    infero offline         — stop device agent"
 echo "    infero remove [id]     — remove an instance"
 echo "    infero uninstall       — remove infero completely"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
