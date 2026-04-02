@@ -1631,7 +1631,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (r.jina.ai/{url} to read web, corsproxy.io/?url={url} for CORS), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
-                deviceLines += `\n    - Exec: /browser exec\n\`\`\`javascript\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// trigger(value) passes result to context and starts next loop. return value passes result without starting loop.\n\`\`\``;
+                deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/browser exec\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// trigger(value) passes result to context and starts next loop. return value passes result without starting loop.\n\`\`\``;
             }
             // shells after (online only)
             for (const name of Object.keys(devices)) {
