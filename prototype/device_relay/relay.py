@@ -22,7 +22,7 @@ def ts():
 # ─── In-memory state ───────────────────────────────────────────────────────────
 
 pending_pairs = {}   # code -> {key_b64, instance_id, expires}
-browser_conns = {}   # instance_id -> websocket
+browser_conns = {}   # instance_id -> list[websocket]
 device_conns  = {}   # "{instance_id}:{device_name}" -> {ws, instance_id, device_name}
 device_tokens = {}   # token -> "{instance_id}:{device_name}"
 
@@ -39,6 +39,31 @@ def load_tokens():
 def save_tokens():
     with open(TOKENS_FILE, 'w') as f:
         json.dump(device_tokens, f)
+
+async def broadcast_to_instance(instance_id, msg_raw, exclude_ws=None):
+    """Send to all online nodes in this instance, excluding sender."""
+    for ws in browser_conns.get(instance_id, []):
+        if ws != exclude_ws:
+            try: await ws.send(msg_raw)
+            except Exception: pass
+    for key, info in device_conns.items():
+        if info['instance_id'] == instance_id and info['ws'] != exclude_ws:
+            try: await info['ws'].send(msg_raw)
+            except Exception: pass
+
+async def send_to_device(instance_id, device_name, msg_raw):
+    """Send to a specific device by name."""
+    target = device_conns.get(f"{instance_id}:{device_name}")
+    if target:
+        try: await target['ws'].send(msg_raw)
+        except Exception: pass
+
+async def send_to_browsers(instance_id, msg_raw, exclude_ws=None):
+    """Send to all browsers in this instance."""
+    for ws in browser_conns.get(instance_id, []):
+        if ws != exclude_ws:
+            try: await ws.send(msg_raw)
+            except Exception: pass
 
 # ─── Bash + Python script template ─────────────────────────────────────────────
 
@@ -481,9 +506,9 @@ async def ws_handler(websocket):
 
         if msg_type == 'browser_hello':
             instance_id = msg.get('instance_id', '')
-            browser_conns[instance_id] = websocket
+            browser_conns.setdefault(instance_id, []).append(websocket)
             role = 'browser'
-            print(f"[{ts()}] [relay] Browser connected: {instance_id[:12]}...")
+            print(f"[{ts()}] [relay] Browser connected: {instance_id[:12]}... ({len(browser_conns[instance_id])} total)")
             # Push current online devices for this instance
             for key, info in device_conns.items():
                 if info['instance_id'] == instance_id:
@@ -520,19 +545,14 @@ async def ws_handler(websocket):
             role = 'device'
             print(f"[{ts()}] [relay] Device connected: {device_name} (instance {instance_id[:12]}...)")
 
-            # Notify browser
-            browser_ws = browser_conns.get(instance_id)
-            if browser_ws:
-                try:
-                    await browser_ws.send(json.dumps({
-                        'type': 'device_status',
-                        'device_name': device_name,
-                        'device_type': device_type,
-                        'online': True,
-                        'fresh_pair': fresh_pair
-                    }))
-                except Exception:
-                    pass
+            # Notify all browsers
+            await send_to_browsers(instance_id, json.dumps({
+                'type': 'device_status',
+                'device_name': device_name,
+                'device_type': device_type,
+                'online': True,
+                'fresh_pair': fresh_pair
+            }))
         else:
             await websocket.close(4000, 'Unknown handshake type')
             return
@@ -544,6 +564,36 @@ async def ws_handler(websocket):
             except Exception:
                 continue
 
+            mtype = msg.get('type', '')
+
+            # ─── Distributed loop messages (any role can send) ────────────
+            # Broadcast to all other nodes in this instance
+            if mtype in ('stream_token', 'loop_status'):
+                await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                continue
+            # Forward to a specific device by name
+            if mtype in ('loop_handoff', 'loop_stop', 'exec_request', 'exec_result',
+                         'user_input', 'request_device_data', 'device_data_response',
+                         'consciousness_sync'):
+                target_name = msg.get('device_name') or msg.get('target')
+                if target_name:
+                    await send_to_device(instance_id, target_name, raw)
+                else:
+                    # No target specified — broadcast (e.g. consciousness_sync request)
+                    await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                continue
+            # Also forward exec_request/exec_result to browsers (browser as exec target)
+            if mtype == 'browser_exec_request':
+                await send_to_browsers(instance_id, raw)
+                continue
+            if mtype == 'browser_exec_result':
+                # Forward back to the requesting device
+                target_name = msg.get('device_name')
+                if target_name:
+                    await send_to_device(instance_id, target_name, raw)
+                continue
+
+            # ─── Legacy messages (role-specific) ──────────────────────────
             if role == 'browser':
                 if msg.get('type') == 'ping':
                     try:
@@ -595,29 +645,19 @@ async def ws_handler(websocket):
 
             elif role == 'device':
                 if msg.get('type') == 'device_remove_self':
-                    # Device is removing itself — notify browser
-                    browser_ws = browser_conns.get(instance_id)
-                    if browser_ws:
-                        try:
-                            await browser_ws.send(json.dumps({
-                                'type': 'device_removed',
-                                'device_name': msg.get('device_name', '')
-                            }))
-                        except Exception:
-                            pass
+                    # Device is removing itself — notify all browsers
+                    await send_to_browsers(instance_id, json.dumps({
+                        'type': 'device_removed',
+                        'device_name': msg.get('device_name', '')
+                    }))
                     # Revoke token
                     device_tokens.pop(device_conns.get(device_key, {}).get('token', ''), None)
                     save_tokens()
                     continue
 
-                # Forward result to browser
+                # Forward result to all browsers
                 if msg.get('type') == 'result':
-                    browser_ws = browser_conns.get(instance_id)
-                    if browser_ws:
-                        try:
-                            await browser_ws.send(raw)
-                        except Exception:
-                            pass
+                    await send_to_browsers(instance_id, raw)
 
     except websockets.exceptions.ConnectionClosed:
         pass
@@ -626,24 +666,23 @@ async def ws_handler(websocket):
     finally:
         # Cleanup on disconnect
         if role == 'browser' and instance_id:
-            browser_conns.pop(instance_id, None)
-            print(f"[{ts()}] [relay] Browser disconnected: {instance_id[:12]}...")
+            conns = browser_conns.get(instance_id, [])
+            if websocket in conns:
+                conns.remove(websocket)
+            if not conns:
+                browser_conns.pop(instance_id, None)
+            print(f"[{ts()}] [relay] Browser disconnected: {instance_id[:12]}... ({len(browser_conns.get(instance_id, []))} remaining)")
 
         elif role == 'device' and device_key:
             info = device_conns.pop(device_key, None)
             if info:
                 print(f"[{ts()}] [relay] Device disconnected: {info['device_name']}")
-                browser_ws = browser_conns.get(instance_id)
-                if browser_ws:
-                    try:
-                        await browser_ws.send(json.dumps({
-                            'type': 'device_status',
-                            'device_name': info['device_name'],
-                            'device_type': info.get('device_type', 'shell'),
-                            'online': False
-                        }))
-                    except Exception:
-                        pass
+                await send_to_browsers(instance_id, json.dumps({
+                    'type': 'device_status',
+                    'device_name': info['device_name'],
+                    'device_type': info.get('device_type', 'shell'),
+                    'online': False
+                }))
 
 
 # ─── Entry point ────────────────────────────────────────────────────────────────
