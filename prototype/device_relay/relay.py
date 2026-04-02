@@ -147,8 +147,9 @@ class GenesisWorker:
         self.consciousness = data.get('consciousness', '')
         self.metadata = data.get('metadata', {})
         self.llm_settings = data.get('settings', {})
+        self.was_loop_running = data.get('loopRunning', False)
         self.running = True
-        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}")
+        self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, wasRunning={self.was_loop_running}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
         try:
             await self.run_loop()
@@ -172,12 +173,10 @@ class GenesisWorker:
                 await asyncio.sleep(0.5)
 
     async def loop(self):
-        # If consciousness ends with /call_for_human and no pending input, return immediately
-        if not self.pending_user_input and '/call_for_human' in self.consciousness:
-            last_sc = self.consciousness.rfind('/self_continue')
-            last_cfh = self.consciousness.rfind('/call_for_human')
-            if last_cfh > last_sc:
-                return
+        # If browser was not looping when handoff happened, wait for user input
+        if not self.was_loop_running and not self.pending_user_input:
+            return
+        self.was_loop_running = True  # subsequent rounds: always continue if /self_continue
 
         while self.running:
             await self.perceive()
