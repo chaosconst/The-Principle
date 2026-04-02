@@ -2106,7 +2106,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             if (msg.type === 'loop_status') {
                 if (msg.status === 'started') {
-                    setStatus(`Loop: ${msg.device_name || 'remote'}`);
+                    setStatus('Remote');
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
                 }
                 if (msg.status === 'stopped') {
@@ -2128,7 +2128,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                                         _lastCachedTokens = data.metadata.cachedTokens || 0;
                                     }
                                     await saveBeing();
-                                    await renderHistory();
+                                    // No renderHistory() — avoid flash. UI was already updated by stream_token.
                                     console.log(`[relay] Consciousness synced: ${consciousness.length} chars`);
                                 }
                             }
@@ -2139,7 +2139,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         setStatus('Ready');
                         if (!consciousness) scheduleAutoInfer();
                     } else {
-                        setStatus(`Loop stopped on ${msg.device_name || 'remote'}`);
+                        setStatus('Stopped');
                     }
                 }
             }
