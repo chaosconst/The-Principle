@@ -2314,7 +2314,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
             const payload = await encryptPayload(cryptoKey, {
                 consciousness,
-                loopRunning,
+                loopWasRunning: loopRunning,
                 metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId },
                 settings: {
                     model: getActiveModel(),
