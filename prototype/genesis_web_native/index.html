@@ -1622,10 +1622,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n    - Core loop (read or modify with caution):`;
                     deviceLines += `\n      async function loop() { await perceive(); const B = await infer(); await act(B); ... }`;
                     deviceLines += `\n    - Being ID: ${currentBeingId}`;
-                    deviceLines += `\n    - Memory: IndexedDB('GenesisDB', store='beings') — open WITHOUT version number`;
-                    deviceLines += `\n      ${currentBeingId} → metadata`;
-                    deviceLines += `\n      ${currentBeingId}/consciousness.txt → consciousness stream (auto-compressed at 300k tokens)`;
-                    deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary file storage`;
+                    deviceLines += `\n    - Memory: use DB.get(key) / DB.put({id:key,...}) helpers (already in scope) — do NOT use raw indexedDB API`;
+                    deviceLines += `\n      ${currentBeingId} → metadata object`;
+                    deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, text} — consciousness stream`;
+                    deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
                     deviceLines += `\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas`;
                     deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
                 }
