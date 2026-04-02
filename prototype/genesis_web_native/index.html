@@ -2174,10 +2174,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         const target = _pendingHandoff;
                         _pendingHandoff = null;
                         doHandoff(target);
-                    } else if (settings.preferredHost === runner && settings.hostDevice !== runner) {
+                    } else if (settings.preferredHost === runner && settings.hostDevice !== runner && !window._manualTakeover) {
                         console.log(`[relay] Synced with preferred host ${runner}, handing off`);
                         doHandoff(runner);
                     } else if (settings.hostDevice === 'this browser') {
+                        window._manualTakeover = false;
                         setStatus('Ready');
                         if (!consciousness) scheduleAutoInfer();
                     } else {
@@ -2375,6 +2376,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
             } else if (name === 'this browser' && oldHost !== 'this browser') {
                 // Switching FROM remote device BACK to browser
+                window._manualTakeover = true;  // prevent preferred host auto-handoff
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
                     setStatus('Stopping...');
