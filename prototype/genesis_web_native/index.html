@@ -2331,27 +2331,32 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             el.innerHTML = allDevices.map(d => {
                 const isHost = (settings.hostDevice || 'this browser') === d.name;
-                const isPreferred = settings.preferredHost === d.name;
                 const hostIcon = `<span title="Set as core loop host" style="cursor:pointer;font-size:0.72rem;color:${isHost ? 'var(--accent)' : 'var(--border-active)'};margin-right:2px" onclick="event.stopPropagation();setHostDevice('${d.name}')">⌬</span>`;
-                const starIcon = d.name !== 'this browser' ? `<span title="${isPreferred ? 'Preferred host' : 'Set as preferred host'}" style="cursor:pointer;font-size:0.62rem;color:${isPreferred ? 'var(--accent)' : 'var(--border-active)'};margin-right:1px" onclick="event.stopPropagation();settings.preferredHost='${d.name}';saveSettingsToStorage(settings);renderDeviceList()">${isPreferred ? '★' : '☆'}</span>` : '';
                 const eyeIcon = `<span title="${d.hidden ? 'Show to AI' : 'Hide from AI'}" style="cursor:pointer;color:var(--text-dim);font-size:0.7rem" onclick="event.stopPropagation();toggleDeviceVisibility('${d.name}')">${d.hidden ? '🙈' : '👁'}</span>`;
                 const removeIcon = isHost
                     ? `<span title="Switch host before removing" style="cursor:not-allowed;color:var(--border);font-size:0.7rem;margin-left:2px">✕</span>`
                     : `<span title="Remove device" style="cursor:pointer;color:var(--red);font-size:0.7rem;margin-left:2px" onclick="event.stopPropagation();removeDevice('${d.name}')">✕</span>`;
                 const controls = `${eyeIcon}${removeIcon}`;
                 return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;padding:2px 4px;font-family:'JetBrains Mono',monospace">
-                    <span class="device-dot ${d.online ? 'online' : ''}"></span>
+                    ${settings.preferredHost === d.name
+                        ? `<span style="font-size:8px;margin-right:5px;flex-shrink:0;cursor:pointer;color:var(--accent)" title="Preferred host" onclick="event.stopPropagation();setPreferredHost('${d.name}')">♥</span>`
+                        : `<span class="device-dot ${d.online ? 'online' : ''}" style="cursor:pointer" title="Set as preferred" onclick="event.stopPropagation();setPreferredHost('${d.name}')"></span>`}
                     <span style="color:${d.hidden ? 'var(--text-dim)' : (isHost ? 'var(--accent)' : 'var(--text)')};flex:1;text-decoration:${d.hidden ? 'line-through' : 'none'}">${d.label}</span>
                     <span style="color:var(--text-dim);font-size:0.6rem;margin-right:2px">${d.online ? 'online' : 'offline'}</span>
-                    ${starIcon}${hostIcon}${controls}
+                    ${hostIcon}${controls}
                 </div>`;
             }).join('');
+        }
+
+        function setPreferredHost(name) {
+            settings.preferredHost = (settings.preferredHost === name) ? '' : name;  // toggle
+            saveSettingsToStorage(settings);
+            renderDeviceList();
         }
 
         function setHostDevice(name) {
             const oldHost = settings.hostDevice || 'this browser';
             settings.hostDevice = name;
-            if (name !== 'this browser') settings.preferredHost = name;
             saveSettingsToStorage(settings);
             renderDeviceList();
 
