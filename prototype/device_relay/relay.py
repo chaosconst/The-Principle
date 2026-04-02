@@ -163,29 +163,31 @@ class GenesisWorker:
 
     async def run_loop(self, loop_was_running=False):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
-        # Only auto-continue if loop was actively running AND consciousness ends with /self_continue
         last_sc = self.consciousness.rfind('/self_continue')
         last_cfh = self.consciousness.rfind('/call_for_human')
         should_auto_run = loop_was_running and last_sc > last_cfh
+        self._log(f"[{ts()}] [infero] run_loop: loopWasRunning={loop_was_running}, last_sc={last_sc}, last_cfh={last_cfh}, should_auto_run={should_auto_run}, pending_input={bool(self.pending_user_input)}, running={self.running}")
         if not should_auto_run and not self.pending_user_input:
-            self._log(f"[{ts()}] [infero] Waiting for user input...")
+            self._log(f"[{ts()}] [infero] run_loop: waiting for user input...")
             while self.running and not self.pending_user_input:
                 await asyncio.sleep(0.5)
+            self._log(f"[{ts()}] [infero] run_loop: wait ended. running={self.running}, pending_input={bool(self.pending_user_input)}")
         while self.running:
+            self._log(f"[{ts()}] [infero] run_loop: entering loop(). pending_input={bool(self.pending_user_input)}")
             await self.loop()
             if not self.running:
+                self._log(f"[{ts()}] [infero] run_loop: self.running=False after loop(), breaking")
                 break
-            # Loop ended (/call_for_human), wait for next user input
-            self._log(f"[{ts()}] [infero] Waiting for user input...")
+            self._log(f"[{ts()}] [infero] run_loop: loop() returned, waiting for user input...")
             while self.running and not self.pending_user_input:
                 await asyncio.sleep(0.5)
 
     async def loop(self):
-        # If consciousness ends with /call_for_human and no pending input, return immediately
         if not self.pending_user_input and '/call_for_human' in self.consciousness:
             last_sc = self.consciousness.rfind('/self_continue')
             last_cfh = self.consciousness.rfind('/call_for_human')
             if last_cfh > last_sc:
+                self._log(f"[{ts()}] [infero] loop(): /call_for_human at end, returning immediately")
                 return
 
         while self.running:
@@ -489,17 +491,19 @@ async def connect_instance(cfg):
                         asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
                     elif mtype == 'loop_handoff':
                         w = get_worker(being_id)
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG loop_handoff for being={being_id}, worker={w is not None}")
                         asyncio.create_task(w.on_loop_handoff(msg.get('payload', '')))
                     elif mtype == 'loop_stop':
                         w = workers.get(being_id)
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG loop_stop for being={being_id}, worker={w is not None}")
                         if w:
                             w.on_loop_stop()
                         else:
-                            # No worker — respond with empty consciousness
                             await ws.send(json.dumps({'type': 'loop_status', 'status': 'stopped',
                                 'device_name': DEVICE_NAME, 'payload': None}))
                     elif mtype == 'user_input':
                         w = workers.get(being_id)
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={being_id}, worker={w is not None}, text={msg.get('text','')[:30]}")
                         if w: w.on_user_input(msg)
                     elif mtype == 'result':
                         for w in workers.values():
