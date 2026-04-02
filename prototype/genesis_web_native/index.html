@@ -2374,7 +2374,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     // Insert before "Custom" option
                     const customOpt = provSelect.querySelector('option[value="custom"]');
                     for (const [id, p] of Object.entries(data.providers)) {
-                        PROVIDERS[id] = { name: p.name, format: p.format || null, endpoint: p.endpoint || null, cacheEndpoint: p.cacheEndpoint || null };
+                        // Resolve relative endpoints against current origin
+                        const resolveUrl = u => u && u.startsWith('/') ? location.origin + u : u;
+                        PROVIDERS[id] = { name: p.name, format: p.format || null, endpoint: resolveUrl(p.endpoint) || null, cacheEndpoint: resolveUrl(p.cacheEndpoint) || null };
                         const opt = document.createElement('option');
                         opt.value = id;
                         opt.textContent = p.name;

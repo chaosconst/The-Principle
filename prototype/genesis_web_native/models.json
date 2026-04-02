@@ -1,6 +1,6 @@
 {
   "providers": {
-    "infero":     { "name": "infero.net", "format": null, "endpoint": null, "cacheEndpoint": "https://infero.net/api/cache" },
+    "infero":     { "name": "infero.net", "format": null, "endpoint": null, "cacheEndpoint": "/api/cache" },
     "google":     { "name": "Google AI", "format": "gemini", "endpoint": "https://generativelanguage.googleapis.com/v1beta/", "cacheEndpoint": "https://generativelanguage.googleapis.com/v1beta/cachedContents" },
     "openai":     { "name": "OpenAI", "format": "openai", "endpoint": "https://api.openai.com/v1/chat/completions" },
     "anthropic":  { "name": "Anthropic (via infero)", "format": "anthropic", "endpoint": "https://infero.net/api/v1/messages" },
