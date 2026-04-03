@@ -285,12 +285,18 @@ class GenesisWorker:
         tz_offset = now.astimezone().strftime('%z')
         env = f"[System Environment]\nTime: {now.strftime('%Y-%m-%d %H:%M:%S')} (UTC{tz_offset})\nDay: {days[now.weekday()]}\nReminder: end with /self_continue or /call_for_human"
         realtime = self._build_realtime()
-        parts = [env, realtime]
-        if self.pending_user_input:
-            parts.append(self.pending_user_input)
+        # Build the full prompt context (env + realtime + user_input)
+        # but only persist env + user_input to consciousness (not realtime)
+        user_input = self.pending_user_input
+        if user_input:
             self.pending_user_input = None
-        S = '\n\n'.join(parts)
-        self.consciousness += S + '\n\n'
+        # What gets persisted to consciousness.txt (no [Realtime])
+        persist_parts = [env]
+        if user_input:
+            persist_parts.append(user_input)
+        self.consciousness += '\n\n'.join(persist_parts) + '\n\n'
+        # Store realtime separately for infer() to use
+        self._last_realtime = realtime
 
     async def infer(self):
         fmt = self.llm_settings.get('format', 'openai')
@@ -402,7 +408,12 @@ class GenesisWorker:
         return ai_text
 
     def _build_payload(self, fmt, model, system_prompt, thinking):
-        consciousness = self.consciousness
+        # Inject [Realtime] dynamically into the prompt (not persisted)
+        realtime = getattr(self, '_last_realtime', '')
+        if realtime:
+            consciousness = self.consciousness + realtime + '\n\n'
+        else:
+            consciousness = self.consciousness
         stop = ['\nSystem - [Browser]', '\nSystem - [Shell]', '\n[System Environment]']
 
         if fmt == 'anthropic':
