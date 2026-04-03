@@ -2123,6 +2123,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // ─── Distributed loop messages ───────────────────────────────
             if (msg.type === 'stream_token') {
                 // Remote node is streaming LLM output — render it
+                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 if (settings.hostDevice === 'this browser') return;  // we're the runner, ignore our own echo
                 if (!window._remoteAiDiv) {
                     window._remoteAiDiv = document.createElement('div');
@@ -2164,6 +2165,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
 
             if (msg.type === 'loop_status') {
+                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 if (msg.status === 'started') {
                     setStatus('Remote');
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
@@ -2232,7 +2234,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
 
             if (msg.type === 'request_device_data') {
-                // Remote loop runner wants our device data (screenshot, context)
+                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const canvasImage = await getCanvasImage();
                 const realtimeCtx = getRealtimeContext();
                 if (_relayWs && _relayConnected) {
@@ -2247,6 +2249,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             // consciousness_sync response from remote runner
             if (msg.type === 'consciousness_sync' && msg.action === 'response') {
+                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const runner = msg.device_name || settings.hostDevice;
                 console.log(`[relay] Consciousness sync response from ${runner}`);
                 let remoteConsciousness = null;

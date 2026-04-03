@@ -153,7 +153,7 @@ class GenesisWorker:
         self.running = True
         self._stopped_sent = False
         self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
-        await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME})
+        await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
         try:
             await self.run_loop(loop_was_running)
         except Exception as e:
@@ -163,7 +163,7 @@ class GenesisWorker:
             if not self._stopped_sent:
                 self._stopped_sent = True
                 await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                    'device_name': DEVICE_NAME,
+                    'device_name': DEVICE_NAME, 'being_id': self.being_id,
                     'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
                 self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
@@ -311,7 +311,7 @@ class GenesisWorker:
                             td = thinking_text[_last_think_len:]
                             ad = ai_text[_last_ai_len:]
                             if ad or td:
-                                await self.send_relay({'type': 'stream_token', 'text_delta': ad, 'thinking_delta': td})
+                                await self.send_relay({'type': 'stream_token', 'text_delta': ad, 'thinking_delta': td, 'being_id': self.being_id})
                                 _last_ai_len = len(ai_text)
                                 _last_think_len = len(thinking_text)
                         # Print latest token to terminal
@@ -324,7 +324,7 @@ class GenesisWorker:
 
         self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
-        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage})
+        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage, 'being_id': self.being_id})
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.consciousness += f"**Digital Being - [{time_str}]**\n{ai_text}\n\n"
         return ai_text
@@ -484,7 +484,7 @@ class GenesisWorker:
         if not self._stopped_sent:
             self._stopped_sent = True
             await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                'device_name': DEVICE_NAME,
+                'device_name': DEVICE_NAME, 'being_id': self.being_id,
                 'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
             self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
