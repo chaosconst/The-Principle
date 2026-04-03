@@ -339,6 +339,28 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             return aiText;
         }
 
+        async function _runJS(code) {
+            let logs = [];
+            const originalLog = console.log;
+            console.log = (...args) => {
+                logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+                originalLog.apply(console, args);
+            };
+            let result;
+            try {
+                const fn = new (Object.getPrototypeOf(async function(){}).constructor)(code);
+                const ret = await fn();
+                let out = "";
+                if (logs.length > 0) out += `[Console Logs]\n${logs.join('\n')}\n`;
+                out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : String(ret)) : 'undefined'}`;
+                result = out.trim();
+            } catch (e) {
+                result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
+            }
+            console.log = originalLog;
+            return result;
+        }
+
         async function _execCode(B_out) {
             if (!B_out) return null;
             const matches = [...B_out.matchAll(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/gm)];
@@ -347,27 +369,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             setStatus('Executing...');
             const results = [];
             for (const match of matches) {
-                let logs = [];
-                const originalLog = console.log;
-                console.log = (...args) => {
-                    logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
-                    originalLog.apply(console, args);
-                };
-                let result;
-                try {
-                    const fn = new (Object.getPrototypeOf(async function(){}).constructor)(match[1].trim());
-                    const ret = await fn();
-                    let out = "";
-                    if (logs.length > 0) out += `[Console Logs]\n${logs.join('\n')}\n`;
-                    out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : ret) : 'undefined'}`;
-                    result = out.trim();
-                } catch (e) {
-                    result = `[Execution Error]\n${e.toString()}${e.stack ? '\n' + e.stack.split('\n').slice(1,4).join('\n') : ''}`;
-                }
-                console.log = originalLog;
-                results.push(result);
+                results.push(await _runJS(match[1].trim()));
             }
-            let result = matches.length === 1 ? results[0] : results.map((r, i) => `[Block ${i + 1}]\n${r}`).join('\n\n');
+            let result = results.length === 1 ? results[0] : results.map((r, i) => `[Block ${i + 1}]\n${r}`).join('\n\n');
 
             const MAX_RESULT = 20000;
             if (result.length > MAX_RESULT) {
@@ -2215,29 +2219,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
 
             if (msg.type === 'browser_exec_request') {
-                // Remote loop runner wants us to execute JS
-                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
+                if (msg.being_id && msg.being_id !== currentBeingId) return;
                 const code = msg.code || '';
                 const req_id = msg.req_id || '';
                 console.log(`[relay] Browser exec request: ${code.substring(0, 60)}...`);
-                let logs = [];
-                const originalLog = console.log;
-                console.log = (...args) => {
-                    logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
-                    originalLog.apply(console, args);
-                };
-                let result;
-                try {
-                    const fn = new (Object.getPrototypeOf(async function(){}).constructor)(code);
-                    const ret = await fn();
-                    let out = "";
-                    if (logs.length > 0) out += `[Console Logs]\n${logs.join('\n')}\n`;
-                    out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : String(ret)) : 'undefined'}`;
-                    result = out.trim();
-                } catch (e) {
-                    result = `[Error] ${e.message}`;
-                }
-                console.log = originalLog;
+                const result = await _runJS(code);
                 appendMsgUI('system', `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``);
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'browser_exec_result', req_id, device_name: msg.from || settings.hostDevice, result }));
