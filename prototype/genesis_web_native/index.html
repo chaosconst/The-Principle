@@ -2411,7 +2411,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._manualTakeover = true;  // prevent preferred host auto-handoff
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
-                    setStatus('Stopping...');
+                    setStatus('Taking...');
                 }
                 // loop_status { stopped } handler will resume local loop
             }
