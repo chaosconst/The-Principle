@@ -74,7 +74,19 @@ import aiohttp
 
 INFERO_DIR = os.environ.get('INFERO_DIR', os.path.dirname(os.path.abspath(__file__)))
 INSTANCES_FILE = os.path.join(INFERO_DIR, 'instances.json')
-DEVICE_NAME = socket.gethostname().removesuffix('.local')
+
+def _get_device_name():
+    id_file = os.path.join(INFERO_DIR, 'device_id')
+    try:
+        suffix = open(id_file).read().strip()
+    except FileNotFoundError:
+        import random, string
+        suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+        os.makedirs(INFERO_DIR, exist_ok=True)
+        open(id_file, 'w').write(suffix)
+    return socket.gethostname().removesuffix('.local') + '-' + suffix
+
+DEVICE_NAME = _get_device_name()
 
 def ts():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
