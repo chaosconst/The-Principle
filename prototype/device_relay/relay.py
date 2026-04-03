@@ -72,7 +72,7 @@ import asyncio, json, subprocess, base64, os, sys, socket, re
 from datetime import datetime
 import aiohttp
 
-INFERO_DIR = os.path.expanduser('~/.infero')
+INFERO_DIR = os.environ.get('INFERO_DIR', os.path.dirname(os.path.abspath(__file__)))
 INSTANCES_FILE = os.path.join(INFERO_DIR, 'instances.json')
 DEVICE_NAME = socket.gethostname().removesuffix('.local')
 
