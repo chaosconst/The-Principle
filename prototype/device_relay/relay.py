@@ -136,6 +136,41 @@ class GenesisWorker:
         self.pending_user_input = None
         self._stopped_sent = False
         self._pending_exec = {}  # req_id -> asyncio.Future
+        self.devices = {}  # name -> {type, online}
+        self.being_id = ''
+
+    def _being_dir(self):
+        if not self.being_id:
+            return None
+        d = os.path.join(INFERO_DIR, 'beings', self.being_id)
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def save_to_disk(self):
+        d = self._being_dir()
+        if not d:
+            return
+        with open(os.path.join(d, 'consciousness.txt'), 'w', encoding='utf-8') as f:
+            f.write(self.consciousness)
+        with open(os.path.join(d, 'metadata.json'), 'w', encoding='utf-8') as f:
+            json.dump(self.metadata, f, ensure_ascii=False, indent=2)
+        self._log(f"[{ts()}] [infero] Saved being {self.being_id}: consciousness={len(self.consciousness)} chars")
+
+    def load_from_disk(self):
+        d = self._being_dir()
+        if not d:
+            return False
+        c_path = os.path.join(d, 'consciousness.txt')
+        m_path = os.path.join(d, 'metadata.json')
+        if not os.path.exists(c_path):
+            return False
+        with open(c_path, 'r', encoding='utf-8') as f:
+            self.consciousness = f.read()
+        if os.path.exists(m_path):
+            with open(m_path, 'r', encoding='utf-8') as f:
+                self.metadata = json.load(f)
+        self._log(f"[{ts()}] [infero] Loaded being {self.being_id} from disk: consciousness={len(self.consciousness)} chars")
+        return True
 
     def _log(self, msg):
         log(self.relay_ws, msg)
@@ -149,9 +184,11 @@ class GenesisWorker:
         self.metadata = data.get('metadata', {})
         self.being_id = self.metadata.get('beingId', '')
         self.llm_settings = data.get('settings', {})
+        self.devices = data.get('devices', {})
         loop_was_running = data.get('loopWasRunning', False)
         self.running = True
         self._stopped_sent = False
+        self.save_to_disk()
         self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
         await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
         try:
@@ -160,6 +197,7 @@ class GenesisWorker:
             self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
             self.running = False
+            self.save_to_disk()
             if not self._stopped_sent:
                 self._stopped_sent = True
                 await self.send_relay({'type': 'loop_status', 'status': 'stopped',
@@ -202,18 +240,52 @@ class GenesisWorker:
             if B is None:
                 break
             await self.act(B)
+            self.save_to_disk()
             last_sc = B.rfind('/self_continue')
             last_cfh = B.rfind('/call_for_human')
             cont = last_sc > last_cfh or bool(self.pending_user_input)
             if not cont:
                 break
 
+    def _build_realtime(self):
+        lines = ''
+        # Self (this device, the current loop host)
+        lines += f'\n  - {DEVICE_NAME}(online, shell) [core loop host]'
+        lines += '\n    - Core loop (read or modify with caution):'
+        lines += '\n      async def loop(): await perceive(); B = await infer(); await act(B); if /self_continue in B: repeat; if /call_for_human: wait for input'
+        lines += f'\n    - Being ID: {self.being_id}'
+        lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved), metadata.json, arbitrary files'
+        lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
+        lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/shell exec {DEVICE_NAME}\n```bash\n<command>\n```'
+        lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)'
+        # Other devices
+        for name, info in self.devices.items():
+            if name == DEVICE_NAME:
+                continue
+            if not info.get('online'):
+                continue
+            dtype = info.get('type', 'shell')
+            if dtype == 'browser':
+                lines += f'\n  - {name}(online, browser)'
+                lines += '\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas'
+                lines += '\n         .left-panel #chat-box + #input + #send-btn'
+                lines += '\n    - Memory: IndexedDB(\'GenesisDB\', store=\'beings\', keyPath=\'id\')'
+                lines += '\n    - Capabilities: DOM/UI, canvas/WebGL, fetch, IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)'
+                lines += '\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/browser exec\n```javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById(\'canvas-container\').getBoundingClientRect();\n// return value — use for immediate results (sync or async)\n// trigger(value) — use for deferred wakeup\n```'
+            else:
+                lines += f'\n  - {name}(online, {dtype})'
+                lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
+                lines += f'\n    - Exec: /shell exec {name}\n```bash\n<command>\n```'
+                lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
+        return f'[Realtime]\nDevices:{lines}'
+
     async def perceive(self):
         now = datetime.now()
         days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
         tz_offset = now.astimezone().strftime('%z')
         env = f"[System Environment]\nTime: {now.strftime('%Y-%m-%d %H:%M:%S')} (UTC{tz_offset})\nDay: {days[now.weekday()]}\nReminder: end with /self_continue or /call_for_human"
-        parts = [env]
+        realtime = self._build_realtime()
+        parts = [env, realtime]
         if self.pending_user_input:
             parts.append(self.pending_user_input)
             self.pending_user_input = None
@@ -485,6 +557,7 @@ class GenesisWorker:
     async def on_loop_stop(self):
         self._log(f"[{ts()}] [infero] Loop stop requested")
         self.running = False
+        self.save_to_disk()
         if not self._stopped_sent:
             self._stopped_sent = True
             await self.send_relay({'type': 'loop_status', 'status': 'stopped',
@@ -585,6 +658,18 @@ async def connect_instance(cfg):
                                 log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync error: {e}")
                         else:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no worker or empty consciousness")
+                    elif mtype == 'device_status':
+                        name = msg.get('device_name', '')
+                        online = msg.get('online', False)
+                        dtype = msg.get('device_type', 'shell')
+                        if name:
+                            if online:
+                                for w in workers.values():
+                                    w.devices[name] = {'type': dtype, 'online': True}
+                            else:
+                                for w in workers.values():
+                                    w.devices.pop(name, None)
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] device_status: {name} {'online' if online else 'offline'}")
                     elif mtype == 'stream_token':
                         # Another node is streaming — print to terminal
                         text = msg.get('text', '')
@@ -1004,14 +1089,14 @@ async def ws_handler(websocket):
             role = 'device'
             print(f"[{ts()}] [relay] Device connected: {device_name} (instance {instance_id[:12]}...)")
 
-            # Notify all browsers
-            await send_to_browsers(instance_id, json.dumps({
+            # Notify all nodes (browsers + other devices)
+            await broadcast_to_instance(instance_id, json.dumps({
                 'type': 'device_status',
                 'device_name': device_name,
                 'device_type': device_type,
                 'online': True,
                 'fresh_pair': fresh_pair
-            }))
+            }), exclude_ws=websocket)
         else:
             await websocket.close(4000, 'Unknown handshake type')
             return
@@ -1145,7 +1230,7 @@ async def ws_handler(websocket):
             info = device_conns.pop(device_key, None)
             if info:
                 print(f"[{ts()}] [relay] Device disconnected: {info['device_name']}")
-                await send_to_browsers(instance_id, json.dumps({
+                await broadcast_to_instance(instance_id, json.dumps({
                     'type': 'device_status',
                     'device_name': info['device_name'],
                     'device_type': info.get('device_type', 'shell'),

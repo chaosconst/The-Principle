@@ -2372,7 +2372,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const controls = `${eyeIcon}${removeIcon}`;
                 return `<div style="display:flex;align-items:center;gap:4px;font-size:0.62rem;padding:2px 4px;font-family:'JetBrains Mono',monospace">
                     ${settings.preferredHost === d.name
-                        ? `<span style="font-size:10px;margin-right:5px;flex-shrink:0;cursor:pointer;color:var(--accent)" title="Preferred host" onclick="event.stopPropagation();setPreferredHost('${d.name}')">♥</span>`
+                        ? `<span style="font-size:10px;margin-right:5px;flex-shrink:0;cursor:pointer;color:#e74c3c" title="Preferred host" onclick="event.stopPropagation();setPreferredHost('${d.name}')">♥</span>`
                         : `<span class="device-dot ${d.online ? 'online' : ''}" style="cursor:pointer" title="Set as preferred" onclick="event.stopPropagation();setPreferredHost('${d.name}')"></span>`}
                     <span style="color:${d.hidden ? 'var(--text-dim)' : (isHost ? 'var(--accent)' : 'var(--text)')};flex:1;text-decoration:${d.hidden ? 'line-through' : 'none'}">${d.label}</span>
                     <span style="color:var(--text-dim);font-size:0.6rem;margin-right:2px">${d.online ? 'online' : 'offline'}</span>
@@ -2478,9 +2478,20 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (!deviceInfo?.keyB64) { console.warn('No key for device'); return; }
 
             const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
+            // Build devices snapshot for agent's [Realtime] context
+            const devicesSnapshot = {};
+            const ua = navigator.userAgent;
+            const bn = /Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Chrome\//.test(ua)?'Chrome':/Safari\//.test(ua)?'Safari':/Firefox\//.test(ua)?'Firefox':'Browser';
+            const os = /iPhone|iPad/.test(ua)?'iOS':/Android/.test(ua)?'Android':/Mac OS X/.test(ua)?'macOS':/Windows/.test(ua)?'Windows':/Linux/.test(ua)?'Linux':'Unknown';
+            if (!settings.browserRemoved && !settings.browserHidden)
+                devicesSnapshot[`${bn} · ${os}`] = { type: 'browser', online: true };
+            for (const [n, d] of Object.entries(settings.devices || {})) {
+                if (!d.hidden && d.online) devicesSnapshot[n] = { type: d.type || 'shell', online: true };
+            }
             const payload = await encryptPayload(cryptoKey, {
                 consciousness,
                 loopWasRunning: loopRunning,
+                devices: devicesSnapshot,
                 metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId },
                 settings: {
                     model: getActiveModel(),
