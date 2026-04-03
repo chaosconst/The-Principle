@@ -752,7 +752,7 @@ AGENT_PY_PLACEHOLDER
 ENDOFAGENT
 
 # ── Update instances.json (append or update this instance) ───────────────────
-INSTANCE_ID="$INSTANCE_ID" TOKEN="$TOKEN" KEY="$KEY" RELAY_WS="$RELAY_WS" CLIENT_NAME="$CLIENT_NAME" \
+INSTANCE_ID="$INSTANCE_ID" TOKEN="$TOKEN" KEY="$KEY" RELAY_WS="$RELAY_WS" CLIENT_NAME="$CLIENT_NAME" INFERO_DIR="$INFERO_DIR" \
 "$VENV_DIR/bin/python3" -c "
 import json, os
 from datetime import datetime
