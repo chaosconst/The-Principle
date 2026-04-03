@@ -251,6 +251,8 @@ class GenesisWorker:
 
         ai_text = ""
         thinking_text = ""
+        _last_ai_len = 0
+        _last_think_len = 0
         usage = {}  # {promptTokens, cachedTokens, outputTokens}
         try:
             async with aiohttp.ClientSession() as session:
@@ -304,8 +306,13 @@ class GenesisWorker:
                                     u = data['usageMetadata']
                                     usage = {'promptTokens': u.get('promptTokenCount', 0), 'cachedTokens': u.get('cachedContentTokenCount', 0), 'outputTokens': u.get('candidatesTokenCount', 0)}
 
-                            # Broadcast token stream
-                            await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text})
+                            # Broadcast token delta
+                            td = thinking_text[_last_think_len:]
+                            ad = ai_text[_last_ai_len:]
+                            if ad or td:
+                                await self.send_relay({'type': 'stream_token', 'text_delta': ad, 'thinking_delta': td})
+                                _last_ai_len = len(ai_text)
+                                _last_think_len = len(thinking_text)
                         # Print latest token to terminal
                         sys.stdout.write(f"\r[infer] {len(ai_text)} chars...")
                         sys.stdout.flush()
