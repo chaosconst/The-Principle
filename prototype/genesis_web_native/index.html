@@ -2417,24 +2417,25 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function mergeConsciousness(runner, remoteConsciousness) {
             if (!remoteConsciousness) return false;
-            const fp = window._forkPoint || 0;
-            const localDelta = fp > 0 ? consciousness.slice(fp) : '';
-            const remoteDelta = fp > 0 ? remoteConsciousness.slice(fp) : '';
             if (remoteConsciousness === consciousness) {
                 console.log('[relay] Consciousness identical, smooth sync');
                 window._forkPoint = 0;
                 return false;
-            } else if (remoteDelta && localDelta) {
-                consciousness += `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars offline, appended below]\n${remoteDelta}\n[System - End offline consciousness]\n\n`;
-                appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} (offline) appended`);
-                console.log(`[relay] Fork merged. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
+            }
+            // Find real fork point via forward matching
+            const minLen = Math.min(consciousness.length, remoteConsciousness.length);
+            let fp = 0;
+            while (fp < minLen && consciousness[fp] === remoteConsciousness[fp]) fp++;
+            console.log(`[relay] Forward match: common prefix ${fp} chars (stored forkPoint=${window._forkPoint || 0})`);
+            const localDelta = consciousness.slice(fp);
+            const remoteDelta = remoteConsciousness.slice(fp);
+            if (remoteDelta && localDelta) {
+                consciousness = consciousness.slice(0, fp) + localDelta + `\n\n[System - Consciousness merged. Device "${runner}" produced ${remoteDelta.length} chars, appended below]\n${remoteDelta}\n[System - End merged consciousness]\n\n`;
+                appendMsgUI('system', `Consciousness merged: ${remoteDelta.length} chars from ${runner} appended`);
+                console.log(`[relay] Fork merged at ${fp}. Browser: +${localDelta.length}, Device: +${remoteDelta.length}`);
             } else if (remoteDelta && !localDelta) {
                 consciousness = remoteConsciousness;
-                console.log(`[relay] Device added ${remoteDelta.length} chars, taking device version`);
-            } else if (!fp && remoteConsciousness.length > consciousness.length) {
-                // No fork point and remote is longer — take remote (browser refresh scenario)
-                consciousness = remoteConsciousness;
-                console.log(`[relay] No fork point, remote longer (${remoteConsciousness.length} > ${consciousness.length}), taking remote`);
+                console.log(`[relay] Device added ${remoteDelta.length} chars after common prefix, taking device version`);
             } else {
                 console.log(`[relay] Keeping browser consciousness (${consciousness.length} chars)`);
                 window._forkPoint = 0;
