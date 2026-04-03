@@ -756,7 +756,7 @@ INSTANCE_ID="$INSTANCE_ID" TOKEN="$TOKEN" KEY="$KEY" RELAY_WS="$RELAY_WS" CLIENT
 "$VENV_DIR/bin/python3" -c "
 import json, os
 from datetime import datetime
-f = os.environ['HOME'] + '/.infero/instances.json'
+f = os.environ.get('INFERO_DIR', os.environ['HOME'] + '/.infero') + '/instances.json'
 try: instances = json.load(open(f))
 except: instances = []
 iid = os.environ['INSTANCE_ID']
@@ -810,7 +810,7 @@ case "\$1" in
     if [ ! -f "\$INSTANCES" ]; then echo "No instances paired."; exit 0; fi
     "\$VENV_DIR/bin/python3" -c "
 import json, os, socket
-f = os.environ['HOME'] + '/.infero/instances.json'
+f = os.environ.get('INFERO_DIR', os.environ['HOME'] + '/.infero') + '/instances.json'
 try: instances = json.load(open(f))
 except: instances = []
 if not instances: print('No instances paired.'); exit()
@@ -832,7 +832,7 @@ for i, c in enumerate(instances, 1):
         TARGET="\$2"
         "\$VENV_DIR/bin/python3" -c "
 import json, os, sys, asyncio, socket
-f = os.environ['HOME'] + '/.infero/instances.json'
+f = os.environ.get('INFERO_DIR', os.environ['HOME'] + '/.infero') + '/instances.json'
 instances = json.load(open(f))
 target = sys.argv[1] if len(sys.argv) > 1 else None
 if not target:
