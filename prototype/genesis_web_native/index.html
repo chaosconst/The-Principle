@@ -2424,7 +2424,31 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._forkPoint = 0;
                 return false;
             }
-            // Find real fork point via forward matching
+            // Check compression flags
+            const localCompressed = consciousness.includes('[System - Context compressed.');
+            const remoteCompressed = remoteConsciousness.includes('[System - Context compressed.');
+            if (localCompressed && remoteCompressed) {
+                // Both compressed — take the longer one (more context retained)
+                const winner = remoteConsciousness.length >= consciousness.length ? 'remote' : 'local';
+                if (winner === 'remote') consciousness = remoteConsciousness;
+                console.log(`[relay] Both compressed, taking ${winner} (${consciousness.length} chars)`);
+                window._forkPoint = 0;
+                await saveBeing();
+                return winner === 'remote';
+            }
+            if (localCompressed !== remoteCompressed) {
+                // One compressed, one not — take the compressed one (it's more up-to-date)
+                if (remoteCompressed) {
+                    consciousness = remoteConsciousness;
+                    console.log(`[relay] Remote is compressed, taking remote (${remoteConsciousness.length} chars)`);
+                } else {
+                    console.log(`[relay] Local is compressed, keeping local (${consciousness.length} chars)`);
+                }
+                window._forkPoint = 0;
+                await saveBeing();
+                return remoteCompressed;
+            }
+            // Neither compressed — find real fork point via forward matching
             const minLen = Math.min(consciousness.length, remoteConsciousness.length);
             let fp = 0;
             while (fp < minLen && consciousness[fp] === remoteConsciousness[fp]) fp++;
