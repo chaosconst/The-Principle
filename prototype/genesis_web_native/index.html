@@ -1951,8 +1951,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 _relayWs.onclose = () => {
                     _relayConnected = false;
                     stopHeartbeat();
+                    const hadOnline = settings.devices && Object.values(settings.devices).some(d => d.online);
                     if (settings.devices) Object.values(settings.devices).forEach(d => d.online = false);
                     renderDeviceList();
+                    if (hadOnline) appendMsgUI('system', 'System - [Relay] - Connection lost. Devices offline. Reconnecting...');
                     setTimeout(connect, 5000);
                 };
                 _relayWs.onerror = () => { _relayWs.close(); };
