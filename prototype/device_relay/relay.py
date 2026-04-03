@@ -712,7 +712,14 @@ TOKEN="{TOKEN}"
 KEY="{KEY}"
 CLIENT_NAME="{CLIENT_NAME}"
 
-INFERO_DIR="$HOME/.infero"
+# Auto-detect dev vs prod based on relay URL
+if echo "$RELAY_WS" | grep -q "dev\."; then
+    INFERO_DIR="$HOME/.infero-dev"
+    INFERO_CMD="infero-dev"
+else
+    INFERO_DIR="$HOME/.infero"
+    INFERO_CMD="infero"
+fi
 VENV_DIR="$INFERO_DIR/venv"
 AGENT="$INFERO_DIR/agent.py"
 INSTANCES="$INFERO_DIR/instances.json"
@@ -754,9 +761,13 @@ json.dump(instances, open(f, 'w'), indent=2)
 echo "[infero] Instance saved"
 
 # ── Install infero CLI ───────────────────────────────────────────────────────
-cat > "$BIN_DIR/infero" << ENDOFCLI
+cat > "$BIN_DIR/$INFERO_CMD" << ENDOFCLI
 #!/usr/bin/env bash
-INFERO_DIR="\$HOME/.infero"
+# Determine env from script name
+case "$(basename "$0")" in
+    infero-dev) INFERO_DIR="\$HOME/.infero-dev" ;;
+    *)          INFERO_DIR="\$HOME/.infero" ;;
+esac
 VENV_DIR="\$INFERO_DIR/venv"
 AGENT="\$INFERO_DIR/agent.py"
 INSTANCES="\$INFERO_DIR/instances.json"
