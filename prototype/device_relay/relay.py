@@ -772,21 +772,21 @@ VENV_DIR="\$INFERO_DIR/venv"
 AGENT="\$INFERO_DIR/agent.py"
 INSTANCES="\$INFERO_DIR/instances.json"
 BIN_DIR="\$HOME/.local/bin"
-PLIST="\$HOME/Library/LaunchAgents/net.infero.device.plist"
-SERVICE="\$HOME/.config/systemd/user/infero-device.service"
+case "$INFERO_CMD" in infero-dev) PLIST="\$HOME/Library/LaunchAgents/net.infero-dev.device.plist" ;; *) PLIST="\$HOME/Library/LaunchAgents/net.infero.device.plist" ;; esac
+SERVICE="\$HOME/.config/systemd/user/\$INFERO_CMD-device.service"
 RELAY_HTTP="$RELAY_HTTP"
 
 _stop_agent() {
     pkill -f "\$AGENT" 2>/dev/null || true
     if [ -f "\$PLIST" ]; then launchctl unload "\$PLIST" 2>/dev/null || true; fi
-    if [ -f "\$SERVICE" ]; then systemctl --user stop infero-device 2>/dev/null || true; fi
+    if [ -f "\$SERVICE" ]; then systemctl --user stop "\$INFERO_CMD-device" 2>/dev/null || true; fi
 }
 
 _restart_agent() {
     _stop_agent
     sleep 1
     if [ -f "\$PLIST" ]; then launchctl load "\$PLIST" 2>/dev/null || true
-    elif [ -f "\$SERVICE" ]; then systemctl --user start infero-device 2>/dev/null || true
+    elif [ -f "\$SERVICE" ]; then systemctl --user start "\$INFERO_CMD-device" 2>/dev/null || true
     else nohup "\$VENV_DIR/bin/python3" "\$AGENT" >> "\$INFERO_DIR/agent.log" 2>&1 & fi
 }
 
@@ -873,12 +873,12 @@ if not instances: print('[infero] No instances left.')
     _stop_agent
     rm -rf "\$INFERO_DIR"
     if [ -f "\$PLIST" ]; then launchctl unload "\$PLIST" 2>/dev/null; rm -f "\$PLIST"; fi
-    if [ -f "\$SERVICE" ]; then systemctl --user disable infero-device 2>/dev/null; rm -f "\$SERVICE"; fi
+    if [ -f "\$SERVICE" ]; then systemctl --user disable "\$INFERO_CMD-device" 2>/dev/null; rm -f "\$SERVICE"; fi
     rm -f "\$BIN_DIR/\$INFERO_CMD"
     echo "[infero] Uninstalled."
     ;;
   *)
-    echo "Usage: infero <pair CODE | list | remove [id] | online | offline | uninstall>"
+    echo "Usage: $INFERO_CMD <pair CODE | list | remove [id] | online | offline | uninstall>"
     ;;
 esac
 ENDOFCLI
@@ -905,12 +905,12 @@ esac
 
 # ── Auto-start on boot ───────────────────────────────────────────────────────
 if [ "$(uname -s)" = "Darwin" ]; then
-    PLIST="$HOME/Library/LaunchAgents/net.infero.device.plist"
+    PLIST="$HOME/Library/LaunchAgents/net.${INFERO_CMD}.device.plist"
     cat > "$PLIST" << ENDOFPLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>net.infero.device</string>
+  <key>Label</key><string>net.$INFERO_CMD.device</string>
   <key>ProgramArguments</key><array>
     <string>$VENV_DIR/bin/python3</string>
     <string>-u</string>
@@ -955,7 +955,7 @@ echo ""
 echo "  This device will auto-connect on every boot."
 echo ""
 if [ "$NEEDS_PATH" = true ]; then
-echo "  ⚠  Run this to activate the infero command:"
+echo "  ⚠  Run this to activate the $INFERO_CMD command:"
 echo "     source $SOURCED_RC"
 echo "     (or open a new terminal)"
 echo ""
@@ -963,10 +963,10 @@ fi
 echo "  Commands:"
 echo "    infero list            — show paired instances"
 echo "    infero pair CODE       — pair another Genesis instance"
-echo "    infero online          — start device agent"
-echo "    infero offline         — stop device agent"
+echo "    $INFERO_CMD online          — start device agent"
+echo "    $INFERO_CMD offline         — stop device agent"
 echo "    infero remove [id]     — remove an instance"
-echo "    infero uninstall       — remove infero completely"
+echo "    $INFERO_CMD uninstall       — remove infero completely"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 """
 
