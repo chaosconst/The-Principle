@@ -2220,14 +2220,25 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const code = msg.code || '';
                 const req_id = msg.req_id || '';
                 console.log(`[relay] Browser exec request: ${code.substring(0, 60)}...`);
+                let logs = [];
+                const originalLog = console.log;
+                console.log = (...args) => {
+                    logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+                    originalLog.apply(console, args);
+                };
                 let result;
                 try {
                     const fn = new (Object.getPrototypeOf(async function(){}).constructor)(code);
                     const ret = await fn();
-                    result = ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : String(ret)) : 'undefined';
+                    let out = "";
+                    if (logs.length > 0) out += `[Console Logs]\n${logs.join('\n')}\n`;
+                    out += `[Return Value]\n${ret !== undefined ? (typeof ret === 'object' ? JSON.stringify(ret, null, 2) : String(ret)) : 'undefined'}`;
+                    result = out.trim();
                 } catch (e) {
                     result = `[Error] ${e.message}`;
                 }
+                console.log = originalLog;
+                appendMsgUI('system', `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``);
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'browser_exec_result', req_id, device_name: msg.from || settings.hostDevice, result }));
                 }
