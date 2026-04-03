@@ -1951,6 +1951,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 _relayWs.onclose = () => {
                     _relayConnected = false;
                     stopHeartbeat();
+                    if (settings.devices) Object.values(settings.devices).forEach(d => d.online = false);
                     renderDeviceList();
                     setTimeout(connect, 5000);
                 };
