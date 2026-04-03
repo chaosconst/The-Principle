@@ -776,8 +776,8 @@ cat > "$BIN_DIR/$INFERO_CMD" << ENDOFCLI
 #!/usr/bin/env bash
 # Determine env from script name
 case "$(basename "$0")" in
-    infero-dev) INFERO_DIR="\$HOME/.infero-dev" ;;
-    *)          INFERO_DIR="\$HOME/.infero" ;;
+    infero-dev) INFERO_DIR="\$HOME/.infero-dev"; INFERO_CMD="infero-dev" ;;
+    *)          INFERO_DIR="\$HOME/.infero"; INFERO_CMD="infero" ;;
 esac
 VENV_DIR="\$INFERO_DIR/venv"
 AGENT="\$INFERO_DIR/agent.py"
@@ -967,7 +967,9 @@ echo "  This device will auto-connect on every boot."
 echo ""
 if [ "$NEEDS_PATH" = true ]; then
 echo "  ⚠  Run this to activate the $INFERO_CMD command:"
-echo "     source $SOURCED_RC"
+echo ""
+echo "     \033[1;33m  source $SOURCED_RC  \033[0m"
+echo ""
 echo "     (or open a new terminal)"
 echo ""
 fi
