@@ -323,8 +323,13 @@ class GenesisWorker:
         if client_id:
             headers['X-Client-ID'] = client_id
         if fmt == 'anthropic':
-            headers['x-api-key'] = api_token
-            headers['anthropic-version'] = '2023-06-01'
+            if 'anthropic.com' in endpoint:
+                # Direct Anthropic API — use native headers
+                headers['x-api-key'] = api_token
+                headers['anthropic-version'] = '2023-06-01'
+            else:
+                # Proxy (infero.net) — use Bearer like browser does
+                headers['Authorization'] = f'Bearer {api_token}'
         elif fmt == 'openai':
             headers['Authorization'] = f'Bearer {api_token}'
         # Gemini uses query param
