@@ -3,7 +3,7 @@
     "infero":     { "name": "infero.net", "format": null, "endpoint": null, "cacheEndpoint": "/api/cache" },
     "google":     { "name": "Google AI", "format": "gemini", "endpoint": "https://generativelanguage.googleapis.com/v1beta/", "cacheEndpoint": "https://generativelanguage.googleapis.com/v1beta/cachedContents" },
     "openai":     { "name": "OpenAI", "format": "openai", "endpoint": "https://api.openai.com/v1/chat/completions" },
-    "anthropic":  { "name": "Anthropic (via infero)", "format": "anthropic", "endpoint": "https://infero.net/api/v1/messages" },
+    "anthropic":  { "name": "Anthropic (via infero)", "format": "anthropic", "endpoint": "/api/v1/messages" },
     "deepseek":   { "name": "DeepSeek", "format": "openai", "endpoint": "https://api.deepseek.com/v1/chat/completions" },
     "openrouter": { "name": "OpenRouter", "format": "openai", "endpoint": "https://openrouter.ai/api/v1/chat/completions" }
   },
