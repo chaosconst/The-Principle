@@ -188,7 +188,10 @@ class GenesisWorker:
         log(self.relay_ws, msg)
 
     async def send_relay(self, msg):
-        await self.ws.send(json.dumps(msg))
+        try:
+            await self.ws.send(json.dumps(msg))
+        except Exception:
+            pass
 
     async def on_loop_handoff(self, payload_enc):
         data = decrypt(self.cipher, payload_enc)
