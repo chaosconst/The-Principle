@@ -255,7 +255,7 @@ class GenesisWorker:
         _last_think_len = 0
         usage = {}  # {promptTokens, cachedTokens, outputTokens}
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(auto_decompress=False) as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
                     if resp.status >= 400:
                         err_body = await resp.text()
@@ -1036,7 +1036,11 @@ async def ws_handler(websocket):
                 continue
             # Also forward exec_request/exec_result to browsers (browser as exec target)
             if mtype == 'browser_exec_request':
-                await send_to_browsers(instance_id, raw)
+                # Send to only the first browser (avoid duplicate execution)
+                browsers = browser_conns.get(instance_id, [])
+                if browsers:
+                    try: await browsers[0].send(raw)
+                    except Exception: pass
                 continue
             if mtype == 'browser_exec_result':
                 # Forward back to the requesting device
