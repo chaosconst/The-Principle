@@ -147,6 +147,7 @@ class GenesisWorker:
         data = decrypt(self.cipher, payload_enc)
         self.consciousness = data.get('consciousness', '')
         self.metadata = data.get('metadata', {})
+        self.being_id = self.metadata.get('beingId', '')
         self.llm_settings = data.get('settings', {})
         loop_was_running = data.get('loopWasRunning', False)
         self.running = True
@@ -450,7 +451,7 @@ class GenesisWorker:
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
         fut = asyncio.get_running_loop().create_future()
         self._pending_exec[req_id] = fut
-        await self.send_relay({'type': 'browser_exec_request', 'req_id': req_id, 'code': code})
+        await self.send_relay({'type': 'browser_exec_request', 'req_id': req_id, 'code': code, 'being_id': self.being_id})
         try:
             result = await asyncio.wait_for(fut, timeout=20)
         except asyncio.TimeoutError:
@@ -1036,11 +1037,7 @@ async def ws_handler(websocket):
                 continue
             # Also forward exec_request/exec_result to browsers (browser as exec target)
             if mtype == 'browser_exec_request':
-                # Send to only the first browser (avoid duplicate execution)
-                browsers = browser_conns.get(instance_id, [])
-                if browsers:
-                    try: await browsers[0].send(raw)
-                    except Exception: pass
+                await send_to_browsers(instance_id, raw)
                 continue
             if mtype == 'browser_exec_result':
                 # Forward back to the requesting device

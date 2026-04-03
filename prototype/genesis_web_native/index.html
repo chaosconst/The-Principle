@@ -2214,6 +2214,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             if (msg.type === 'browser_exec_request') {
                 // Remote loop runner wants us to execute JS
+                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const code = msg.code || '';
                 const req_id = msg.req_id || '';
                 console.log(`[relay] Browser exec request: ${code.substring(0, 60)}...`);
