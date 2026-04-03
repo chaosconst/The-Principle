@@ -2576,7 +2576,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const customOpt = provSelect.querySelector('option[value="custom"]');
                     for (const [id, p] of Object.entries(data.providers)) {
                         // Resolve relative endpoints against current origin
-                        const resolveUrl = u => u && u.startsWith('/') ? location.origin + u : u;
+                        const resolveUrl = u => u && u.startsWith('/') ? (_inferoOrigin) + u : u;
                         PROVIDERS[id] = { name: p.name, format: p.format || null, endpoint: resolveUrl(p.endpoint) || null, cacheEndpoint: resolveUrl(p.cacheEndpoint) || null };
                         const opt = document.createElement('option');
                         opt.value = id;
