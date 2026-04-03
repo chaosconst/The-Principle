@@ -856,7 +856,7 @@ if not instances: print('[infero] No instances left.')
         _restart_agent
     else
         echo "Multiple instances paired. Specify instance ID prefix:"
-        "\$BIN_DIR/infero" list
+        "\$BIN_DIR/\$INFERO_CMD" list
         echo ""
         echo "  infero remove <instance_id>"
     fi
@@ -874,7 +874,7 @@ if not instances: print('[infero] No instances left.')
     rm -rf "\$INFERO_DIR"
     if [ -f "\$PLIST" ]; then launchctl unload "\$PLIST" 2>/dev/null; rm -f "\$PLIST"; fi
     if [ -f "\$SERVICE" ]; then systemctl --user disable infero-device 2>/dev/null; rm -f "\$SERVICE"; fi
-    rm -f "\$BIN_DIR/infero"
+    rm -f "\$BIN_DIR/\$INFERO_CMD"
     echo "[infero] Uninstalled."
     ;;
   *)
@@ -882,7 +882,7 @@ if not instances: print('[infero] No instances left.')
     ;;
 esac
 ENDOFCLI
-chmod +x "$BIN_DIR/infero"
+chmod +x "$BIN_DIR/$INFERO_CMD"
 
 # ── Add to PATH if needed ────────────────────────────────────────────────────
 NEEDS_PATH=false
