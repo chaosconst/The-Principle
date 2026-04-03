@@ -826,7 +826,12 @@ f = os.environ.get('INFERO_DIR', os.environ['HOME'] + '/.infero') + '/instances.
 try: instances = json.load(open(f))
 except: instances = []
 if not instances: print('No instances paired.'); exit()
-print(f'Device: {socket.gethostname().removesuffix(\".local\")}')
+infero_dir = os.environ.get('INFERO_DIR', os.environ['HOME'] + '/.infero')
+id_file = os.path.join(infero_dir, 'device_id')
+try: suffix = open(id_file).read().strip()
+except: suffix = ''
+device_name = socket.gethostname().removesuffix('.local') + ('-' + suffix if suffix else '')
+print(f'Device: {device_name}')
 print(f'Paired ({len(instances)}):')
 for i, c in enumerate(instances, 1):
     print(f'  [{i}]')
