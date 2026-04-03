@@ -787,7 +787,7 @@ echo "[infero] Instance saved"
 cat > "$BIN_DIR/$INFERO_CMD" << ENDOFCLI
 #!/usr/bin/env bash
 # Determine env from script name
-case "$(basename "$0")" in
+case "\$(basename "\$0")" in
     infero-dev) INFERO_DIR="\$HOME/.infero-dev"; INFERO_CMD="infero-dev" ;;
     *)          INFERO_DIR="\$HOME/.infero"; INFERO_CMD="infero" ;;
 esac
