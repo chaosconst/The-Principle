@@ -323,13 +323,8 @@ class GenesisWorker:
         if client_id:
             headers['X-Client-ID'] = client_id
         if fmt == 'anthropic':
-            if 'anthropic.com' in endpoint:
-                # Direct Anthropic API — use native headers
-                headers['x-api-key'] = api_token
-                headers['anthropic-version'] = '2023-06-01'
-            else:
-                # Proxy (infero.net) — use Bearer like browser does
-                headers['Authorization'] = f'Bearer {api_token}'
+            headers['x-api-key'] = api_token
+            headers['anthropic-version'] = '2023-06-01'
         elif fmt == 'openai':
             headers['Authorization'] = f'Bearer {api_token}'
         # Gemini uses query param
@@ -686,6 +681,11 @@ async def connect_instance(cfg):
                                 log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync error: {e}")
                         else:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no worker or empty consciousness")
+                    elif mtype == 'settings_update':
+                        new_settings = msg.get('settings', {})
+                        for w in workers.values():
+                            w.llm_settings.update(new_settings)
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update: model={new_settings.get('model','?')}")
                     elif mtype == 'device_status':
                         name = msg.get('device_name', '')
                         online = msg.get('online', False)
@@ -1158,7 +1158,7 @@ async def ws_handler(websocket):
 
             # ─── Distributed loop messages (any role can send) ────────────
             # Broadcast to all other nodes in this instance
-            if mtype in ('stream_token', 'loop_status', 'exec_display'):
+            if mtype in ('stream_token', 'loop_status', 'exec_display', 'settings_update'):
                 await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
                 continue
             # Forward to a specific device by name

@@ -1914,6 +1914,22 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
             document.getElementById('settings-panel').style.display = 'none';
             if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+            // Broadcast updated LLM settings to all connected devices
+            if (_relayWs && _relayConnected) {
+                _relayWs.send(JSON.stringify({
+                    type: 'settings_update',
+                    settings: {
+                        model: getActiveModel(),
+                        provider: settings.provider,
+                        token: getActiveToken(),
+                        format: getActiveFormat(),
+                        thinking: settings.thinking || false,
+                        endpoint: getActiveEndpoint(),
+                        system_prompt: SYSTEM_INSTRUCTION,
+                        client_id: CLIENT_ID
+                    }
+                }));
+            }
         }
 
         // ─── Device Relay ────────────────────────────────────────────────────────────
