@@ -2146,6 +2146,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._remoteAiDiv.innerHTML = html;
                 scrollToBottom();
                 if (msg.done) {
+                    // Remove empty placeholder if no content arrived
+                    if (!window._remoteAiText && window._remoteAiDiv) {
+                        window._remoteAiDiv.remove();
+                    }
                     window._remoteAiDiv = null;
                     window._remoteAiText = '';
                     window._remoteThinkText = '';
@@ -2620,6 +2624,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: currentUserInput }));
                     currentUserInput = null;
+                    // Create placeholder AI div (like local infer does)
+                    window._remoteAiDiv = appendMsgUI('ai', '');
+                    window._remoteAiText = '';
+                    window._remoteThinkText = '';
                     setStatus('Inferring...');
                 }
                 return;
