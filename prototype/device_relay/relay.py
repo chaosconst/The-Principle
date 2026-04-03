@@ -423,7 +423,9 @@ class GenesisWorker:
                 out = "[stderr]\nTimed out (30s)\n[exit_code] -1"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
-        return f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
+        sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
+        await self.send_relay({'type': 'exec_display', 'being_id': self.being_id, 'text': sysMsg})
+        return sysMsg
 
     async def _exec_remote_shell(self, device_name, cmd):
         self._log(f"[{ts()}] [infero] shell exec (remote → {device_name}): {cmd[:60]}")
@@ -444,7 +446,9 @@ class GenesisWorker:
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         self._pending_exec.pop(req_id, None)
-        return f"System - [Shell][{device_name}] - Result:\n```text\n{out.strip()}\n```\n\n"
+        sysMsg = f"System - [Shell][{device_name}] - Result:\n```text\n{out.strip()}\n```\n\n"
+        await self.send_relay({'type': 'exec_display', 'being_id': self.being_id, 'text': sysMsg})
+        return sysMsg
 
     async def _exec_browser(self, code):
         self._log(f"[{ts()}] [infero] browser exec (remote): {code[:60]}")
@@ -1023,7 +1027,7 @@ async def ws_handler(websocket):
 
             # ─── Distributed loop messages (any role can send) ────────────
             # Broadcast to all other nodes in this instance
-            if mtype in ('stream_token', 'loop_status'):
+            if mtype in ('stream_token', 'loop_status', 'exec_display'):
                 await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
                 continue
             # Forward to a specific device by name

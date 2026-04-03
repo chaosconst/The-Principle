@@ -2230,6 +2230,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
             }
 
+            if (msg.type === 'exec_display') {
+                if (msg.being_id && msg.being_id !== currentBeingId) return;
+                if (msg.text) appendMsgUI('system', msg.text.trim());
+            }
+
             if (msg.type === 'request_device_data') {
                 if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const canvasImage = await getCanvasImage();
