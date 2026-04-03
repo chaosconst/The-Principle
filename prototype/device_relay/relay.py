@@ -803,7 +803,7 @@ _restart_agent() {
 
 case "\$1" in
   pair)
-    if [ -z "\$2" ]; then echo "Usage: infero pair <CODE>"; exit 1; fi
+    if [ -z "\$2" ]; then echo "Usage: \$INFERO_CMD pair <CODE>"; exit 1; fi
     curl -fsSL "\$RELAY_HTTP/pair/\$2" | sh
     ;;
   list)
@@ -869,7 +869,7 @@ if not instances: print('[infero] No instances left.')
         echo "Multiple instances paired. Specify instance ID prefix:"
         "\$BIN_DIR/\$INFERO_CMD" list
         echo ""
-        echo "  infero remove <instance_id>"
+        echo "  \$INFERO_CMD remove <instance_id>"
     fi
     ;;
   offline)
