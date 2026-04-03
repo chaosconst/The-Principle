@@ -1440,7 +1440,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 };
                 await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
             } catch(e) { /* tainted canvas etc */ }
-            if (!loopRunning) setStatus('Ready');
+            if (!loopRunning) setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
             await loadBeingsList();
         }
 
@@ -1504,7 +1504,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
             await renderHistory();
-            setStatus('Ready');
+            setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
         }
 
         async function newBeing() {
