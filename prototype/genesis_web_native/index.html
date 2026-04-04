@@ -2256,10 +2256,21 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     renderDeviceList();
                     setStatus('Ready');
                 }
-                // Preferred device came back online — handoff to it
+                // Preferred device came back online — sync consciousness then handoff
                 if (online && settings.preferredHost === device_name && settings.hostDevice !== device_name) {
-                    console.log(`[relay] Preferred host ${device_name} is back online, handing off`);
-                    doHandoff(device_name);
+                    console.log(`[relay] Preferred host ${device_name} is back online, syncing...`);
+                    window._forkPoint = consciousness.length;
+                    if (_relayWs && _relayConnected) {
+                        _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name, being_id: currentBeingId }));
+                        setStatus('Syncing...');
+                        // Timeout: if device has no worker, loop_status stopped won't come — handoff directly
+                        window._syncHandoffTimer = setTimeout(() => {
+                            if (settings.hostDevice !== device_name) {
+                                console.log(`[relay] Sync timeout, handing off to ${device_name} directly`);
+                                doHandoff(device_name);
+                            }
+                        }, 3000);
+                    }
                 }
                 // Host device is online (e.g. relay restart) — handoff to re-establish worker
                 // Skip if remote loop is already running (e.g. browser refresh while device was mid-inference)
@@ -2379,6 +2390,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     // Merge consciousness
                     await mergeConsciousness(runner, remoteConsciousness);
 
+                    // Cancel sync timeout if pending
+                    if (window._syncHandoffTimer) { clearTimeout(window._syncHandoffTimer); window._syncHandoffTimer = null; }
                     // Decide next action
                     if (_pendingHandoff) {
                         const target = _pendingHandoff;
