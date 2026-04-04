@@ -516,6 +516,8 @@ class GenesisWorker:
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))
+            elif device_name not in self.devices:
+                self.consciousness += f"System - [Shell][{device_name}] - Skipped: device is hidden or unknown\n\n"
             else:
                 tasks.append(self._exec_remote_shell(device_name, cmd))
         if tasks:
