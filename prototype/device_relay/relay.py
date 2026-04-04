@@ -586,9 +586,14 @@ async def ws_handler(websocket):
                 continue
             # consciousness_sync: request → forward to target device, response → broadcast to browsers
             if mtype == 'consciousness_sync':
-                if msg.get('action') == 'request':
-                    target_name = msg.get('device_name')
-                    if target_name:
+                action = msg.get('action', '?')
+                target_name = msg.get('device_name', '?')
+                being = msg.get('being_id', '?')
+                conn_key = f"{instance_id}:{target_name}"
+                found = conn_key in device_conns if action == 'request' else True
+                print(f"[{ts()}] [relay] consciousness_sync {action} from={role} target={target_name} being={being} conn_key={conn_key} found={found}")
+                if action == 'request':
+                    if target_name and target_name != '?':
                         await send_to_device(instance_id, target_name, raw)
                     else:
                         await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)

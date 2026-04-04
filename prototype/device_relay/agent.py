@@ -814,6 +814,8 @@ async def connect_instance(cfg):
                     msg = json.loads(raw)
                     mtype = msg.get('type', '')
                     being_id = msg.get('being_id', '__default__')
+                    if mtype not in ('stream_token',):  # log all except noisy stream_token
+                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG_RAW type={mtype} being={being_id} keys={list(msg.keys())}")
                     if mtype == 'exec':
                         asyncio.create_task(handle_exec(msg['req_id'], msg['payload']))
                     elif mtype == 'loop_handoff':
