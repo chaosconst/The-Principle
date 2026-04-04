@@ -1959,12 +1959,25 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function initRelay() {
             const url = settings.relayUrl || SETTINGS_DEFAULTS.relayUrl;
             if (!url) return;
+            let _retryCount = 0;
+            let _retryTimer = null;
+            function scheduleReconnect() {
+                clearTimeout(_retryTimer);
+                // Immediate first retry, then 1s for 10s, then exponential backoff
+                let delay;
+                if (_retryCount === 0) delay = 0;
+                else if (_retryCount <= 10) delay = 1000;
+                else delay = Math.min(1000 * Math.pow(2, _retryCount - 10), 30000);
+                _retryTimer = setTimeout(connect, delay);
+                _retryCount++;
+            }
             function connect() {
                 try {
                     _relayWs = new WebSocket(url);
-                } catch (e) { return; }
+                } catch (e) { scheduleReconnect(); return; }
                 _relayWs.onopen = () => {
                     _relayConnected = true;
+                    _retryCount = 0;
                     // Reset all devices to offline — relay will push true status
                     if (settings.devices) {
                         Object.values(settings.devices).forEach(d => d.online = false);
@@ -1983,11 +1996,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 _relayWs.onclose = () => {
                     _relayConnected = false;
                     stopHeartbeat();
-                    const hadOnline = settings.devices && Object.values(settings.devices).some(d => d.online);
+                    const hadOnline = settings.devices && Object.values(settings.devices).some(d => d.online && !d.hidden);
                     if (settings.devices) Object.values(settings.devices).forEach(d => d.online = false);
                     renderDeviceList();
                     if (hadOnline) appendMsgUI('system', 'System - [Relay] - Connection lost. Devices offline. Reconnecting...');
-                    setTimeout(connect, 5000);
+                    scheduleReconnect();
                 };
                 _relayWs.onerror = () => { _relayWs.close(); };
             }
