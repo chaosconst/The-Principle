@@ -2218,8 +2218,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function handleRelayMessage(msg) {
+            if (msg.type !== 'stream_token') console.log(`[relay] MSG ${msg.type}`, msg.device_name || '', msg.action || '');
             if (msg.type === 'device_status') {
                 const { device_name, online } = msg;
+                console.log(`[relay] device_status: ${device_name} ${online?'online':'offline'}, hostDevice=${settings.hostDevice}, preferredHost=${settings.preferredHost}, wasOnline=${settings.devices?.[device_name]?.online}`);
                 if (!settings.devices) settings.devices = {};
                 if (online && msg.fresh_pair && window._pendingPairKey) {
                     const keyB64 = await deriveSharedKey(window._pendingPairKey.privateKey, msg.device_pub);
