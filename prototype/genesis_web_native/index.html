@@ -2250,7 +2250,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (settings.devices[device_name]?.hidden) return;  // hidden device — no UI/consciousness noise
                 const note = `System - [Device] - ${device_name} is now ${online ? 'online' : 'offline'}`;
                 appendMsgUI('system', note);
-                await appendConsciousness(note + '\n\n');
+                // Don't write device status to consciousness — reconnection noise pollutes AI context
                 // Auto takeover if core loop host went offline
                 if (!online && settings.hostDevice === device_name) {
                     console.log(`[relay] Core loop host ${device_name} went offline, auto takeover`);
