@@ -63,7 +63,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         // Infero, ergo sum.
         var _pendingHandoff = null;  // target device name for loop handoff
-
         async function loop() {
             if (settings.hostDevice !== 'this browser') return;  // not our turn
             try {
@@ -117,7 +116,20 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             async function buildPayload() {
                 const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
                 const canvasImage = supportsVision ? await getCanvasImage() : null;
-                const realtimeText = getRealtimeContext();
+                let coreMemText = "";
+                try {
+                    const db = await new Promise(r => { const req = indexedDB.open("GenesisDB"); req.onsuccess = () => r(req.result); });
+                    const record = await new Promise(r => { const req = db.transaction("beings", "readonly").objectStore("beings").get(currentBeingId + "/core_mem.md"); req.onsuccess = () => r(req.result); });
+                    let memContent = (record && record.content) ? record.content : "";
+                    coreMemText = "=== CORE MEMORY( in " + currentBeingId + "/core_mem.md) ===\n" + 
+                                  memContent + 
+                                  "\n\n[Architecture Note]\n" +
+                                  "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n" +
+                                  "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in `maybeCompressConsciousness()` when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n" +
+                                  "You MUST save your important notes, protocols, or skills in this `core_mem.md` (or other IndexedDB files, or persistent shell files) to prevent them from being forgotten.\n" +
+                                  "===================\n\n";
+                } catch(e) { console.error("CoreMem load failed", e); }
+                const realtimeText = coreMemText + getRealtimeContext();
                 const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
 
                 const model = getActiveModel();
