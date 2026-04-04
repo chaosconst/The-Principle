@@ -587,11 +587,17 @@ async def ws_handler(websocket):
                     continue
 
                 if msg.get('type') == 'device_remove':
-                    target_key = f"{instance_id}:{msg.get('device_name', '')}"
+                    target_name = msg.get('device_name', '')
+                    target_key = f"{instance_id}:{target_name}"
+                    # Revoke token regardless of whether device is currently connected
+                    for tok, val in list(device_tokens.items()):
+                        if val == target_key:
+                            device_tokens.pop(tok, None)
+                            break
+                    save_tokens()
+                    # Close connection if device is online
                     target = device_conns.get(target_key)
                     if target:
-                        device_tokens.pop(target['token'], None)
-                        save_tokens()
                         try:
                             await target['ws'].close(4002, 'Device removed by user')
                         except Exception:
