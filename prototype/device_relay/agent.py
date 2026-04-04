@@ -239,6 +239,8 @@ class GenesisWorker:
                 break
             await self.act(B)
             self.save_to_disk()
+            if not B.strip():
+                break  # empty response — stop to avoid infinite quota burn
             last_sc = B.rfind('/self_continue')
             last_cfh = B.rfind('/call_for_human')
             cont = last_cfh == -1 or last_sc > last_cfh or bool(self.pending_user_input)
@@ -846,12 +848,16 @@ async def connect_instance(cfg):
                                     w.devices.pop(name, None)
                             log(cfg['relay_ws'], f"[{ts()}] [infero] device_status: {name} {'online' if online else 'offline'}")
                     elif mtype == 'stream_token':
-                        # Another node is streaming — print to terminal
-                        text = msg.get('text', '')
-                        sys.stdout.write(f"\r[stream] {len(text)} chars...")
-                        sys.stdout.flush()
-                        if msg.get('done'):
-                            print(f"\n[{ts()}] [infero] Stream done from remote")
+                        # Another node is streaming — decrypt and print to terminal
+                        try:
+                            data = decrypt(cipher, msg['payload'])
+                            text = data.get('text', '')
+                            sys.stdout.write(f"\r[stream] {len(text)} chars...")
+                            sys.stdout.flush()
+                            if data.get('done'):
+                                print(f"\n[{ts()}] [infero] Stream done from remote")
+                        except Exception:
+                            pass
         except websockets.exceptions.ConnectionClosedError as e:
             if e.code == 4002:
                 log(cfg['relay_ws'], f"[{ts()}] [infero] Removed from {iid}. Stopping connection.")
