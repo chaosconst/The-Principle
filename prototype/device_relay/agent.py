@@ -531,11 +531,13 @@ class GenesisWorker:
         contents = [{'role': 'user', 'parts': [{'text': buffer_text}]}]
         if cache_name:
             return {
+                'model': f'models/{model}',
                 'cachedContent': cache_name,
                 'contents': contents,
                 'generationConfig': gemini_config
             }
         return {
+            'model': f'models/{model}',
             'contents': contents,
             'systemInstruction': {'parts': [{'text': system_prompt}]},
             'generationConfig': gemini_config
