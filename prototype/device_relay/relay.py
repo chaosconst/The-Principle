@@ -354,7 +354,7 @@ ENDOFSERVICE
 fi
 
 # ── Wait for verify words from agent ────────────────────────────────────────
-VFILE="$INFERO_DIR/verify_${INSTANCE_ID}.tmp"
+VFILE="$INFERO_DIR/verify_{INSTANCE_ID}.tmp"
 echo ""
 echo "[infero] Connecting to relay..."
 VWORDS=""
