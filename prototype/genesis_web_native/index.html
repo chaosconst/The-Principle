@@ -120,7 +120,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 try {
                     const db = await new Promise(r => { const req = indexedDB.open("GenesisDB"); req.onsuccess = () => r(req.result); });
                     const record = await new Promise(r => { const req = db.transaction("beings", "readonly").objectStore("beings").get(currentBeingId + "/core_mem.md"); req.onsuccess = () => r(req.result); });
-                    let memContent = (record && record.content) ? record.content.slice(0, 20000) : "";
+                    let memContent = (record && record.value) ? record.value.slice(0, 20000) : "";  // ~5k tokens
                     coreMemText = "=== CORE MEMORY( in " + currentBeingId + "/core_mem.md) ===\n" + 
                                   memContent + 
                                   "\n\n[Architecture Note]\n" +
@@ -140,7 +140,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const fullText = consciousness + '\n\n' + realtimeText;
                     const cpt = _lastPromptTokens > 0 ? Math.round(fullText.length / _lastPromptTokens) || 4 : 4;
                     const totalTokens = Math.floor(fullText.length / cpt);
-                    const levels = [140000, 50000, 20000, 10000];
+                    const levels = [140000, 50000, 20000, 10000];  // +5k each to avoid cache boundary collisions
                     const cuts = [];
                     for (const grain of levels) {
                         const aligned = Math.floor(totalTokens / grain) * grain;
