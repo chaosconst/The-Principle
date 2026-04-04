@@ -371,6 +371,18 @@ class GenesisWorker:
                                 data = json.loads(data_str)
                             except: continue
 
+                            # Gemini error embedded in SSE stream (HTTP 200 but error JSON)
+                            if 'error' in data:
+                                err_msg = str(data['error'])
+                                self._log(f"[{ts()}] [infero] SSE error: {err_msg[:300]}")
+                                if self.metadata.get('cacheName') and ('CachedContent' in err_msg or 'cachedContent' in err_msg or 'Model' in err_msg):
+                                    self._log(f"[{ts()}] [cache] Model/cache mismatch, retrying without cache...")
+                                    self.metadata['cacheName'] = None
+                                    self.metadata['cachedLength'] = 0
+                                    return await self.infer()
+                                self.consciousness += f"System - [Error] {err_msg[:200]}\n\n"
+                                return None
+
                             if fmt == 'anthropic':
                                 if data.get('type') == 'content_block_delta':
                                     delta = data.get('delta', {})
@@ -845,7 +857,11 @@ async def connect_instance(cfg):
                             content = decrypt(cipher, msg['payload'])
                             new_settings = content.get('settings', {})
                             for w in workers.values():
+                                old_model = w.llm_settings.get('model')
                                 w.llm_settings.update(new_settings)
+                                if new_settings.get('model') and new_settings['model'] != old_model:
+                                    w.metadata['cacheName'] = None
+                                    w.metadata['cachedLength'] = 0
                             log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update: model={new_settings.get('model','?')}")
                         except Exception as e:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update decrypt error: {e}")
