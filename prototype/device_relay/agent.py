@@ -277,13 +277,13 @@ class GenesisWorker:
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
                 lines += f'\n    - Exec: /shell exec {name}\n```bash\n<command>\n```'
                 lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
-        return f'[Realtime]\nDevices:{lines}'
+        return f'[Realtime]\nReminder: end with /self_continue or /call_for_human\nDevices:{lines}'
 
     async def perceive(self):
         now = datetime.now()
         days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
         tz_offset = now.astimezone().strftime('%z')
-        env = f"[System Environment]\nTime: {now.strftime('%Y-%m-%d %H:%M:%S')} (UTC{tz_offset})\nDay: {days[now.weekday()]}\nReminder: end with /self_continue or /call_for_human"
+        env = f"[System Environment]\nTime: {now.strftime('%Y-%m-%d %H:%M:%S')} (UTC{tz_offset})\nDay: {days[now.weekday()]}"
         realtime = self._build_realtime()
         # Build the full prompt context (env + realtime + user_input)
         # but only persist env + user_input to consciousness (not realtime)
@@ -335,9 +335,11 @@ class GenesisWorker:
         _last_ai_len = 0
         _last_think_len = 0
         usage = {}  # {promptTokens, cachedTokens, outputTokens}
+        self._log(f"[{ts()}] [infero] Infer: {fmt} {url[:80]}")
         try:
             async with aiohttp.ClientSession(auto_decompress=False) as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
+                    self._log(f"[{ts()}] [infero] Infer HTTP {resp.status} content-type={resp.headers.get('Content-Type','?')[:40]}")
                     if resp.status >= 400:
                         err_body = await resp.text()
                         self._log(f"\n[{ts()}] [infero] Infer HTTP {resp.status}: {err_body[:500]}")
@@ -350,8 +352,13 @@ class GenesisWorker:
                         self.consciousness += f"System - [Error] HTTP {resp.status}: {err_body[:200]}\n\n"
                         return None
                     buffer = ""
+                    _first_chunk_logged = False
                     async for chunk in resp.content.iter_any():
-                        buffer += chunk.decode('utf-8', errors='replace')
+                        raw = chunk.decode('utf-8', errors='replace')
+                        if not _first_chunk_logged:
+                            self._log(f"[{ts()}] [infero] Infer first chunk: {repr(raw[:200])}")
+                            _first_chunk_logged = True
+                        buffer += raw
                         lines = buffer.split('\n')
                         buffer = lines.pop()
                         for line in lines:
@@ -409,7 +416,10 @@ class GenesisWorker:
             self.consciousness += f"System - [Error] {e}\n\n"
             return None
 
-        self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
+        if not ai_text:
+            self._log(f"[{ts()}] [infero] Infer done: 0 chars (url={url[:80]}, usage={usage})")
+        else:
+            self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
         await self.send_relay({'type': 'stream_token', 'sender': DEVICE_NAME,
             'payload': encrypt(self.cipher, {'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage, 'being_id': self.being_id})})

@@ -1644,7 +1644,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const offset = -now.getTimezoneOffset() / 60;
             const tz = `UTC${offset >= 0 ? '+' : ''}${offset}`;
-            let ctx = `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}\nReminder: end with /self_continue or /call_for_human`;
+            let ctx = `[System Environment]\nTime: ${now.toLocaleString()} (${tz})\nDay: ${days[now.getDay()]}`;
             return ctx;
         }
 
@@ -1713,7 +1713,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n  - ${name}(online, ${dtype})${isHost ? ' [core loop host]' : ''}`;
             }
             const deviceSection = deviceLines ? `\nDevices (expandable — user can add via Settings > Add Device; inspect initRelay() for protocol details): ${deviceLines}` : '';
-            let ctx = `[Realtime]${deviceSection}`;
+            let ctx = `[Realtime]\nReminder: end with /self_continue or /call_for_human${deviceSection}`;
 
             const ui = document.getElementById('html-div');
             if (_justReloaded) {
@@ -2682,7 +2682,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 consciousness,
                 loopWasRunning: loopRunning,
                 devices: devicesSnapshot,
-                metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId, coreMem: window._coreMem || '' },
+                metadata: { cachedLength: 0, cacheName: null, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId, coreMem: window._coreMem || '' },
                 settings: {
                     model: getActiveModel(),
                     provider: settings.provider,
