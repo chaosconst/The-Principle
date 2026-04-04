@@ -531,13 +531,11 @@ class GenesisWorker:
         contents = [{'role': 'user', 'parts': [{'text': buffer_text}]}]
         if cache_name:
             return {
-                'model': f'models/{model}',
                 'cachedContent': cache_name,
                 'contents': contents,
                 'generationConfig': gemini_config
             }
         return {
-            'model': f'models/{model}',
             'contents': contents,
             'systemInstruction': {'parts': [{'text': system_prompt}]},
             'generationConfig': gemini_config
@@ -586,7 +584,7 @@ class GenesisWorker:
             model = self.llm_settings.get('model', '')
             system_prompt = self.llm_settings.get('system_prompt', '')
             payload = {
-                'model': f'models/{model}',
+                **({} if is_infero else {'model': f'models/{model}'}),
                 'displayName': 'genesis_consciousness',
                 'systemInstruction': {'parts': [{'text': system_prompt}]},
                 'contents': [{'role': 'user', 'parts': [{'text': self.consciousness}]}],
