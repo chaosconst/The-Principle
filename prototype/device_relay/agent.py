@@ -697,7 +697,7 @@ async def connect_instance(cfg):
     if cfg.get('aes_key'):
         aes_key = base64.b64decode(cfg['aes_key'])
         device_pub_b64 = cfg.get('device_pub', '')
-    else:
+    elif cfg.get('browser_pub'):
         aes_key, device_pub_b64 = ecdh_derive_key(cfg['browser_pub'])
         instances = load_instances()
         for inst in instances:
@@ -706,6 +706,13 @@ async def connect_instance(cfg):
                 inst['device_pub'] = device_pub_b64
                 break
         save_instances(instances)
+    elif cfg.get('key'):
+        # Legacy format: relay-distributed symmetric key (pre-ECDH)
+        aes_key = base64.urlsafe_b64decode(cfg['key'] + '=' * (4 - len(cfg['key']) % 4))
+        device_pub_b64 = ''
+    else:
+        print(f"[{ts()}] [infero] No key material for instance {cfg.get('instance_id','?')[:8]}, skipping")
+        return
     relay_http = cfg['relay_ws'].replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '')
     await _load_bip39(relay_http)
     vwords = pair_verify_words(aes_key)

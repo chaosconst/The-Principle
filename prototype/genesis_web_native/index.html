@@ -2228,7 +2228,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const statusEl = document.getElementById('pair-status');
                     statusEl.textContent = `✓ ${device_name} connected!`;
                     statusEl.style.cssText = 'color:#fff;font-weight:500;font-size:0.82rem;';
-                    appendMsgUI('system', `🔐 E2E encrypted · AES-256-GCM via ECDH/P-256\nDevice: ${device_name} · Verify: ${vwords}\nIf your device shows the same words, the channel is clean. MITM probability: 0.000024%`);
+                    appendMsgUI('system', `🔐 E2E encrypted · AES-256-GCM via ECDH/P-256\nDevice: ${device_name} · Verify: ${vwords}\nIf your device shows the same words, the channel is clean. The relay is blind. Trust the math.`);
                     setTimeout(closePairModal, 2000);
                 } else if (settings.devices[device_name]) {
                     const wasOnline = settings.devices[device_name].online;
