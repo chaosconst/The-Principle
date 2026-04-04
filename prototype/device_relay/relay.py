@@ -193,11 +193,12 @@ class GenesisWorker:
         except Exception:
             pass
 
-    def _read_core_mem(self):
+    def _read_core_mem(self, max_tokens=5000):
         if not self.being_id: return ''
         cm_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')
         try:
-            with open(cm_path, encoding='utf-8') as f: return f.read()
+            with open(cm_path, encoding='utf-8') as f: content = f.read()
+            return content[:max_tokens * 4]  # ~4 chars/token
         except: return ''
 
     async def on_loop_handoff(self, payload_enc):
