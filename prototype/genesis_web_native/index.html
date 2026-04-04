@@ -2256,14 +2256,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     renderDeviceList();
                     setStatus('Ready');
                 }
-                // Preferred device came back online — sync consciousness and handoff
+                // Preferred device came back online — handoff to it
                 if (online && settings.preferredHost === device_name && settings.hostDevice !== device_name) {
-                    console.log(`[relay] Preferred host ${device_name} is back online, syncing...`);
-                    window._forkPoint = consciousness.length;
-                    if (_relayWs && _relayConnected) {
-                        _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name, being_id: currentBeingId }));
-                        setStatus('Syncing...');
-                    }
+                    console.log(`[relay] Preferred host ${device_name} is back online, handing off`);
+                    doHandoff(device_name);
                 }
                 // Host device is online (e.g. relay restart) — handoff to re-establish worker
                 // Skip if remote loop is already running (e.g. browser refresh while device was mid-inference)
