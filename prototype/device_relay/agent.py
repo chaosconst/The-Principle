@@ -30,12 +30,14 @@ def get_log_file(relay_ws):
     return None  # prod: stdout only (captured by launchd)
 
 def log(relay_ws, msg):
-    """Log to stdout and optionally to env-specific log file."""
-    print(msg)
     log_file = get_log_file(relay_ws)
     if log_file:
         with open(log_file, 'a') as f:
             f.write(msg + '\n')
+        if sys.stdout.isatty():
+            print(msg)  # interactive terminal only; launchd already redirects stdout to the same file
+    else:
+        print(msg)  # prod: stdout captured by launchd
 
 def load_instances():
     try:
