@@ -774,9 +774,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         textarea:focus { border-color: var(--accent); }
 
         button.send {
-            background: transparent;
-            color: var(--text-dim);
-            border: 1px solid var(--border);
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
             padding: 0 18px;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 500;
@@ -2854,7 +2854,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const remoteRunning = settings.hostDevice !== 'this browser' && (window._remoteLoopRunning || window._remoteAiDiv);
             const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
             const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
-            sendBtn.textContent = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
+            const label = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
+            if (label !== sendBtn.textContent || isAbort !== sendBtn.classList.contains('stop') || isGo !== sendBtn.classList.contains('go')) {
+                console.log(`[btn] ${sendBtn.textContent}→${label} empty=${empty} remoteRunning=${remoteRunning} loopR=${loopRunning} dispatch=${dispatchTimer!==null} _rLoop=${window._remoteLoopRunning} _rDiv=${!!window._remoteAiDiv} host=${settings.hostDevice}`);
+            }
+            sendBtn.textContent = label;
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
         }
