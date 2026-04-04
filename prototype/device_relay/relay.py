@@ -695,20 +695,25 @@ async def ws_handler(websocket):
             info = device_conns.pop(device_key, None)
             if info:
                 dname = info['device_name']
-                # Check if any other connection for the same device_name is still alive
-                still_online = any(
-                    v['device_name'] == dname
-                    for k, v in device_conns.items()
-                    if k.startswith(f"{instance_id}:") or k.endswith(f":{dname}")
-                )
-                print(f"[{ts()}] [relay] Device disconnected: {dname}{' (still has other conn)' if still_online else ''}")
-                if not still_online:
-                    await broadcast_to_instance(instance_id, json.dumps({
-                        'type': 'device_status',
-                        'device_name': dname,
-                        'device_type': info.get('device_type', 'shell'),
-                        'online': False
-                    }))
+                print(f"[{ts()}] [relay] Device disconnected: {dname}")
+                # Debounce: wait 2s, then check if device reconnected
+                async def _delayed_offline(iid, dn, dtype):
+                    await asyncio.sleep(2)
+                    still_online = any(
+                        v['device_name'] == dn
+                        for v in device_conns.values()
+                    )
+                    if not still_online:
+                        await broadcast_to_instance(iid, json.dumps({
+                            'type': 'device_status',
+                            'device_name': dn,
+                            'device_type': dtype,
+                            'online': False
+                        }))
+                        print(f"[{ts()}] [relay] Device offline confirmed: {dn}")
+                    else:
+                        print(f"[{ts()}] [relay] Device reconnected within 2s: {dn}")
+                asyncio.create_task(_delayed_offline(instance_id, dname, info.get('device_type', 'shell')))
 
 
 async def handle_update(request):
