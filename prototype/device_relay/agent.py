@@ -190,7 +190,6 @@ class GenesisWorker:
         self._stopped_sent = False
         self.save_to_disk()
         self._log(f"[{ts()}] [infero] Loop handoff received. consciousness={len(self.consciousness)} chars, model={self.llm_settings.get('model')}, loopWasRunning={loop_was_running}")
-        await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
         try:
             await self.run_loop(loop_was_running)
         except Exception as e:
@@ -217,6 +216,8 @@ class GenesisWorker:
                 await asyncio.sleep(0.5)
             self._log(f"[{ts()}] [infero] run_loop: wait ended. running={self.running}, pending_input={bool(self.pending_user_input)}")
         while self.running:
+            if not self._stopped_sent:
+                await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
             self._log(f"[{ts()}] [infero] run_loop: entering loop(). pending_input={bool(self.pending_user_input)}")
             await self.loop()
             if not self.running:
