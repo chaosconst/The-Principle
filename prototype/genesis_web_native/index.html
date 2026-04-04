@@ -2485,15 +2485,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (changed) renderHistory();
                 if (window._syncThenHandoff === runner) {
                     window._syncThenHandoff = null;
-                    if (window._remoteLoopRunning) {
-                        // Device is actively running — just sync, don't overwrite with handoff
-                        console.log(`[relay] Sync done, device running — staying in Remote mode`);
-                        setStatus('Remote');
-                    } else {
-                        // Device has saved state but no active loop — handoff to re-establish worker
-                        console.log(`[relay] Sync done, device idle — handing off`);
-                        doHandoff(runner);
-                    }
+                    // Sync response received = device has state. Just merge, don't handoff.
+                    // (Timeout path handles the case where device has no worker.)
+                    console.log(`[relay] Sync done from ${runner}, ${remoteConsciousness ? remoteConsciousness.length + ' chars' : 'empty'} — staying in Remote mode`);
+                    settings.hostDevice = runner;
+                    saveSettingsToStorage(settings);
+                    renderDeviceList();
+                    setStatus('Remote');
                 } else {
                     setStatus('Remote');
                 }
