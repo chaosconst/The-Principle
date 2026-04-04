@@ -150,6 +150,7 @@ class GenesisWorker:
         self._pending_exec = {}  # req_id -> asyncio.Future
         self.devices = {}  # name -> {type, online}
         self.being_id = ''
+        self._last_prompt_tokens = 0
 
     def _being_dir(self):
         if not self.being_id:
@@ -372,6 +373,12 @@ class GenesisWorker:
                     if resp.status >= 400:
                         err_body = await resp.text()
                         self._log(f"\n[{ts()}] [infero] Infer HTTP {resp.status}: {err_body[:500]}")
+                        # Gemini cache expired — clear cache and retry without it
+                        if self.metadata.get('cacheName') and 'CachedContent' in err_body:
+                            self._log(f"[{ts()}] [cache] Expired, retrying without cache...")
+                            self.metadata['cacheName'] = None
+                            self.metadata['cachedLength'] = 0
+                            return await self.infer()
                         self.consciousness += f"System - [Error] HTTP {resp.status}: {err_body[:200]}\n\n"
                         return None
                     buffer = ""
@@ -436,6 +443,8 @@ class GenesisWorker:
         self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
         await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage, 'being_id': self.being_id})
+        self._last_prompt_tokens = usage.get('promptTokens', 0)
+        await self._maybe_refresh_cache(usage)
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.consciousness += f"**Digital Being - [{time_str}]**\n{ai_text}\n\n"
         return ai_text
@@ -454,10 +463,30 @@ class GenesisWorker:
         stop = ['\nSystem - [Browser]', '\nSystem - [Shell]', '\n[System Environment]']
 
         if fmt == 'anthropic':
+            # Cache breakpoints: split consciousness at token-aligned positions
+            full_text = consciousness
+            cpt = round(len(full_text) / self._last_prompt_tokens) if self._last_prompt_tokens > 0 else 4
+            total_tokens = len(full_text) // cpt
+            levels = [140000, 50000, 20000, 10000]
+            cuts = []
+            for grain in levels:
+                aligned = (total_tokens // grain) * grain
+                if aligned > 0:
+                    cuts.append(aligned * cpt)
+            unique_cuts = sorted(set(cuts))
+            unique_cuts = [c for c in unique_cuts if c < len(full_text)][:4]
+            user_content = []
+            pos = 0
+            for cut in unique_cuts:
+                if cut > pos:
+                    user_content.append({'type': 'text', 'text': full_text[pos:cut], 'cache_control': {'type': 'ephemeral'}})
+                    pos = cut
+            user_content.append({'type': 'text', 'text': full_text[pos:]})
+
             payload = {
                 'model': model,
                 'system': system_prompt,
-                'messages': [{'role': 'user', 'content': [{'type': 'text', 'text': consciousness}]}],
+                'messages': [{'role': 'user', 'content': user_content}],
                 'max_tokens': 8192,
                 'stream': True,
                 'stop_sequences': stop
@@ -506,6 +535,82 @@ class GenesisWorker:
             'systemInstruction': {'parts': [{'text': system_prompt}]},
             'generationConfig': gemini_config
         }
+
+    async def _maybe_refresh_cache(self, usage):
+        """Gemini cache: create/refresh/delete as needed after each infer()."""
+        fmt = self.llm_settings.get('format', 'openai')
+        if fmt != 'gemini':
+            return
+        cache_base = self.llm_settings.get('cache_endpoint')
+        if not cache_base:
+            return
+
+        CACHE_THRESHOLD = 4096
+        CACHE_REFRESH = 10000
+        prompt_tokens = usage.get('promptTokens', 0)
+        cached_tokens = usage.get('cachedTokens', 0)
+        cache_name = self.metadata.get('cacheName')
+        buffer_tokens = prompt_tokens - cached_tokens
+
+        if prompt_tokens < CACHE_THRESHOLD:
+            return
+
+        api_token = self.llm_settings.get('token', '')
+        client_id = self.llm_settings.get('client_id', '')
+        is_infero = bool(client_id)
+        headers = {'Content-Type': 'application/json'}
+        if is_infero:
+            headers['X-Client-ID'] = client_id
+            headers['Authorization'] = f'Bearer {api_token}'
+
+        # Cache exists but buffer not big enough — just extend TTL
+        if cache_name and buffer_tokens < CACHE_REFRESH:
+            try:
+                patch_url = f"{cache_base}/{cache_name}?updateMask=ttl" if is_infero else f"{cache_base}/{cache_name}?updateMask=ttl&key={api_token}"
+                async with aiohttp.ClientSession() as s:
+                    async with s.patch(patch_url, headers=headers, json={'ttl': '3600s'}) as r:
+                        pass
+            except Exception:
+                pass
+            return
+
+        # Create new cache
+        try:
+            model = self.llm_settings.get('model', '')
+            system_prompt = self.llm_settings.get('system_prompt', '')
+            payload = {
+                'model': f'models/{model}',
+                'displayName': 'genesis_consciousness',
+                'systemInstruction': {'parts': [{'text': system_prompt}]},
+                'contents': [{'role': 'user', 'parts': [{'text': self.consciousness}]}],
+                'ttl': '3600s'
+            }
+            cache_url = cache_base if is_infero else f"{cache_base}?key={api_token}"
+            old_cache_name = cache_name
+
+            async with aiohttp.ClientSession() as s:
+                async with s.post(cache_url, headers=headers, json=payload) as r:
+                    if r.status != 200:
+                        self._log(f"[{ts()}] [cache] Creation failed: {r.status}")
+                        return
+                    data = await r.json()
+
+            self.metadata['cacheName'] = data.get('name')
+            self.metadata['cachedLength'] = len(self.consciousness)
+            self._log(f"[{ts()}] [cache] Created: {self.metadata['cacheName']}, {self.metadata['cachedLength']} chars")
+
+            # Delete old cache
+            if old_cache_name:
+                try:
+                    del_url = f"{cache_base}/{old_cache_name}" if is_infero else f"{cache_base}/{old_cache_name}?key={api_token}"
+                    del_headers = {'X-Client-ID': client_id, 'Authorization': f'Bearer {api_token}'} if is_infero else {}
+                    async with aiohttp.ClientSession() as s:
+                        async with s.delete(del_url, headers=del_headers) as r:
+                            pass
+                except Exception:
+                    pass
+        except Exception as e:
+            self._log(f"[{ts()}] [cache] Error: {e}")
 
     async def act(self, B_out):
         if not B_out: return

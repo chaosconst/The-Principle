@@ -2616,6 +2616,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     format: getActiveFormat(),
                     thinking: settings.thinking || false,
                     endpoint: getActiveEndpoint(),
+                    cache_endpoint: PROVIDERS[settings.provider]?.cacheEndpoint || null,
                     system_prompt: SYSTEM_INSTRUCTION,
                     client_id: CLIENT_ID
                 }
