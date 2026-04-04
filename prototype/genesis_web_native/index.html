@@ -2616,6 +2616,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (_relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
                     setStatus('Taking...');
+                    // Timeout: if no loop_status stopped in 5s, force ready
+                    setTimeout(() => {
+                        if (document.getElementById('status-text')?.textContent?.includes('Taking')) {
+                            console.log('[relay] Taking timeout — forcing Ready');
+                            settings.hostDevice = 'this browser';
+                            saveSettingsToStorage(settings);
+                            setStatus('Ready');
+                        }
+                    }, 5000);
                 }
                 // loop_status { stopped } handler will resume local loop
             }
