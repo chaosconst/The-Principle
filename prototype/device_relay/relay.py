@@ -321,6 +321,8 @@ class GenesisWorker:
         user_input = self.pending_user_input
         if user_input:
             self.pending_user_input = None
+        if user_input == '__go__':
+            user_input = None  # empty Go — just trigger loop, no text
         # What gets persisted to consciousness.txt (no [Realtime])
         persist_parts = [env]
         if user_input:
@@ -599,7 +601,8 @@ class GenesisWorker:
             fut.set_result(msg.get('result', ''))
 
     def on_user_input(self, msg):
-        self.pending_user_input = msg.get('text', '')
+        text = msg.get('text', '')
+        self.pending_user_input = text if text else '__go__'  # empty Go → truthy sentinel
         self._log(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
 
     async def on_loop_stop(self):

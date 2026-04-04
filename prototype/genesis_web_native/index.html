@@ -862,7 +862,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             width: 100%; height: 100%;
             z-index: 2;
             pointer-events: none;
-            overflow: hidden;
+            overflow: auto;
         }
 
         #html-div > * {
@@ -941,7 +941,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
             .title-area { width: 100%; justify-content: space-between; }
             .header h1 { font-size: 0.8rem; }
-            #being-select { max-width: 130px; }
+            #being-select { max-width: 120px; }
             .controls { flex-wrap: wrap; gap: 2px; margin-left: auto; }
 
             .right-panel {
@@ -1474,7 +1474,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 ? consciousness.slice(consciousness.length - RENDER_LIMIT)
                 : consciousness;
             // Split consciousness into blocks by markers
-            const blocks = renderText.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[Browser\] - Result:|System - \[Shell\] - Result:|System - \[Device\] - )/);
+            const blocks = renderText.split(/\n\n(?=\[System Environment\]|\*\*(?:Digital Being|Assistant) - |System - \[)/);
+            // Trim trailing Device messages (online/offline noise from last session)
+            while (blocks.length && blocks[blocks.length - 1].trim().startsWith('System - [Device]')) {
+                blocks.pop();
+            }
             for (const block of blocks) {
                 const trimmed = block.trim();
                 if (!trimmed) continue;
@@ -1497,7 +1501,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         const aiText = trimmed.slice(firstNewline + 1).trim();
                         if (aiText) appendMsgUI('ai', aiText);
                     }
-                } else if (trimmed.startsWith('System - [Browser] - Result:')) {
+                } else if (trimmed.startsWith('System - [')) {
                     appendMsgUI('system', trimmed);
                 }
             }
@@ -1517,14 +1521,30 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             currentBeingId = id;
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
-            consciousness = consciousnessRecord ? (consciousnessRecord.value || '') : '';
+            if (consciousnessRecord) {
+                const v = consciousnessRecord.value || '';
+                const t = consciousnessRecord.text || '';
+                consciousness = t.length > v.length ? t : v;
+                // Migrate: persist as value, drop text
+                if (t && (t.length > v.length || !consciousnessRecord.value)) {
+                    await DB.put({ id: `${id}/consciousness.txt`, value: consciousness });
+                }
+            } else {
+                consciousness = '';
+            }
             cachedLength = being ? (being.cachedLength || 0) : 0;
             cacheName = being ? (being.cacheName || null) : null;
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
             await renderHistory();
-            setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
+            // If remote host is online, handoff the new being to it
+            const remoteHost = settings.hostDevice;
+            if (remoteHost && remoteHost !== 'this browser' && settings.devices?.[remoteHost]?.online) {
+                doHandoff(remoteHost);
+            } else {
+                setStatus(remoteHost && remoteHost !== 'this browser' ? 'Remote' : 'Ready');
+            }
         }
 
         async function newBeing() {
@@ -1537,7 +1557,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _justReloaded = false;
             await saveBeing();
             renderHistory();
-            scheduleAutoInfer();
+            // If remote host is online, handoff new being; otherwise auto-infer locally
+            const remoteHost = settings.hostDevice;
+            if (remoteHost && remoteHost !== 'this browser' && settings.devices?.[remoteHost]?.online) {
+                doHandoff(remoteHost);
+            } else {
+                scheduleAutoInfer();
+            }
         }
 
         async function duplicateBeing() {
@@ -1961,6 +1987,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (!url) return;
             let _retryCount = 0;
             let _retryTimer = null;
+            let _disconnectNotifyTimer = null;
             function scheduleReconnect() {
                 clearTimeout(_retryTimer);
                 // Immediate first retry, then 1s for 10s, then exponential backoff
@@ -1978,6 +2005,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 _relayWs.onopen = () => {
                     _relayConnected = true;
                     _retryCount = 0;
+                    // Cancel pending disconnect notification — silent reconnect
+                    clearTimeout(_disconnectNotifyTimer);
+                    _disconnectNotifyTimer = null;
                     // Reset all devices to offline — relay will push true status
                     if (settings.devices) {
                         Object.values(settings.devices).forEach(d => d.online = false);
@@ -1999,7 +2029,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const hadOnline = settings.devices && Object.values(settings.devices).some(d => d.online && !d.hidden);
                     if (settings.devices) Object.values(settings.devices).forEach(d => d.online = false);
                     renderDeviceList();
-                    if (hadOnline) appendMsgUI('system', 'System - [Relay] - Connection lost. Devices offline. Reconnecting...');
+                    // Delay notification 3s — give silent reconnect a chance
+                    if (hadOnline && !_disconnectNotifyTimer) {
+                        _disconnectNotifyTimer = setTimeout(() => {
+                            if (!_relayConnected) {
+                                appendMsgUI('system', 'System - [Relay] - Connection lost. Reconnecting...');
+                            }
+                            _disconnectNotifyTimer = null;
+                        }, 10000);
+                    }
                     scheduleReconnect();
                 };
                 _relayWs.onerror = () => { _relayWs.close(); };
@@ -2012,13 +2050,33 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     _relayPongTimer = setTimeout(() => {
                         console.warn('[relay] Pong timeout, reconnecting...');
                         _relayWs.close();
-                    }, 10000);
-                }, 20000);
+                    }, 5000);
+                }, 15000);
             }
             function stopHeartbeat() {
                 clearInterval(_relayPingTimer);
                 clearTimeout(_relayPongTimer);
             }
+            // Network event listeners — instant reconnect on network recovery
+            window.addEventListener('online', () => {
+                if (!_relayConnected) {
+                    console.log('[relay] Network online, reconnecting immediately');
+                    _retryCount = 0;
+                    scheduleReconnect();
+                }
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    if (!_relayWs || _relayWs.readyState !== WebSocket.OPEN) {
+                        console.log('[relay] Tab visible, reconnecting');
+                        _retryCount = 0;
+                        scheduleReconnect();
+                    } else {
+                        // Connection looks alive? Ping to verify (catch zombie connections)
+                        try { _relayWs.send(JSON.stringify({ type: 'ping' })); } catch { _relayWs.close(); }
+                    }
+                }
+            });
             connect();
         }
 
@@ -2445,12 +2503,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         function setHostDevice(name) {
             const oldHost = settings.hostDevice || 'this browser';
+            if (name === oldHost) return;
+            const fromLabel = oldHost === 'this browser' ? 'this browser' : oldHost;
+            const toLabel = name === 'this browser' ? 'this browser' : name;
+            if (!confirm(`Switch core loop host?\n\n${fromLabel}  →  ${toLabel}`)) return;
             settings.hostDevice = name;
             settings.preferredHost = name;
             saveSettingsToStorage(settings);
             renderDeviceList();
-
-            if (name === oldHost) return;
 
             if (name !== 'this browser' && oldHost === 'this browser') {
                 // Switching FROM browser TO remote device
@@ -2684,7 +2744,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
                 updateSendBtn();
             } else if (!loopRunning && empty) {
-                if (settings.hostDevice !== 'this browser') return;  // remote mode, no local Go
+                if (settings.hostDevice !== 'this browser') {
+                    // Remote mode: send empty Go to trigger remote loop
+                    if (_relayWs && _relayConnected) {
+                        _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: '' }));
+                        window._remoteAiDiv = appendMsgUI('ai', '');
+                        window._remoteAiText = '';
+                        window._remoteThinkText = '';
+                        setStatus('Inferring...');
+                    }
+                    return;
+                }
                 loopRunning = true;
                 updateSendBtn();
                 setStatus('Inferring...');
