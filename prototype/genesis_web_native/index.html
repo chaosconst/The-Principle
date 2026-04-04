@@ -2256,17 +2256,19 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     renderDeviceList();
                     setStatus('Ready');
                 }
-                // Preferred device came back online — sync consciousness then handoff
+                // Preferred device came back online — try sync then handoff
                 if (online && settings.preferredHost === device_name && settings.hostDevice !== device_name) {
-                    console.log(`[relay] Preferred host ${device_name} is back online, syncing...`);
+                    console.log(`[relay] Preferred host ${device_name} is back online, sync then handoff`);
                     window._forkPoint = consciousness.length;
+                    window._syncThenHandoff = device_name;
                     if (_relayWs && _relayConnected) {
-                        _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name, being_id: currentBeingId }));
+                        _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name, being_id: currentBeingId, action: 'request' }));
                         setStatus('Syncing...');
-                        // Timeout: if device has no worker, loop_status stopped won't come — handoff directly
-                        window._syncHandoffTimer = setTimeout(() => {
-                            if (settings.hostDevice !== device_name) {
-                                console.log(`[relay] Sync timeout, handing off to ${device_name} directly`);
+                        // Timeout: if no sync response in 3s, handoff anyway
+                        setTimeout(() => {
+                            if (window._syncThenHandoff === device_name) {
+                                console.log(`[relay] Sync timeout, handing off directly`);
+                                window._syncThenHandoff = null;
                                 doHandoff(device_name);
                             }
                         }, 3000);
@@ -2390,8 +2392,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     // Merge consciousness
                     await mergeConsciousness(runner, remoteConsciousness);
 
-                    // Cancel sync timeout if pending
-                    if (window._syncHandoffTimer) { clearTimeout(window._syncHandoffTimer); window._syncHandoffTimer = null; }
                     // Decide next action
                     if (_pendingHandoff) {
                         const target = _pendingHandoff;
@@ -2466,9 +2466,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     } catch (e) { console.error('[relay] Sync decrypt error:', e); }
                 }
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
-                window._forkPoint = consciousness.length;  // device still running, track new fork point
-                setStatus('Remote');
+                window._forkPoint = consciousness.length;
                 if (changed) renderHistory();
+                // If this sync was triggered by preferred device coming online, handoff now
+                if (window._syncThenHandoff === runner) {
+                    window._syncThenHandoff = null;
+                    doHandoff(runner);
+                } else {
+                    setStatus('Remote');
+                }
             }
         }
 
