@@ -352,12 +352,14 @@ class GenesisWorker:
                         self.consciousness += f"System - [Error] HTTP {resp.status}: {err_body[:200]}\n\n"
                         return None
                     buffer = ""
+                    _raw_tail = ""
                     _first_chunk_logged = False
                     async for chunk in resp.content.iter_any():
                         raw = chunk.decode('utf-8', errors='replace')
                         if not _first_chunk_logged:
                             self._log(f"[{ts()}] [infero] Infer first chunk: {repr(raw[:200])}")
                             _first_chunk_logged = True
+                        _raw_tail = (_raw_tail + raw)[-800:]
                         buffer += raw
                         lines = buffer.split('\n')
                         buffer = lines.pop()
@@ -418,6 +420,7 @@ class GenesisWorker:
 
         if not ai_text:
             self._log(f"[{ts()}] [infero] Infer done: 0 chars (url={url[:80]}, usage={usage})")
+            self._log(f"[{ts()}] [infero] Raw SSE tail: {repr(_raw_tail)}")
         else:
             self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
@@ -498,6 +501,7 @@ class GenesisWorker:
         cache_name = self.metadata.get('cacheName')
         cached_length = self.metadata.get('cachedLength', 0)
         buffer_text = consciousness[cached_length:] if cache_name else consciousness
+        self._log(f"[{ts()}] [cache] cacheName={cache_name} cachedLength={cached_length} consciousness={len(consciousness)} bufferText={len(buffer_text)}")
         gemini_config = {
             'temperature': 0.7,
             'thinkingConfig': {'includeThoughts': True},
