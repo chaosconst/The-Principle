@@ -2239,6 +2239,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     if (msg.device_type) settings.devices[device_name].type = msg.device_type;
                     if (wasOnline === online) {
                         // status unchanged (reconnect noise) — update UI only, skip consciousness
+                        console.log(`[relay] device_status EARLY RETURN: wasOnline===online===${online} for ${device_name}`);
                         saveSettingsToStorage(settings);
                         renderDeviceList();
                         return;
@@ -2282,6 +2283,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     console.log(`[relay] Host ${device_name} is online, handing off to re-establish worker...`);
                     doHandoff(device_name);
                 }
+                console.log(`[relay] device_status END: preferred=${settings.preferredHost} host=${settings.hostDevice} online=${online}`);
             }
             if (msg.type === 'device_removed') {
                 const { device_name } = msg;
@@ -2591,10 +2593,12 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         function setHostDevice(name) {
             const oldHost = settings.hostDevice || 'this browser';
-            if (name === oldHost) return;
+            console.log(`[setHostDevice] CALLED name=${name} oldHost=${oldHost}`);
+            if (name === oldHost) { console.log(`[setHostDevice] SKIP same host`); return; }
             const fromLabel = oldHost === 'this browser' ? 'this browser' : oldHost;
             const toLabel = name === 'this browser' ? 'this browser' : name;
-            if (!confirm(`Switch core loop host?\n\n${fromLabel}  →  ${toLabel}`)) return;
+            if (!confirm(`Switch core loop host?\n\n${fromLabel}  →  ${toLabel}`)) { console.log(`[setHostDevice] CANCELLED by user`); return; }
+            console.log(`[setHostDevice] CONFIRMED ${fromLabel} → ${toLabel}`);
             settings.hostDevice = name;
             settings.preferredHost = name;
             saveSettingsToStorage(settings);
@@ -2602,6 +2606,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             if (name !== 'this browser' && oldHost === 'this browser') {
                 // Switching FROM browser TO remote device
+                console.log(`[setHostDevice] browser→device, loopRunning=${loopRunning}`);
                 if (loopRunning) {
                     // Wait for current loop to finish, then handoff
                     _pendingHandoff = name;
@@ -2612,14 +2617,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
             } else if (name === 'this browser' && oldHost !== 'this browser') {
                 // Switching FROM remote device BACK to browser
+                console.log(`[setHostDevice] device→browser, relayConnected=${_relayConnected}`);
                 window._manualTakeover = true;  // prevent preferred host auto-handoff
                 if (_relayWs && _relayConnected) {
+                    console.log(`[setHostDevice] sending loop_stop to ${oldHost}`);
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: oldHost, being_id: currentBeingId }));
                     setStatus('Taking...');
                     // Timeout: if no loop_status stopped in 5s, force ready
                     setTimeout(() => {
+                        console.log(`[setHostDevice] timeout check, status=${document.getElementById('status-text')?.textContent}`);
                         if (document.getElementById('status-text')?.textContent?.includes('Taking')) {
-                            console.log('[relay] Taking timeout — forcing Ready');
+                            console.log('[setHostDevice] Taking timeout — forcing Ready');
                             settings.hostDevice = 'this browser';
                             saveSettingsToStorage(settings);
                             setStatus('Ready');
@@ -2686,9 +2694,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function doHandoff(targetDevice) {
-            if (!_relayWs || !_relayConnected) { console.warn('Relay not connected'); return; }
+            console.log(`[doHandoff] CALLED target=${targetDevice} relayConnected=${_relayConnected} hostDevice=${settings.hostDevice}`);
+            if (!_relayWs || !_relayConnected) { console.warn('[doHandoff] Relay not connected'); return; }
             const deviceInfo = settings.devices?.[targetDevice];
-            if (!deviceInfo?.keyB64) { console.warn('No key for device'); return; }
+            if (!deviceInfo?.keyB64) { console.warn(`[doHandoff] No key for device ${targetDevice}`); return; }
 
             const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
             // Build devices snapshot for agent's [Realtime] context
