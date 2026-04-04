@@ -2270,9 +2270,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         // Timeout: if no sync response in 3s, handoff anyway
                         setTimeout(() => {
                             if (window._syncThenHandoff === device_name) {
-                                console.log(`[relay] Sync timeout, handing off directly`);
+                                console.log(`[relay] Sync timeout — device unresponsive, staying on browser`);
                                 window._syncThenHandoff = null;
-                                doHandoff(device_name);
+                                setStatus('Ready');
                             }
                         }, 3000);
                     }
