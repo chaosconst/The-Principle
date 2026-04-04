@@ -833,6 +833,16 @@ async def connect_instance(cfg):
                             content = decrypt(cipher, msg['payload'])
                             iid = content.get('being_id', '')
                             w = workers.get(iid)
+                            if not w and iid:
+                                # No worker — try to restore from disk
+                                w = get_worker(iid)
+                                w.being_id = iid
+                                if w.load_from_disk():
+                                    log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: restored worker from disk: {len(w.consciousness)} chars")
+                                    w.running = True
+                                    asyncio.create_task(w.run_loop(False))
+                                else:
+                                    log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: no saved being for {iid}")
                             log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={iid}, worker={w is not None}, text={str(content.get('text',''))[:30]}")
                             if w: w.on_user_input(content)
                         except Exception as e:
