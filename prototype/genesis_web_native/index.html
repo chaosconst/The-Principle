@@ -2223,6 +2223,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                                     cacheName = data.metadata.cacheName || null;
                                     _lastPromptTokens = data.metadata.promptTokens || 0;
                                     _lastCachedTokens = data.metadata.cachedTokens || 0;
+                                    if (data.metadata.coreMem !== undefined) {
+                                        window._coreMem = data.metadata.coreMem;
+                                        try {
+                                            const db = await new Promise(r => { const req = indexedDB.open('GenesisDB'); req.onsuccess = () => r(req.result); });
+                                            db.transaction('beings', 'readwrite').objectStore('beings').put({ id: currentBeingId + '/core_mem.md', content: data.metadata.coreMem });
+                                        } catch(e) { console.error('coreMem save failed', e); }
+                                    }
                                 }
                             }
                         } catch (e) { console.error('[relay] Sync decrypt error:', e); }

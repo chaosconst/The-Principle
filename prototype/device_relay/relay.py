@@ -193,6 +193,13 @@ class GenesisWorker:
         except Exception:
             pass
 
+    def _read_core_mem(self):
+        if not self.being_id: return ''
+        cm_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')
+        try:
+            with open(cm_path, encoding='utf-8') as f: return f.read()
+        except: return ''
+
     async def on_loop_handoff(self, payload_enc):
         data = decrypt(self.cipher, payload_enc)
         self.consciousness = data.get('consciousness', '')
@@ -223,7 +230,7 @@ class GenesisWorker:
                 self._stopped_sent = True
                 await self.send_relay({'type': 'loop_status', 'status': 'stopped',
                     'device_name': DEVICE_NAME, 'being_id': self.being_id,
-                    'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
+                    'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': {**self.metadata, 'coreMem': self._read_core_mem()}})})
                 self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
     async def run_loop(self, loop_was_running=False):
