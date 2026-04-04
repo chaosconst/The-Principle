@@ -353,9 +353,26 @@ ENDOFSERVICE
     echo "[infero] Auto-start registered (systemd)"
 fi
 
+# ── Wait for verify words from agent ────────────────────────────────────────
+VFILE="$INFERO_DIR/verify_${INSTANCE_ID}.tmp"
+echo ""
+echo "[infero] Connecting to relay..."
+VWORDS=""
+for i in $(seq 1 20); do
+    sleep 1
+    if [ -f "$VFILE" ]; then
+        VWORDS=$(cat "$VFILE")
+        rm -f "$VFILE"
+        break
+    fi
+done
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " ✓ Pairing request sent"
+if [ -n "$VWORDS" ]; then
+echo " 🔑 Verify Words: $VWORDS"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "  This device will auto-connect on every boot."

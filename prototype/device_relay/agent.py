@@ -718,6 +718,12 @@ async def connect_instance(cfg):
     relay_http = cfg['relay_ws'].replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '')
     await _load_bip39(relay_http)
     vwords = pair_verify_words(aes_key)
+    # Write verify words to temp file so install script can display them
+    try:
+        with open(os.path.join(INFERO_DIR, f'verify_{cfg["instance_id"]}.tmp'), 'w') as _vf:
+            _vf.write(vwords)
+    except Exception:
+        pass
     cipher = AESGCM(aes_key)
     backoff = 1
     iid = cfg['instance_id'][:8]
