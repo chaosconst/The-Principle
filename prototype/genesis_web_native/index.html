@@ -2277,11 +2277,22 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         }, 3000);
                     }
                 }
-                // Host device is online (e.g. relay restart) — handoff to re-establish worker
-                // Skip if remote loop is already running (e.g. browser refresh while device was mid-inference)
+                // Host device is online — sync consciousness first, then handoff if needed
                 if (online && settings.hostDevice === device_name && !window._remoteLoopRunning) {
-                    console.log(`[relay] Host ${device_name} is online, handing off to re-establish worker...`);
-                    doHandoff(device_name);
+                    console.log(`[relay] Host ${device_name} is online, syncing consciousness...`);
+                    window._forkPoint = consciousness.length;
+                    window._syncThenHandoff = device_name;
+                    if (_relayWs && _relayConnected) {
+                        _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name, being_id: currentBeingId, action: 'request' }));
+                        setStatus('Syncing...');
+                        setTimeout(() => {
+                            if (window._syncThenHandoff === device_name) {
+                                console.log(`[relay] Host sync timeout, handing off to re-establish worker`);
+                                window._syncThenHandoff = null;
+                                doHandoff(device_name);
+                            }
+                        }, 3000);
+                    }
                 }
                 console.log(`[relay] device_status END: preferred=${settings.preferredHost} host=${settings.hostDevice} online=${online}`);
             }
@@ -2472,10 +2483,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
                 window._forkPoint = consciousness.length;
                 if (changed) renderHistory();
-                // If this sync was triggered by preferred device coming online, handoff now
                 if (window._syncThenHandoff === runner) {
                     window._syncThenHandoff = null;
-                    doHandoff(runner);
+                    if (window._remoteLoopRunning) {
+                        // Device is actively running — just sync, don't overwrite with handoff
+                        console.log(`[relay] Sync done, device running — staying in Remote mode`);
+                        setStatus('Remote');
+                    } else {
+                        // Device has saved state but no active loop — handoff to re-establish worker
+                        console.log(`[relay] Sync done, device idle — handing off`);
+                        doHandoff(runner);
+                    }
                 } else {
                     setStatus('Remote');
                 }
