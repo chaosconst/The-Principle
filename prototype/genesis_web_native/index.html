@@ -406,7 +406,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 .then(([b, s]) => { done = true; return [b, s].filter(Boolean).join('\n\n') || null; });
             const result = await Promise.race([combined, new Promise(r => setTimeout(r, 15000))]);
             if (!done) {
-                const msg = 'System - [Browser] - Execution still running (>15s), loop continued.';
+                const msg = 'System - [Browser] - Async task（>15s）continues in background. Core loop advances for next cycle.';
                 appendMsgUI('system', msg);
                 await appendConsciousness(msg + '\n\n');
             }
@@ -2675,10 +2675,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             for (const [n, d] of Object.entries(settings.devices || {})) {
                 if (!d.hidden && d.online) devicesSnapshot[n] = { type: d.type || 'shell', online: true };
             }
+            const hiddenDevices = Object.entries(settings.devices || {}).filter(([,d]) => d.hidden).map(([n]) => n);
+            if (settings.browserHidden) hiddenDevices.push('this browser');
             const payload = await encryptPayload(cryptoKey, {
                 consciousness,
                 loopWasRunning: loopRunning,
                 devices: devicesSnapshot,
+                hiddenDevices,
                 metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId, coreMem: window._coreMem || '' },
                 settings: {
                     model: getActiveModel(),

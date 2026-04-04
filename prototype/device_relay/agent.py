@@ -115,6 +115,7 @@ class GenesisWorker:
         self._stopped_sent = False
         self._pending_exec = {}  # req_id -> asyncio.Future
         self.devices = {}  # name -> {type, online}
+        self.hidden_devices = set()
         self.being_id = ''
         self._last_prompt_tokens = 0
 
@@ -183,6 +184,7 @@ class GenesisWorker:
             with open(cm_path, 'w', encoding='utf-8') as f: f.write(core_mem)
         self.llm_settings = data.get('settings', {})
         self.devices = data.get('devices', {})
+        self.hidden_devices = set(data.get('hiddenDevices', []))
         loop_was_running = data.get('loopWasRunning', False)
         self.running = True
         self._stopped_sent = False
@@ -262,7 +264,7 @@ class GenesisWorker:
         for name, info in self.devices.items():
             if name == DEVICE_NAME:
                 continue
-            if not info.get('online'):
+            if not info.get('online') or name in self.hidden_devices:
                 continue
             dtype = info.get('type', 'shell')
             if dtype == 'browser':
@@ -529,17 +531,22 @@ class GenesisWorker:
             'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
         }
         contents = [{'role': 'user', 'parts': [{'text': buffer_text}]}]
+        is_infero = bool(self.llm_settings.get('client_id'))
         if cache_name:
-            return {
+            payload = {
                 'cachedContent': cache_name,
                 'contents': contents,
                 'generationConfig': gemini_config
             }
-        return {
-            'contents': contents,
-            'systemInstruction': {'parts': [{'text': system_prompt}]},
-            'generationConfig': gemini_config
-        }
+        else:
+            payload = {
+                'contents': contents,
+                'systemInstruction': {'parts': [{'text': system_prompt}]},
+                'generationConfig': gemini_config
+            }
+        if is_infero:
+            payload['model'] = model  # infero relay pops this and uses it in URL
+        return payload
 
     async def _maybe_refresh_cache(self, usage, force=False):
         """Gemini cache: create/refresh/delete as needed after each infer()."""
@@ -584,7 +591,7 @@ class GenesisWorker:
             model = self.llm_settings.get('model', '')
             system_prompt = self.llm_settings.get('system_prompt', '')
             payload = {
-                **({} if is_infero else {'model': f'models/{model}'}),
+                'model': model if is_infero else f'models/{model}',
                 'displayName': 'genesis_consciousness',
                 'systemInstruction': {'parts': [{'text': system_prompt}]},
                 'contents': [{'role': 'user', 'parts': [{'text': self.consciousness}]}],
@@ -879,13 +886,15 @@ async def connect_instance(cfg):
                         online = msg.get('online', False)
                         dtype = msg.get('device_type', 'shell')
                         if name:
-                            if online:
-                                for w in workers.values():
-                                    w.devices[name] = {'type': dtype, 'online': True}
-                            else:
-                                for w in workers.values():
-                                    w.devices.pop(name, None)
-                            log(cfg['relay_ws'], f"[{ts()}] [infero] device_status: {name} {'online' if online else 'offline'}")
+                            hidden = any(name in w.hidden_devices for w in workers.values())
+                            if not hidden:
+                                if online:
+                                    for w in workers.values():
+                                        w.devices[name] = {'type': dtype, 'online': True}
+                                else:
+                                    for w in workers.values():
+                                        w.devices.pop(name, None)
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] device_status: {name} {'online' if online else 'offline'}{'(hidden)' if hidden else ''}")
                     elif mtype == 'stream_token':
                         # Another node is streaming — decrypt and print to terminal
                         try:
