@@ -282,7 +282,7 @@ class GenesisWorker:
         lines += '\n    - Core loop (read or modify with caution):'
         lines += '\n      async def loop(): await perceive(); B = await infer(); await act(B); if /self_continue in B: repeat; if /call_for_human: wait for input'
         lines += f'\n    - Being ID: {self.being_id}'
-        lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved), metadata.json, arbitrary files'
+        lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved, field: value), metadata.json, arbitrary files'
         lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
         lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/shell exec {DEVICE_NAME}\n```bash\n<command>\n```'
         lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)'

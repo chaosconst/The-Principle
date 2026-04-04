@@ -1435,7 +1435,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 title = userMatch[1].replace(/\n/g, ' ').trim().substring(0, 15) + '...';
             }
             await DB.put({ id: currentBeingId, title, cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, updatedAt: Date.now() });
-            await DB.put({ id: `${currentBeingId}/consciousness.txt`, text: consciousness });
+            await DB.put({ id: `${currentBeingId}/consciousness.txt`, value: consciousness });
             try {
                 const htmlDiv = document.getElementById('html-div');
                 htmlDiv.querySelectorAll('input, textarea, select').forEach(el => {
@@ -1513,7 +1513,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             currentBeingId = id;
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
-            consciousness = consciousnessRecord ? (consciousnessRecord.text || '') : '';
+            consciousness = consciousnessRecord ? (consciousnessRecord.value || '') : '';
             cachedLength = being ? (being.cachedLength || 0) : 0;
             cacheName = being ? (being.cacheName || null) : null;
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
@@ -1580,7 +1580,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const consRecord = await DB.get(consKey);
                 if (consRecord) {
                     const note = `\n\n[System] Being imported from ${sourceId} → ${newId} at ${new Date().toLocaleString()}\n\n`;
-                    await DB.put({ id: consKey, text: consRecord.text + note });
+                    await DB.put({ id: consKey, value: (consRecord.value || consRecord.text || '') + note });
                 }
                 currentBeingId = newId;
                 await switchBeing(newId);
@@ -1649,7 +1649,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n    - Being ID: ${currentBeingId}`;
                     deviceLines += `\n    - Memory: IndexedDB('GenesisDB', store='beings', keyPath='id') — each record is {id, ...fields}`;
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
-                    deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, text} — consciousness stream`;
+                    deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
                     deviceLines += `\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas`;
                     deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
