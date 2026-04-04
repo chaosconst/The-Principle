@@ -379,7 +379,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execCode(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)```/gm)];
+            const matches = [...B_out.matchAll(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)\n```/gm)];
             if (!matches.length) return null;
 
             setStatus('Executing...');
@@ -2412,7 +2412,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execShellBlocks(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)```/gm)];
+            const matches = [...B_out.matchAll(/^\/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)\n```/gm)];
             if (!matches.length) return null;
             setStatus('Executing on device...');
 
@@ -2725,8 +2725,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         function updateSendBtn() {
             const empty = !input.value.trim();
-            const isAbort = (loopRunning || dispatchTimer !== null) && empty;
-            const isGo    = !loopRunning && dispatchTimer === null && empty;
+            const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
+            const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
+            const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
             sendBtn.textContent = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
@@ -2740,9 +2741,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         sendBtn.onclick = () => {
             const empty = !input.value.trim();
-            if ((loopRunning || dispatchTimer !== null) && empty) {
+            const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
+            if ((loopRunning || dispatchTimer !== null || remoteRunning) && empty) {
                 clearTimeout(dispatchTimer); dispatchTimer = null;
                 if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+                if (remoteRunning && _relayWs && _relayConnected) {
+                    _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: settings.hostDevice, being_id: currentBeingId }));
+                }
                 updateSendBtn();
             } else if (!loopRunning && empty) {
                 if (settings.hostDevice !== 'this browser') {
