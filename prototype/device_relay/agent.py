@@ -850,11 +850,24 @@ async def connect_instance(cfg):
                     elif mtype == 'consciousness_sync' and msg.get('action') == 'request':
                         w = workers.get(being_id)
                         log(cfg['relay_ws'], f"[{ts()}] [infero] MSG consciousness_sync request for being={being_id}, worker={w is not None}")
+                        c_text = ''
+                        c_meta = {}
                         if w and w.consciousness:
+                            c_text = w.consciousness
+                            c_meta = w.metadata
+                        else:
+                            # No worker — try loading from disk
+                            tmp = Worker(cipher, ws, cfg['relay_ws'])
+                            tmp.being_id = being_id
+                            if tmp.load_from_disk():
+                                c_text = tmp.consciousness
+                                c_meta = tmp.metadata
+                                log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: loaded from disk: {len(c_text)} chars")
+                        if c_text:
                             try:
                                 resp_payload = encrypt(cipher, {
-                                    'consciousness': w.consciousness,
-                                    'metadata': w.metadata
+                                    'consciousness': c_text,
+                                    'metadata': c_meta
                                 })
                                 await ws.send(json.dumps({
                                     'type': 'consciousness_sync',
@@ -863,11 +876,11 @@ async def connect_instance(cfg):
                                     'being_id': being_id,
                                     'payload': resp_payload
                                 }))
-                                log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync response sent: {len(w.consciousness)} chars")
+                                log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync response sent: {len(c_text)} chars")
                             except Exception as e:
                                 log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync error: {e}")
                         else:
-                            log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no worker or empty consciousness")
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no consciousness found")
                     elif mtype == 'settings_update':
                         try:
                             content = decrypt(cipher, msg['payload'])
