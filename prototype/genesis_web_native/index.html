@@ -2100,6 +2100,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 saveSettingsToStorage(settings);
                 renderDeviceList();
+                if (settings.devices[device_name]?.hidden) return;  // hidden device — no UI/consciousness noise
                 const note = `System - [Device] - ${device_name} is now ${online ? 'online' : 'offline'}`;
                 appendMsgUI('system', note);
                 await appendConsciousness(note + '\n\n');
