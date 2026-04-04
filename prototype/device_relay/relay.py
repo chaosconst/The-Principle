@@ -438,18 +438,13 @@ class GenesisWorker:
     def _build_payload(self, fmt, model, system_prompt, thinking):
         # Inject [Realtime] dynamically into the prompt (not persisted)
         realtime = getattr(self, '_last_realtime', '')
-        core_mem_text = ""
-        if self.being_id:
-            import os
-            cm_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')
-            if os.path.exists(cm_path):
-                with open(cm_path, encoding='utf-8') as f: cm = f.read()
-                core_mem_text = (f"=== CORE MEMORY( in {cm_path}) ===\n" + cm +
-                                 "\n\n[Architecture Note]\n"
-                                 "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n"
-                                 "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in maybeCompressConsciousness() when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n"
-                                 "You MUST save your important notes, protocols, or skills in this core_mem.md (or other persistent shell files) to prevent them from being forgotten.\n"
-                                 "===================\n\n")
+        cm = self._read_core_mem()
+        core_mem_text = (f"=== CORE MEMORY( in {os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')}) ===\n" + cm +
+                         "\n\n[Architecture Note]\n"
+                         "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n"
+                         "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in maybeCompressConsciousness() when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n"
+                         "You MUST save your important notes, protocols, or skills in this core_mem.md (or other persistent shell files) to prevent them from being forgotten.\n"
+                         "===================\n\n") if cm else ""
         consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '')
         stop = ['\nSystem - [Browser]', '\nSystem - [Shell]', '\n[System Environment]']
 
