@@ -375,10 +375,11 @@ class GenesisWorker:
                             if 'error' in data:
                                 err_msg = str(data['error'])
                                 self._log(f"[{ts()}] [infero] SSE error: {err_msg[:300]}")
-                                if self.metadata.get('cacheName') and ('CachedContent' in err_msg or 'cachedContent' in err_msg or 'Model' in err_msg):
-                                    self._log(f"[{ts()}] [cache] Model/cache mismatch, retrying without cache...")
+                                if self.metadata.get('cacheName') and 'CachedContent' in err_msg:
+                                    self._log(f"[{ts()}] [cache] Expired/mismatch, rebuilding...")
                                     self.metadata['cacheName'] = None
                                     self.metadata['cachedLength'] = 0
+                                    await self._maybe_refresh_cache({}, force=True)
                                     return await self.infer()
                                 self.consciousness += f"System - [Error] {err_msg[:200]}\n\n"
                                 return None
@@ -532,7 +533,7 @@ class GenesisWorker:
             'generationConfig': gemini_config
         }
 
-    async def _maybe_refresh_cache(self, usage):
+    async def _maybe_refresh_cache(self, usage, force=False):
         """Gemini cache: create/refresh/delete as needed after each infer()."""
         fmt = self.llm_settings.get('format', 'openai')
         if fmt != 'gemini':
@@ -548,7 +549,7 @@ class GenesisWorker:
         cache_name = self.metadata.get('cacheName')
         buffer_tokens = prompt_tokens - cached_tokens
 
-        if prompt_tokens < CACHE_THRESHOLD:
+        if not force and prompt_tokens < CACHE_THRESHOLD:
             return
 
         api_token = self.llm_settings.get('token', '')
