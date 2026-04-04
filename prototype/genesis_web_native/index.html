@@ -79,7 +79,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
                 const lastSC = B.lastIndexOf('/self_continue');
                 const lastCFH = B.lastIndexOf('/call_for_human');
-                const cont = lastSC > lastCFH || !!currentUserInput;
+                // Stop only when /call_for_human explicitly appears and wins; otherwise always continue
+                const cont = lastCFH === -1 || lastSC > lastCFH || !!currentUserInput;
                 if (cont) return loop();
             } catch (e) {
                 if (e.name === 'AbortError') return;              // user stopped, clean exit
@@ -307,7 +308,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                             const ad = aiText.slice(window._lastStreamAi || 0);
                             const td = thinkingText.slice(window._lastStreamThink || 0);
                             if (ad || td) {
-                                _relayWs.send(JSON.stringify({ type: 'stream_token', text_delta: ad, thinking_delta: td }));
+                                relayEncBroadcast('stream_token', { text_delta: ad, thinking_delta: td, being_id: currentBeingId });
                                 window._lastStreamAi = aiText.length;
                                 window._lastStreamThink = thinkingText.length;
                             }
@@ -315,11 +316,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     }
                 }
                 // Signal stream done
-                if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'stream_token', text: aiText, thinking: thinkingText, done: true }));
-                    window._lastStreamAi = 0;
-                    window._lastStreamThink = 0;
-                }
+                relayEncBroadcast('stream_token', { text: aiText, thinking: thinkingText, done: true, being_id: currentBeingId });
+                window._lastStreamAi = 0;
+                window._lastStreamThink = 0;
                 return aiText;
             }
 
@@ -1230,7 +1229,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
         });
         window.addEventListener('unhandledrejection', e => {
-            const msg = `System - [Browser] - Unhandled Promise Rejection: ${e.reason}`;
+            const reason = e.reason;
+            // Ignore errors from browser extensions (MetaMask etc.)
+            const stack = reason?.stack || '';
+            if (stack.includes('chrome-extension://') || stack.includes('moz-extension://')) return;
+            const msg = `System - [Browser] - Unhandled Promise Rejection: ${reason}`;
             appendMsgUI?.('system', msg);
             console.warn(msg);
         });
@@ -1957,21 +1960,18 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('settings-panel').style.display = 'none';
             if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
             // Broadcast updated LLM settings to all connected devices
-            if (_relayWs && _relayConnected) {
-                _relayWs.send(JSON.stringify({
-                    type: 'settings_update',
-                    settings: {
-                        model: getActiveModel(),
-                        provider: settings.provider,
-                        token: getActiveToken(),
-                        format: getActiveFormat(),
-                        thinking: settings.thinking || false,
-                        endpoint: getActiveEndpoint(),
-                        system_prompt: SYSTEM_INSTRUCTION,
-                        client_id: CLIENT_ID
-                    }
-                }));
-            }
+            relayEncBroadcast('settings_update', {
+                settings: {
+                    model: getActiveModel(),
+                    provider: settings.provider,
+                    token: getActiveToken(),
+                    format: getActiveFormat(),
+                    thinking: settings.thinking || false,
+                    endpoint: getActiveEndpoint(),
+                    system_prompt: SYSTEM_INSTRUCTION,
+                    client_id: CLIENT_ID
+                }
+            });
         }
 
         // ─── Device Relay ────────────────────────────────────────────────────────────
@@ -2097,17 +2097,22 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' :
                     /Linux/.test(ua) ? 'Linux' : 'Unknown';
                 const clientName = `${bName} · ${osName}`;
+                const ecKeyPair = await crypto.subtle.generateKey(
+                    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']
+                );
+                const pubRaw = await crypto.subtle.exportKey('raw', ecKeyPair.publicKey);
+                const browserPubB64 = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
                 const res = await fetch(`${relayHttpUrl}/pair/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ instance_id: INSTANCE_ID, client_name: clientName })
+                    body: JSON.stringify({ instance_id: INSTANCE_ID, client_name: clientName, browser_pub: browserPubB64 })
                 });
                 if (!res.ok) throw new Error(`Server error: ${res.status}`);
-                const { code, key } = await res.json();
+                const { code } = await res.json();
                 const curlCmd = `curl ${relayHttpUrl}/pair/${code} | sh`;
                 document.getElementById('pair-cmd-text').textContent = curlCmd;
                 document.getElementById('pair-status').textContent = 'Click to copy. Waiting for device... (expires in 5 min)';
-                window._pendingPairKey = { keyB64: key };
+                window._pendingPairKey = { privateKey: ecKeyPair.privateKey };
             } catch (e) {
                 document.getElementById('pair-cmd-text').textContent = '';
                 document.getElementById('pair-status').textContent = `Error: ${e.message}`;
@@ -2147,16 +2152,83 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             return JSON.parse(new TextDecoder().decode(plain));
         }
 
+        let _bip39 = null;
+        async function _loadBip39() {
+            if (_bip39) return _bip39;
+            try {
+                const relayHttp = (settings.relayUrl || SETTINGS_DEFAULTS.relayUrl)
+                    .replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/ws$/, '');
+                const res = await fetch(`${relayHttp}/bip39`);
+                if (res.ok) _bip39 = (await res.text()).trim().split(/\s+/);
+            } catch (_) {}
+            return _bip39;
+        }
+
+        async function pairVerifyWords(keyB64) {
+            const words = await _loadBip39();
+            if (!words || words.length < 2048) return '(wordlist unavailable)';
+            const keyBytes = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
+            const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', keyBytes));
+            const n = (hash[0] << 14) | (hash[1] << 6) | (hash[2] >> 2);
+            return words[n >> 11] + ' ' + words[n & 0x7ff];
+        }
+
+        async function relayEncSend(deviceName, type, content) {
+            const info = settings.devices?.[deviceName];
+            if (!info?.keyB64 || !_relayWs || !_relayConnected) return;
+            const cryptoKey = await importDeviceKey(info.keyB64);
+            const payload = await encryptPayload(cryptoKey, content);
+            _relayWs.send(JSON.stringify({ type, device_name: deviceName, payload }));
+        }
+
+        async function relayEncBroadcast(type, content) {
+            if (!_relayWs || !_relayConnected) return;
+            for (const [name, info] of Object.entries(settings.devices || {})) {
+                if (info.online) await relayEncSend(name, type, content);
+            }
+        }
+
+        async function relayDec(msg) {
+            const sender = msg.sender || msg.device_name;
+            const info = settings.devices?.[sender];
+            if (!info?.keyB64) return null;
+            try {
+                const cryptoKey = await importDeviceKey(info.keyB64);
+                return { sender, content: await decryptPayload(cryptoKey, msg.payload) };
+            } catch { return null; }
+        }
+
+        async function deriveSharedKey(browserPrivateKey, devicePubB64) {
+            const raw = Uint8Array.from(atob(devicePubB64), c => c.charCodeAt(0));
+            const devicePub = await crypto.subtle.importKey(
+                'raw', raw, { name: 'ECDH', namedCurve: 'P-256' }, false, []
+            );
+            const sharedBits = await crypto.subtle.deriveBits(
+                { name: 'ECDH', public: devicePub }, browserPrivateKey, 256
+            );
+            const hkdfKey = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveKey']);
+            const aesKey = await crypto.subtle.deriveKey(
+                { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0),
+                  info: new TextEncoder().encode('infero-device-relay-v1') },
+                hkdfKey, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
+            );
+            const keyRaw = await crypto.subtle.exportKey('raw', aesKey);
+            return btoa(String.fromCharCode(...new Uint8Array(keyRaw)));
+        }
+
         async function handleRelayMessage(msg) {
             if (msg.type === 'device_status') {
                 const { device_name, online } = msg;
                 if (!settings.devices) settings.devices = {};
                 if (online && msg.fresh_pair && window._pendingPairKey) {
-                    settings.devices[device_name] = { keyB64: window._pendingPairKey.keyB64, online: true, type: msg.device_type || 'shell' };
+                    const keyB64 = await deriveSharedKey(window._pendingPairKey.privateKey, msg.device_pub);
+                    settings.devices[device_name] = { keyB64, online: true, type: msg.device_type || 'shell' };
                     window._pendingPairKey = null;
+                    const vwords = await pairVerifyWords(keyB64);
                     const statusEl = document.getElementById('pair-status');
                     statusEl.textContent = `✓ ${device_name} connected!`;
                     statusEl.style.cssText = 'color:#fff;font-weight:500;font-size:0.82rem;';
+                    appendMsgUI('system', `🔐 E2E encrypted · AES-256-GCM via ECDH/P-256\nDevice: ${device_name} · Verify: ${vwords}\nIf your device shows the same words, the channel is clean. MITM probability: 0.000024%`);
                     setTimeout(closePairModal, 2000);
                 } else if (settings.devices[device_name]) {
                     const wasOnline = settings.devices[device_name].online;
@@ -2233,9 +2305,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             // ─── Distributed loop messages ───────────────────────────────
             if (msg.type === 'stream_token') {
-                // Remote node is streaming LLM output — render it
-                if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
-                if (settings.hostDevice === 'this browser') return;  // we're the runner, ignore our own echo
+                if (settings.hostDevice === 'this browser') return;
+                const dec = await relayDec(msg);
+                if (!dec) return;
+                const { content } = dec;
+                if (content.being_id && content.being_id !== currentBeingId) return;
                 if (!window._remoteAiDiv) {
                     window._remoteAiDiv = document.createElement('div');
                     window._remoteAiDiv.className = 'msg ai';
@@ -2243,34 +2317,29 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     window._remoteAiText = '';
                     window._remoteThinkText = '';
                 }
-                if (msg.done) {
-                    // Final message carries full text — use as authoritative
-                    window._remoteAiText = msg.text || window._remoteAiText;
-                    window._remoteThinkText = msg.thinking || window._remoteThinkText;
+                if (content.done) {
+                    window._remoteAiText = content.text || window._remoteAiText;
+                    window._remoteThinkText = content.thinking || window._remoteThinkText;
                 } else {
-                    // Delta mode
-                    if (msg.text_delta) window._remoteAiText += msg.text_delta;
-                    if (msg.thinking_delta) window._remoteThinkText += msg.thinking_delta;
+                    if (content.text_delta) window._remoteAiText += content.text_delta;
+                    if (content.thinking_delta) window._remoteThinkText += content.thinking_delta;
                 }
-                const displayText = (window._remoteAiText).replace(/^\*{0,2}Digital Being\s*[-–—]\s*\[.*?\]\*{0,2}\n?/, '');
+                const displayText = window._remoteAiText.replace(/^\*{0,2}Digital Being\s*[-–—]\s*\[.*?\]\*{0,2}\n?/, '');
                 let html = window._remoteThinkText ? `<div class="msg-thinking">${marked.parse(window._remoteThinkText)}</div>` : '';
                 html += marked.parse(displayText);
                 window._remoteAiDiv.innerHTML = html;
                 scrollToBottom();
-                if (msg.done) {
-                    // Remove empty placeholder if no content arrived
-                    if (!window._remoteAiText && window._remoteAiDiv) {
-                        window._remoteAiDiv.remove();
-                    }
+                if (content.done) {
+                    if (!window._remoteAiText && window._remoteAiDiv) window._remoteAiDiv.remove();
                     window._remoteAiDiv = null;
                     window._remoteAiText = '';
                     window._remoteThinkText = '';
-                    if (msg.usage) {
-                        _lastPromptTokens = msg.usage.promptTokens || 0;
-                        _lastCachedTokens = msg.usage.cachedTokens || 0;
+                    if (content.usage) {
+                        _lastPromptTokens = content.usage.promptTokens || 0;
+                        _lastCachedTokens = content.usage.cachedTokens || 0;
                     }
                     setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
-                } else if (!msg._statusSet) {
+                } else {
                     setStatus('Inferring...');
                 }
             }
@@ -2333,34 +2402,34 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
 
             if (msg.type === 'browser_exec_request') {
-                if (msg.being_id && msg.being_id !== currentBeingId) return;
-                const code = msg.code || '';
-                const req_id = msg.req_id || '';
-                console.log(`[relay] Browser exec request: ${code.substring(0, 60)}...`);
-                const result = await _runJS(code);
+                const dec = await relayDec(msg);
+                if (!dec) return;  // reject if no key or decrypt fails
+                const { sender, content } = dec;
+                if (content.being_id && content.being_id !== currentBeingId) return;
+                console.log(`[relay] Browser exec request: ${(content.code || '').substring(0, 60)}...`);
+                const result = await _runJS(content.code || '');
                 appendMsgUI('system', `System - [Browser] - Result:\n\`\`\`text\n${result}\n\`\`\``);
-                if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'browser_exec_result', req_id, device_name: msg.from || settings.hostDevice, result }));
-                }
+                relayEncSend(sender, 'browser_exec_result', { req_id: content.req_id, being_id: content.being_id, result });
             }
 
             if (msg.type === 'exec_display') {
-                if (msg.being_id && msg.being_id !== currentBeingId) return;
-                if (msg.text) appendMsgUI('system', msg.text.trim());
+                const dec = await relayDec(msg);
+                if (!dec) return;
+                const { content } = dec;
+                if (content.being_id && content.being_id !== currentBeingId) return;
+                if (content.text) appendMsgUI('system', content.text.trim());
             }
 
             if (msg.type === 'request_device_data') {
                 if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const canvasImage = await getCanvasImage();
                 const realtimeCtx = getRealtimeContext();
-                if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({
-                        type: 'device_data_response',
-                        device_name: msg.from || settings.hostDevice,
-                        realtimeContext: realtimeCtx,
-                        canvasImage: canvasImage || null
-                    }));
-                }
+                const dataSender = msg.sender || msg.from || settings.hostDevice;
+                relayEncSend(dataSender, 'device_data_response', {
+                    being_id: currentBeingId,
+                    realtimeContext: realtimeCtx,
+                    canvasImage: canvasImage || null
+                });
             }
 
             // consciousness_sync response from remote runner
@@ -2753,7 +2822,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (settings.hostDevice !== 'this browser') {
                     // Remote mode: send empty Go to trigger remote loop
                     if (_relayWs && _relayConnected) {
-                        _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: '' }));
+                        relayEncSend(settings.hostDevice, 'user_input', { text: '', being_id: currentBeingId });
                         window._remoteAiDiv = appendMsgUI('ai', '');
                         window._remoteAiText = '';
                         window._remoteThinkText = '';
@@ -2796,7 +2865,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Remote mode: forward input to loop runner
             if (settings.hostDevice !== 'this browser') {
                 if (_relayWs && _relayConnected) {
-                    _relayWs.send(JSON.stringify({ type: 'user_input', device_name: settings.hostDevice, being_id: currentBeingId, text: currentUserInput }));
+                    relayEncSend(settings.hostDevice, 'user_input', { text: currentUserInput, being_id: currentBeingId });
                     currentUserInput = null;
                     // Create placeholder AI div (like local infer does)
                     window._remoteAiDiv = appendMsgUI('ai', '');

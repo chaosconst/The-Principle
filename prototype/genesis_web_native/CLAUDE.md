@@ -12,6 +12,7 @@ Genesis (Infero) v0.1 — a local-first digital life engine. Split-screen web ap
 
 - **`index.html`** — The entire frontend: UI, state management, IndexedDB storage, SSE streaming, JS execution, and the system prompt. All in one self-contained SPA.
 - **`models.json`** — Model and provider configuration, loaded from remote (`https://infero.net/genesis/models.json`).
+- **`i18n.json`** — UI string translations (zh/en).
 
 **Data flow:** Browser → LLM API (SSE) → streamed back to browser. Provider/endpoint configurable in settings (Gemini, OpenAI, Anthropic, DeepSeek, OpenRouter, custom).
 
@@ -23,23 +24,58 @@ Genesis (Infero) v0.1 — a local-first digital life engine. Split-screen web ap
 - `act(B)` — executes extracted JS, writes result to consciousness (15s timeout)
 - `loop()` — orchestrates the cycle; continues on `/self_continue`, stops on `/call_for_human`
 
+**Device Relay (`../device_relay/relay.py`):**
+- WebSocket relay that connects the browser to external devices (macOS, Linux shells, iOS shortcuts)
+- HTTP endpoints for pairing; tokens persisted to `tokens.json`
+- `agent.py` — Python agent script delivered to devices on pairing; loaded at relay startup (restart relay to pick up `agent.py` changes)
+- Two independent instances: prod (HTTP 8082 / WS 8083) and dev (HTTP 8087 / WS 8088)
+
+## Environments
+
+| Env | URL | Branch | API Relay | Device Relay |
+|-----|-----|--------|-----------|--------------|
+| Prod | `infero.net/genesis` | `main` | `:8080` | `:8082/:8083` |
+| Dev | `dev.infero.net/genesis` | `dev` | `:8084` | `:8087/:8088` |
+
+Server: `ubuntu@54.168.240.219`, key: `~/.ssh/ec2_tokyo_2023.pem`
+
 ## Deployment
 
-Static file hosting. No server required for core functionality.
-
+**Frontend** (hot-reload via git pull — no restart needed):
 ```bash
-# Production (infero.net)
-sudo cp index.html /var/www/infero.net/genesis/index.html
-sudo cp models.json /var/www/infero.net/genesis/models.json
+# Dev
+git push origin dev && \
+ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
+  "cd /home/ubuntu/The-Principle-dev && git pull origin dev"
+
+# Prod: merge dev → main first, then pull
+git checkout main && git merge dev && git push origin main && git checkout dev && \
+ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
+  "cd /home/ubuntu/The-Principle && git pull origin main"
 ```
 
-Also works from GitHub Pages, Vercel, or local `file://`.
+**Device relay** (restart required when `relay.py` or `agent.py` changes):
+```bash
+# Dev device relay
+ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
+  "cp /home/ubuntu/The-Principle-dev/prototype/device_relay/relay.py /home/ubuntu/device_relay_dev/relay.py; kill \$(lsof -ti:8087 -ti:8088) 2>/dev/null"
+ssh -f -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
+  "sleep 1; cd /home/ubuntu/device_relay_dev && HTTP_PORT=8087 WS_PORT=8088 RELAY_WS_URL=wss://dev.infero.net/device-relay/ws nohup python3 relay.py >> relay.log 2>&1 < /dev/null &"
+```
+
+Also works from GitHub Pages, Vercel, or local `file://` (no device relay needed).
+
+## Symmetric Logic (keep in sync manually)
+
+`index.html` (JS) and `device_relay/agent.py` (Python) both implement the same core loop, encryption, exec-block parsing, and LLM payload construction. **Any logic change in one file likely needs to be mirrored in the other.** Always check both when modifying shared behaviour.
 
 ## Key Conventions
 
 - The canvas is Retina-aware: AI-generated JS must **never** set `canvas.width`/`canvas.height` directly.
 - `#html-div` overlays canvas with transparent background. AI can place interactive HTML elements there. Content is auto-saved/restored via snapshots.
 - AI output must end with `/call_for_human` or `/self_continue` — this drives the autonomous execution loop.
-- The system prompt is defined inline in `SYSTEM_INSTRUCTION` at the top of index.html.
+- The system prompt is defined inline in `SYSTEM_INSTRUCTION` at the top of `index.html`.
 - Settings (model, provider, token, vision mode) stored in `localStorage.genesis_settings`.
 - Context compression triggers at 300k tokens, saves trimmed middle to IndexedDB.
+- Anthropic cache uses up to 4 floor-aligned breakpoints in the user content array (stable cache positions).
+- `agent.py` is loaded once at relay startup — changes require relay restart to take effect.

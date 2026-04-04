@@ -12,6 +12,11 @@ A local-first digital life engine. Single HTML file, zero build step, zero serve
 
 **Data flow:** Browser → LLM API (SSE) → streamed back to browser. No server-side state.
 
+**Device Relay (`../device_relay/relay.py`):**
+- WebSocket relay connecting the browser to external devices (macOS, Linux shells, iOS)
+- Devices receive a self-installing bash+Python agent on first pairing
+- Tokens persisted across relay restarts
+
 ## Features
 
 - **Multi-model support**: Gemini, GPT, Claude, DeepSeek via configurable providers
@@ -19,6 +24,7 @@ A local-first digital life engine. Single HTML file, zero build step, zero serve
 - **Context compression**: Auto-trims consciousness at 300k tokens, saves logs to IndexedDB
 - **Snapshot persistence**: Canvas + HTML UI auto-saved and restored on reload
 - **Living UI**: `#html-div` layer for AI-generated interactive HTML elements
+- **Device loop handoff**: AI can shift its inference loop to any paired device
 
 ## Quick Start
 

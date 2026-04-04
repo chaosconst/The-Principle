@@ -11,17 +11,31 @@ import json
 import os
 import secrets
 import time
+from collections import defaultdict
 from datetime import datetime
 
 import websockets
 from aiohttp import web
+
+# ─── Rate limiting ──────────────────────────────────────────────────────────────
+
+_rate_buckets = defaultdict(list)  # (ip, endpoint) -> [timestamps]
+
+def _rate_limit_ok(ip, endpoint, max_requests, window_seconds):
+    key = (ip, endpoint)
+    now = time.time()
+    _rate_buckets[key] = [t for t in _rate_buckets[key] if now - t < window_seconds]
+    if len(_rate_buckets[key]) >= max_requests:
+        return False
+    _rate_buckets[key].append(now)
+    return True
 
 def ts():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 # ─── In-memory state ───────────────────────────────────────────────────────────
 
-pending_pairs = {}   # code -> {key_b64, instance_id, expires}
+pending_pairs = {}   # code -> {browser_pub, instance_id, client_name, expires}
 browser_conns = {}   # instance_id -> list[websocket]
 device_conns  = {}   # "{instance_id}:{device_name}" -> {ws, instance_id, device_name}
 device_tokens = {}   # token -> "{instance_id}:{device_name}"
@@ -82,7 +96,7 @@ RELAY_WS="{RELAY_WS}"
 RELAY_HTTP="{RELAY_HTTP}"
 INSTANCE_ID="{INSTANCE_ID}"
 TOKEN="{TOKEN}"
-KEY="{KEY}"
+BROWSER_PUB="{BROWSER_PUB}"
 CLIENT_NAME="{CLIENT_NAME}"
 
 # Auto-detect dev vs prod based on relay URL
@@ -113,7 +127,7 @@ curl -fsSL "$RELAY_HTTP/update" -o "$AGENT"
 if [ ! -s "$AGENT" ]; then echo "[infero] Failed to download agent.py"; exit 1; fi
 
 # ── Update instances.json (append or update this instance) ───────────────────
-INSTANCE_ID="$INSTANCE_ID" TOKEN="$TOKEN" KEY="$KEY" RELAY_WS="$RELAY_WS" CLIENT_NAME="$CLIENT_NAME" INFERO_DIR="$INFERO_DIR" \
+INSTANCE_ID="$INSTANCE_ID" TOKEN="$TOKEN" BROWSER_PUB="$BROWSER_PUB" RELAY_WS="$RELAY_WS" CLIENT_NAME="$CLIENT_NAME" INFERO_DIR="$INFERO_DIR" \
 "$VENV_DIR/bin/python3" -c "
 import json, os
 from datetime import datetime
@@ -125,7 +139,7 @@ existing = next((i for i in instances if i.get('instance_id') == iid), None)
 first_added = existing.get('first_added') if existing else datetime.now().strftime('%b %-d, %Y, %H:%M')
 instances = [i for i in instances if i.get('instance_id') != iid]
 instances.append({'instance_id': iid, 'token': os.environ['TOKEN'],
-                  'key': os.environ['KEY'], 'relay_ws': os.environ['RELAY_WS'],
+                  'browser_pub': os.environ['BROWSER_PUB'], 'relay_ws': os.environ['RELAY_WS'],
                   'client_name': os.environ['CLIENT_NAME'],
                   'first_added': first_added})
 json.dump(instances, open(f, 'w'), indent=2)
@@ -364,35 +378,39 @@ echo "    $INFERO_CMD uninstall       — remove infero completely"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 """
 
-def build_script(relay_ws, instance_id, token, key, client_name='Unknown'):
+def build_script(relay_ws, instance_id, token, browser_pub, client_name='Unknown'):
     relay_http = relay_ws.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '')
     script = DEVICE_SCRIPT_TEMPLATE
     script = script.replace('{RELAY_WS}', relay_ws)
     script = script.replace('{RELAY_HTTP}', relay_http)
     script = script.replace('{INSTANCE_ID}', instance_id)
     script = script.replace('{TOKEN}', token)
-    script = script.replace('{KEY}', key)
+    script = script.replace('{BROWSER_PUB}', browser_pub)
     script = script.replace('{CLIENT_NAME}', client_name)
     return script
 
 # ─── HTTP handlers ──────────────────────────────────────────────────────────────
 
 async def handle_pair_create(request):
+    ip = request.remote
+    if not _rate_limit_ok(ip, 'pair_create', max_requests=10, window_seconds=600):
+        return web.Response(status=429, text='Too many requests')
     try:
         body = await request.json()
         instance_id = body.get('instance_id', '')
         client_name = body.get('client_name', 'Unknown')
+        browser_pub = body.get('browser_pub', '')
         if not instance_id:
             return web.Response(status=400, text='instance_id required')
+        if not browser_pub:
+            return web.Response(status=400, text='browser_pub required')
     except Exception:
         return web.Response(status=400, text='Invalid JSON')
 
     code = ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(4))
-    key_bytes = os.urandom(32)
-    key_b64 = base64.urlsafe_b64encode(key_bytes).decode().rstrip('=')
 
     pending_pairs[code] = {
-        'key_b64': key_b64,
+        'browser_pub': browser_pub,
         'instance_id': instance_id,
         'client_name': client_name,
         'expires': time.time() + 300
@@ -404,10 +422,14 @@ async def handle_pair_create(request):
         pending_pairs.pop(code, None)
     asyncio.create_task(cleanup())
 
-    return web.json_response({'code': code, 'key': key_b64})
+    return web.json_response({'code': code})
 
 
 async def handle_pair_get(request):
+    ip = request.remote
+    if not _rate_limit_ok(ip, 'pair_get', max_requests=20, window_seconds=300):
+        error_script = '#!/usr/bin/env bash\necho "[infero] Rate limit exceeded. Please wait a few minutes."\nexit 1\n'
+        return web.Response(text=error_script, content_type='text/x-shellscript')
     code = request.match_info['code'].upper()
 
     entry = pending_pairs.get(code)
@@ -418,7 +440,7 @@ async def handle_pair_get(request):
 
     instance_id = entry['instance_id']
     client_name = entry.get('client_name', 'Unknown')
-    key_b64 = entry['key_b64']
+    browser_pub = entry['browser_pub']
     token = secrets.token_urlsafe(32)
 
     # Register token (device name will be filled in when device connects via WS)
@@ -431,7 +453,7 @@ async def handle_pair_get(request):
     # Derive WS URL from server's own origin (configured via env or default)
     relay_ws = os.environ.get('RELAY_WS_URL', 'ws://localhost:8081')
 
-    script = build_script(relay_ws, instance_id, token, key_b64, client_name)
+    script = build_script(relay_ws, instance_id, token, browser_pub, client_name)
     return web.Response(
         text=script,
         content_type='text/x-shellscript',
@@ -499,7 +521,8 @@ async def ws_handler(websocket):
                 'device_name': device_name,
                 'device_type': device_type,
                 'online': True,
-                'fresh_pair': fresh_pair
+                'fresh_pair': fresh_pair,
+                'device_pub': msg.get('device_pub', '')
             }), exclude_ws=websocket)
         else:
             await websocket.close(4000, 'Unknown handshake type')
@@ -517,7 +540,11 @@ async def ws_handler(websocket):
             # ─── Distributed loop messages (any role can send) ────────────
             # Broadcast to all other nodes in this instance
             if mtype in ('stream_token', 'loop_status', 'exec_display', 'settings_update'):
-                await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
+                target = msg.get('device_name')
+                if target:
+                    await send_to_device(instance_id, target, raw)
+                else:
+                    await broadcast_to_instance(instance_id, raw, exclude_ws=websocket)
                 continue
             # Forward to a specific device by name
             if mtype in ('loop_handoff', 'loop_stop', 'exec_request', 'exec_result',
@@ -645,6 +672,16 @@ async def ws_handler(websocket):
 async def handle_update(request):
     return web.Response(text=_load_agent_py().strip(), content_type='text/x-python')
 
+_BIP39_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bip39.txt')
+
+async def handle_bip39(request):
+    try:
+        with open(_BIP39_PATH) as f:
+            return web.Response(text=f.read(), content_type='text/plain',
+                                headers={'Access-Control-Allow-Origin': '*'})
+    except FileNotFoundError:
+        return web.Response(status=404, text='bip39.txt not found')
+
 
 # ─── Entry point ────────────────────────────────────────────────────────────────
 
@@ -656,6 +693,7 @@ async def main():
     app.router.add_post('/pair/create', handle_pair_create)
     app.router.add_get('/pair/{code}', handle_pair_get)
     app.router.add_get('/update', handle_update)
+    app.router.add_get('/bip39', handle_bip39)
 
     runner = web.AppRunner(app)
     await runner.setup()

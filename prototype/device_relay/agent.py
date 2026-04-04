@@ -1,4 +1,4 @@
-import asyncio, json, subprocess, base64, os, sys, socket, re
+import asyncio, json, subprocess, base64, hashlib, os, sys, socket, re
 from datetime import datetime
 import aiohttp
 
@@ -47,12 +47,46 @@ def save_instances(instances):
     json.dump(instances, open(INSTANCES_FILE, 'w'), indent=2)
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import ECDH, SECP256R1
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 import websockets
 
-def make_cipher(key_b64):
-    pad = 4 - len(key_b64) % 4
-    if pad != 4: key_b64 += '=' * pad
-    return AESGCM(base64.urlsafe_b64decode(key_b64))
+def ecdh_derive_key(browser_pub_b64):
+    """Derive shared AES-256 key via ECDH. Returns (aes_key_32_bytes, device_pub_b64)."""
+    pad = 4 - len(browser_pub_b64) % 4
+    if pad != 4: browser_pub_b64 += '=' * pad
+    browser_pub_bytes = base64.b64decode(browser_pub_b64)
+    browser_pub = ec.EllipticCurvePublicKey.from_encoded_point(SECP256R1(), browser_pub_bytes)
+    device_priv = ec.generate_private_key(SECP256R1())
+    shared = device_priv.exchange(ECDH(), browser_pub)
+    aes_key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
+                   info=b'infero-device-relay-v1').derive(shared)
+    device_pub_bytes = device_priv.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+    return aes_key, base64.b64encode(device_pub_bytes).decode()
+
+_BIP39 = []  # loaded from relay at startup
+
+async def _load_bip39(relay_http):
+    global _BIP39
+    if _BIP39:
+        return
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.get(f'{relay_http}/bip39', timeout=aiohttp.ClientTimeout(total=5)) as r:
+                if r.status == 200:
+                    _BIP39 = (await r.text()).split()
+    except Exception:
+        pass  # verification words unavailable, non-critical
+
+def pair_verify_words(aes_key):
+    if len(_BIP39) < 2048:
+        return '(wordlist unavailable)'
+    h = hashlib.sha256(aes_key).digest()
+    n = (h[0] << 14) | (h[1] << 6) | (h[2] >> 2)
+    return _BIP39[n >> 11] + ' ' + _BIP39[n & 0x7ff]
 
 def encrypt(cipher, d):
     iv = os.urandom(12)
@@ -171,7 +205,7 @@ class GenesisWorker:
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
         last_sc = self.consciousness.rfind('/self_continue')
         last_cfh = self.consciousness.rfind('/call_for_human')
-        should_auto_run = loop_was_running and last_sc > last_cfh
+        should_auto_run = loop_was_running and (last_cfh == -1 or last_sc > last_cfh)
         self._log(f"[{ts()}] [infero] run_loop: loopWasRunning={loop_was_running}, last_sc={last_sc}, last_cfh={last_cfh}, should_auto_run={should_auto_run}, pending_input={bool(self.pending_user_input)}, running={self.running}")
         if not should_auto_run and not self.pending_user_input:
             self._log(f"[{ts()}] [infero] run_loop: waiting for user input...")
@@ -205,7 +239,7 @@ class GenesisWorker:
             self.save_to_disk()
             last_sc = B.rfind('/self_continue')
             last_cfh = B.rfind('/call_for_human')
-            cont = last_sc > last_cfh or bool(self.pending_user_input)
+            cont = last_cfh == -1 or last_sc > last_cfh or bool(self.pending_user_input)
             if not cont:
                 break
 
@@ -359,7 +393,8 @@ class GenesisWorker:
                             td = thinking_text[_last_think_len:]
                             ad = ai_text[_last_ai_len:]
                             if ad or td:
-                                await self.send_relay({'type': 'stream_token', 'text_delta': ad, 'thinking_delta': td, 'being_id': self.being_id})
+                                await self.send_relay({'type': 'stream_token', 'sender': DEVICE_NAME,
+                                    'payload': encrypt(self.cipher, {'text_delta': ad, 'thinking_delta': td, 'being_id': self.being_id})})
                                 _last_ai_len = len(ai_text)
                                 _last_think_len = len(thinking_text)
                         # Print latest token to terminal
@@ -372,7 +407,8 @@ class GenesisWorker:
 
         self._log(f"\n[{ts()}] [infero] Infer done: {len(ai_text)} chars")
         # Signal stream done
-        await self.send_relay({'type': 'stream_token', 'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage, 'being_id': self.being_id})
+        await self.send_relay({'type': 'stream_token', 'sender': DEVICE_NAME,
+            'payload': encrypt(self.cipher, {'text': ai_text, 'thinking': thinking_text, 'done': True, 'usage': usage, 'being_id': self.being_id})})
         self._last_prompt_tokens = usage.get('promptTokens', 0)
         await self._maybe_refresh_cache(usage)
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -581,7 +617,8 @@ class GenesisWorker:
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
-        await self.send_relay({'type': 'exec_display', 'being_id': self.being_id, 'text': sysMsg})
+        await self.send_relay({'type': 'exec_display', 'sender': DEVICE_NAME,
+            'payload': encrypt(self.cipher, {'being_id': self.being_id, 'text': sysMsg})})
         return sysMsg
 
     async def _exec_remote_shell(self, device_name, cmd):
@@ -604,7 +641,8 @@ class GenesisWorker:
             out = f"[Shell Error]\n{e}"
         self._pending_exec.pop(req_id, None)
         sysMsg = f"System - [Shell][{device_name}] - Result:\n```text\n{out.strip()}\n```\n\n"
-        await self.send_relay({'type': 'exec_display', 'being_id': self.being_id, 'text': sysMsg})
+        await self.send_relay({'type': 'exec_display', 'sender': DEVICE_NAME,
+            'payload': encrypt(self.cipher, {'being_id': self.being_id, 'text': sysMsg})})
         return sysMsg
 
     async def _exec_browser(self, code):
@@ -612,7 +650,8 @@ class GenesisWorker:
         req_id = base64.urlsafe_b64encode(os.urandom(12)).decode()
         fut = asyncio.get_running_loop().create_future()
         self._pending_exec[req_id] = fut
-        await self.send_relay({'type': 'browser_exec_request', 'req_id': req_id, 'code': code, 'being_id': self.being_id})
+        await self.send_relay({'type': 'browser_exec_request', 'sender': DEVICE_NAME,
+            'payload': encrypt(self.cipher, {'req_id': req_id, 'code': code, 'being_id': self.being_id})})
         try:
             result = await asyncio.wait_for(fut, timeout=20)
         except asyncio.TimeoutError:
@@ -654,7 +693,23 @@ class GenesisWorker:
 # ─── Connection handler ───────────────────────────────────────────────────────
 
 async def connect_instance(cfg):
-    cipher = make_cipher(cfg['key'])
+    # Derive key once via ECDH, then persist so reconnects use the same key
+    if cfg.get('aes_key'):
+        aes_key = base64.b64decode(cfg['aes_key'])
+        device_pub_b64 = cfg.get('device_pub', '')
+    else:
+        aes_key, device_pub_b64 = ecdh_derive_key(cfg['browser_pub'])
+        instances = load_instances()
+        for inst in instances:
+            if inst['instance_id'] == cfg['instance_id']:
+                inst['aes_key'] = base64.b64encode(aes_key).decode()
+                inst['device_pub'] = device_pub_b64
+                break
+        save_instances(instances)
+    relay_http = cfg['relay_ws'].replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '')
+    await _load_bip39(relay_http)
+    vwords = pair_verify_words(aes_key)
+    cipher = AESGCM(aes_key)
     backoff = 1
     iid = cfg['instance_id'][:8]
     while True:
@@ -666,9 +721,10 @@ async def connect_instance(cfg):
                     "instance_id": cfg['instance_id'],
                     "token": cfg['token'],
                     "device_name": DEVICE_NAME,
-                    "device_type": "shell"
+                    "device_type": "shell",
+                    "device_pub": device_pub_b64
                 }))
-                log(cfg['relay_ws'], f"[{ts()}] [infero] Connected: {DEVICE_NAME} → {iid}...")
+                log(cfg['relay_ws'], f"[{ts()}] [infero] Connected: {DEVICE_NAME} → {iid}... | pair verify: {vwords}")
                 async def handle_exec(req_id, payload_raw):
                     try:
                         cmd = decrypt(cipher, payload_raw)['cmd']
@@ -714,15 +770,24 @@ async def connect_instance(cfg):
                             await ws.send(json.dumps({'type': 'loop_status', 'status': 'stopped',
                                 'device_name': DEVICE_NAME, 'payload': None}))
                     elif mtype == 'user_input':
-                        w = workers.get(being_id)
-                        log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={being_id}, worker={w is not None}, text={msg.get('text','')[:30]}")
-                        if w: w.on_user_input(msg)
+                        try:
+                            content = decrypt(cipher, msg['payload'])
+                            iid = content.get('being_id', '')
+                            w = workers.get(iid)
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={iid}, worker={w is not None}, text={str(content.get('text',''))[:30]}")
+                            if w: w.on_user_input(content)
+                        except Exception as e:
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] user_input decrypt error: {e}")
                     elif mtype == 'result':
                         for w in workers.values():
                             w.on_exec_result(msg)
                     elif mtype == 'browser_exec_result':
-                        for w in workers.values():
-                            w.on_browser_exec_result(msg)
+                        try:
+                            content = decrypt(cipher, msg['payload'])
+                            for w in workers.values():
+                                w.on_browser_exec_result(content)
+                        except Exception as e:
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] browser_exec_result decrypt error: {e}")
                     elif mtype == 'consciousness_sync' and msg.get('action') == 'request':
                         w = workers.get(being_id)
                         log(cfg['relay_ws'], f"[{ts()}] [infero] MSG consciousness_sync request for being={being_id}, worker={w is not None}")
@@ -745,10 +810,14 @@ async def connect_instance(cfg):
                         else:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: no worker or empty consciousness")
                     elif mtype == 'settings_update':
-                        new_settings = msg.get('settings', {})
-                        for w in workers.values():
-                            w.llm_settings.update(new_settings)
-                        log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update: model={new_settings.get('model','?')}")
+                        try:
+                            content = decrypt(cipher, msg['payload'])
+                            new_settings = content.get('settings', {})
+                            for w in workers.values():
+                                w.llm_settings.update(new_settings)
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update: model={new_settings.get('model','?')}")
+                        except Exception as e:
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] settings_update decrypt error: {e}")
                     elif mtype == 'device_status':
                         name = msg.get('device_name', '')
                         online = msg.get('online', False)
