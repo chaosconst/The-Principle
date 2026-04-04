@@ -120,7 +120,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 try {
                     const db = await new Promise(r => { const req = indexedDB.open("GenesisDB"); req.onsuccess = () => r(req.result); });
                     const record = await new Promise(r => { const req = db.transaction("beings", "readonly").objectStore("beings").get(currentBeingId + "/core_mem.md"); req.onsuccess = () => r(req.result); });
-                    let memContent = (record && record.content) ? record.content : "";
+                    let memContent = (record && record.value) ? record.value : "";
                     coreMemText = "=== CORE MEMORY( in " + currentBeingId + "/core_mem.md) ===\n" + 
                                   memContent + 
                                   "\n\n[Architecture Note]\n" +
@@ -2227,7 +2227,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                                         window._coreMem = data.metadata.coreMem;
                                         try {
                                             const db = await new Promise(r => { const req = indexedDB.open('GenesisDB'); req.onsuccess = () => r(req.result); });
-                                            db.transaction('beings', 'readwrite').objectStore('beings').put({ id: currentBeingId + '/core_mem.md', content: data.metadata.coreMem });
+                                            db.transaction('beings', 'readwrite').objectStore('beings').put({ id: currentBeingId + '/core_mem.md', value: data.metadata.coreMem });
                                         } catch(e) { console.error('coreMem save failed', e); }
                                     }
                                 }
