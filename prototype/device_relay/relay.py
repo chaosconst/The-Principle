@@ -198,7 +198,9 @@ class GenesisWorker:
         cm_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')
         try:
             with open(cm_path, encoding='utf-8') as f: content = f.read()
-            return content[:max_chars]
+            if len(content) > max_chars:
+                return content[:max_chars] + f"\n\n[⚠️ core_mem truncated to {max_chars} chars. Full long_mem: {len(content)} chars]"
+            return content
         except: return ''
 
     async def on_loop_handoff(self, payload_enc):

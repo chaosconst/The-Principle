@@ -120,7 +120,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 try {
                     const db = await new Promise(r => { const req = indexedDB.open("GenesisDB"); req.onsuccess = () => r(req.result); });
                     const record = await new Promise(r => { const req = db.transaction("beings", "readonly").objectStore("beings").get(currentBeingId + "/core_mem.md"); req.onsuccess = () => r(req.result); });
-                    let memContent = (record && record.value) ? record.value.slice(0, 20000) : "";  // ~5k tokens
+                    const rawMem = (record && record.value) ? record.value : "";
+                    const MAX_MEM = 20000;  // ~5k tokens
+                    let memContent = rawMem.length > MAX_MEM
+                        ? rawMem.slice(0, MAX_MEM) + `\n\n[⚠️ core_mem truncated to ${MAX_MEM} chars. Full long_mem: ${rawMem.length} chars]`
+                        : rawMem;
                     coreMemText = "=== CORE MEMORY( in " + currentBeingId + "/core_mem.md) ===\n" + 
                                   memContent + 
                                   "\n\n[Architecture Note]\n" +
