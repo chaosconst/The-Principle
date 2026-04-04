@@ -372,7 +372,7 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " ✓ Pairing request sent"
 if [ -n "$VWORDS" ]; then
-echo " 🔑 Verify Words: $VWORDS"
+echo " 🔑 Verify Words: \033[1;96m$VWORDS\033[0m"
 fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
