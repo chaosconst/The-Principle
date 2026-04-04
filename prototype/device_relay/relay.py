@@ -119,6 +119,7 @@ if [ ! -f "$VENV_DIR/bin/python3" ]; then
     echo "[infero] Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
 fi
+echo "[infero] Installing requirements..."
 "$VENV_DIR/bin/pip" install -q cryptography websockets python-socks aiohttp
 echo "[infero] Dependencies ready"
 
