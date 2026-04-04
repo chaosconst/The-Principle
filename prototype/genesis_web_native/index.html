@@ -2347,6 +2347,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (msg.type === 'loop_status') {
                 if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 if (msg.status === 'started') {
+                    window._remoteLoopRunning = true;
+                    updateSendBtn();
                     setStatus('Remote');
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
                 }
@@ -2398,6 +2400,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     } else {
                         setStatus('Stopped');
                     }
+                    window._remoteLoopRunning = false;
+                    updateSendBtn();
                 }
             }
 
@@ -2794,7 +2798,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         function updateSendBtn() {
             const empty = !input.value.trim();
-            const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
+            const remoteRunning = settings.hostDevice !== 'this browser' && (window._remoteLoopRunning || window._remoteAiDiv);
             const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
             const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
             sendBtn.textContent = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
