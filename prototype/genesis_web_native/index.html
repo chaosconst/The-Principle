@@ -2265,14 +2265,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         setStatus('Syncing...');
                     }
                 }
-                // Host device is online (e.g. browser refresh) — sync consciousness without stopping
-                if (online && settings.hostDevice === device_name) {
-                    console.log(`[relay] Host ${device_name} is online, requesting consciousness sync...`);
-                    window._forkPoint = consciousness.length;
-                    if (_relayWs && _relayConnected) {
-                        _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name, being_id: currentBeingId, action: 'request' }));
-                        setStatus('Syncing...');
-                    }
+                // Host device is online (e.g. relay restart) — handoff to re-establish worker
+                // Skip if remote loop is already running (e.g. browser refresh while device was mid-inference)
+                if (online && settings.hostDevice === device_name && !window._remoteLoopRunning) {
+                    console.log(`[relay] Host ${device_name} is online, handing off to re-establish worker...`);
+                    doHandoff(device_name);
                 }
             }
             if (msg.type === 'device_removed') {
