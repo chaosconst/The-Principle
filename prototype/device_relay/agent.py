@@ -369,7 +369,15 @@ class GenesisWorker:
                             if data_str == '[DONE]': continue
                             try:
                                 data = json.loads(data_str)
-                            except: continue
+                            except:
+                                # JSON parse failed — may be a multi-line error payload split by \n
+                                if '"error"' in data_str and self.metadata.get('cacheName') and 'CachedContent' in data_str:
+                                    self._log(f"[{ts()}] [cache] SSE error (split line), rebuilding...")
+                                    self.metadata['cacheName'] = None
+                                    self.metadata['cachedLength'] = 0
+                                    await self._maybe_refresh_cache({}, force=True)
+                                    return await self.infer()
+                                continue
 
                             # Gemini error embedded in SSE stream (HTTP 200 but error JSON)
                             if 'error' in data:
