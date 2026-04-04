@@ -694,13 +694,21 @@ async def ws_handler(websocket):
         elif role == 'device' and device_key:
             info = device_conns.pop(device_key, None)
             if info:
-                print(f"[{ts()}] [relay] Device disconnected: {info['device_name']}")
-                await broadcast_to_instance(instance_id, json.dumps({
-                    'type': 'device_status',
-                    'device_name': info['device_name'],
-                    'device_type': info.get('device_type', 'shell'),
-                    'online': False
-                }))
+                dname = info['device_name']
+                # Check if any other connection for the same device_name is still alive
+                still_online = any(
+                    v['device_name'] == dname
+                    for k, v in device_conns.items()
+                    if k.startswith(f"{instance_id}:") or k.endswith(f":{dname}")
+                )
+                print(f"[{ts()}] [relay] Device disconnected: {dname}{' (still has other conn)' if still_online else ''}")
+                if not still_online:
+                    await broadcast_to_instance(instance_id, json.dumps({
+                        'type': 'device_status',
+                        'device_name': dname,
+                        'device_type': info.get('device_type', 'shell'),
+                        'online': False
+                    }))
 
 
 async def handle_update(request):
