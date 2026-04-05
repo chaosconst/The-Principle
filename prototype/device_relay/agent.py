@@ -629,10 +629,10 @@ class GenesisWorker:
         if not B_out: return
         tasks = []
         # Parse /browser exec blocks
-        for m in re.finditer(r'^/browser exec\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:exec browser|browser exec)\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             tasks.append(self._exec_browser(m.group(1).strip()))
         # Parse /shell exec blocks
-        for m in re.finditer(r'^/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:exec shell|shell exec) (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))

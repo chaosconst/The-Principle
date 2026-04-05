@@ -379,7 +379,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execCode(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/browser exec\n```(?:javascript|js)?\n([\s\S]*?)\n```/gm)];
+            const matches = [...B_out.matchAll(/^\/(?:exec browser|browser exec)\n```(?:javascript|js)?\n([\s\S]*?)\n```/gm)];
             if (!matches.length) return null;
 
             setStatus('Executing...');
@@ -1701,7 +1701,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const isHost = host === name;
                 deviceLines += `\n  - ${name}(online, shell)${isHost ? ' [core loop host]' : ''}`;
                 deviceLines += `\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime`;
-                deviceLines += `\n    - Exec: /shell exec ${name}\n\`\`\`bash\n<command>\n\`\`\``;
+                deviceLines += `\n    - Exec: /exec shell ${name}\n\`\`\`bash\n<command>\n\`\`\``;
                 deviceLines += `\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)`;
             }
             // non-shell remote devices, online only (future types)
@@ -2519,7 +2519,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execShellBlocks(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)\n```/gm)];
+            const matches = [...B_out.matchAll(/^\/(?:exec shell|shell exec) (\S+)\n```[^\n]*\n([\s\S]*?)\n```/gm)];
             if (!matches.length) return null;
             setStatus('Executing on device...');
 
