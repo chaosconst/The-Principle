@@ -78,7 +78,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
 
                 if (!B.trim()) { console.log('[loop] stop: empty response'); return; }
-                const Bstripped = B.replace(/```[\s\S]*?```/g, '');
+                const Bstripped = B.replace(/^```[\s\S]*?^```/gm, '');
                 const lastSC = Bstripped.lastIndexOf('/self_continue');
                 const lastCFH = Bstripped.lastIndexOf('/call_for_human');
                 // Stop only when /call_for_human explicitly appears and wins; otherwise always continue

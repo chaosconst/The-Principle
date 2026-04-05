@@ -206,7 +206,7 @@ class GenesisWorker:
 
     async def run_loop(self, loop_was_running=False):
         """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
-        c_stripped = re.sub(r'```[\s\S]*?```', '', self.consciousness)
+        c_stripped = re.sub(r'^```[\s\S]*?^```', '', self.consciousness, flags=re.MULTILINE)
         last_sc = c_stripped.rfind('/self_continue')
         last_cfh = c_stripped.rfind('/call_for_human')
         should_auto_run = loop_was_running and (last_cfh == -1 or last_sc > last_cfh)
@@ -245,7 +245,7 @@ class GenesisWorker:
             self.save_to_disk()
             if not B.strip():
                 break  # empty response — stop to avoid infinite quota burn
-            B_stripped = re.sub(r'```[\s\S]*?```', '', B)
+            B_stripped = re.sub(r'^```[\s\S]*?^```', '', B, flags=re.MULTILINE)
             last_sc = B_stripped.rfind('/self_continue')
             last_cfh = B_stripped.rfind('/call_for_human')
             cont = last_cfh == -1 or last_sc > last_cfh or bool(self.pending_user_input)
