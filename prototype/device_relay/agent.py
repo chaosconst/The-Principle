@@ -491,7 +491,7 @@ class GenesisWorker:
                          "\n\n[Architecture Note]\n"
                          "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n"
                          "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in maybeCompressConsciousness() when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n"
-                         "You MUST save your important notes, protocols, or skills in this core_mem.md (or other persistent shell files) to prevent them from being forgotten.\n"
+                         "core_mem.md is always in context. Store what increases your prediction density. Update it as you evolve.\n"
                          "===================\n\n") if cm else ""
         being_prefix = f"**Digital Being - [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]**\n"
         consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '') + being_prefix
