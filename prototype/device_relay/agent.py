@@ -274,7 +274,7 @@ class GenesisWorker:
                 lines += '\n         .left-panel #chat-box + #input + #send-btn'
                 lines += '\n    - Memory: IndexedDB(\'GenesisDB\', store=\'beings\', keyPath=\'id\')'
                 lines += '\n    - Capabilities: DOM/UI, canvas/WebGL, fetch, IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)'
-                lines += '\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/browser exec\n```javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById(\'canvas-container\').getBoundingClientRect();\n// return value — use for immediate results (sync or async)\n// trigger(value) — use for deferred wakeup\n```'
+                lines += '\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n```javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById(\'canvas-container\').getBoundingClientRect();\n// return value — use for immediate results (sync or async)\n// trigger(msg) — globally available; call inside async callbacks to resume loop. Do NOT redefine it.\n```'
             else:
                 lines += f'\n  - {name}(online, {dtype})'
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
@@ -629,10 +629,10 @@ class GenesisWorker:
         if not B_out: return
         tasks = []
         # Parse /browser exec blocks
-        for m in re.finditer(r'^/(?:exec browser|browser exec)\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/browser exec\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             tasks.append(self._exec_browser(m.group(1).strip()))
         # Parse /shell exec blocks
-        for m in re.finditer(r'^/(?:exec shell|shell exec) (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))
