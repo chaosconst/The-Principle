@@ -1694,7 +1694,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
-                deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — CORS proxy: returns plain text for HTML, streams media for video/audio/image; r.jina.ai/{url} as fallback), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
+                deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, raw content as-is; r.jina.ai/{url} as fallback for plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.\n\`\`\``;
             }
@@ -2305,13 +2305,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (msg.type === 'device_removed') {
                 const { device_name } = msg;
                 if (settings.devices?.[device_name]) {
+                    const wasHost = settings.hostDevice === device_name;
                     delete settings.devices[device_name];
-                    if (settings.hostDevice === device_name) settings.hostDevice = 'this browser';
+                    if (wasHost) settings.hostDevice = 'this browser';
                     saveSettingsToStorage(settings);
                     renderDeviceList();
                     const note = `System - [Device] - ${device_name} removed itself`;
                     appendMsgUI('system', note);
-                    await appendConsciousness(note + '\n\n');
+                    // Only write to consciousness if browser is the writer (host)
+                    if (settings.hostDevice === 'this browser') {
+                        await appendConsciousness(note + '\n\n');
+                    }
                 }
                 return;
             }
