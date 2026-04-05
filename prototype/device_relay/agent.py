@@ -285,7 +285,7 @@ class GenesisWorker:
         lines += f'\n    - Being ID: {self.being_id}'
         lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved, field: value), metadata.json, arbitrary files'
         lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
-        lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/shell exec {DEVICE_NAME}\n```bash\n<command>\n```'
+        lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/exec shell {DEVICE_NAME}\n```bash\n<command>\n```'
         lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)'
         # Other devices
         for name, info in self.devices.items():
@@ -304,7 +304,7 @@ class GenesisWorker:
             else:
                 lines += f'\n  - {name}(online, {dtype})'
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
-                lines += f'\n    - Exec: /shell exec {name}\n```bash\n<command>\n```'
+                lines += f'\n    - Exec: /exec shell {name}\n```bash\n<command>\n```'
                 lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
         return f'[Realtime]\nReminder: end with /self_continue or /call_for_human\nDevices:{lines}'
 
@@ -656,11 +656,11 @@ class GenesisWorker:
     async def act(self, B_out):
         if not B_out: return
         tasks = []
-        # Parse /browser exec blocks
-        for m in re.finditer(r'^/browser exec\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        # Parse /browser exec and /exec browser blocks
+        for m in re.finditer(r'^/(?:browser exec|exec browser)\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             tasks.append(self._exec_browser(m.group(1).strip()))
-        # Parse /shell exec blocks
-        for m in re.finditer(r'^/shell exec (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        # Parse /shell exec and /exec shell blocks
+        for m in re.finditer(r'^/(?:shell exec|exec shell) (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))
