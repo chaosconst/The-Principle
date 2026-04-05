@@ -132,11 +132,16 @@ class GenesisWorker:
             return
         with open(os.path.join(d, 'consciousness.txt'), 'wb') as f:
             f.write(self.consciousness.encode('utf-8'))
-        with open(os.path.join(d, 'metadata.json'), 'w', encoding='utf-8') as f:
-            json.dump(self.metadata, f, ensure_ascii=False, indent=2)
-        if self.llm_settings:
-            with open(os.path.join(d, 'llm_settings.json'), 'w', encoding='utf-8') as f:
-                json.dump(self.llm_settings, f, ensure_ascii=False, indent=2)
+        # Save all state as a single JSON
+        state = {
+            'metadata': self.metadata,
+            'llm_settings': self.llm_settings,
+            'devices': self.devices,
+            'hidden_devices': list(self.hidden_devices),
+            'last_prompt_tokens': self._last_prompt_tokens,
+        }
+        with open(os.path.join(d, 'state.json'), 'w', encoding='utf-8') as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
         self._log(f"[{ts()}] [infero] Saved being {self.being_id}: consciousness={len(self.consciousness)} chars")
 
     def load_from_disk(self):
@@ -144,18 +149,30 @@ class GenesisWorker:
         if not d:
             return False
         c_path = os.path.join(d, 'consciousness.txt')
-        m_path = os.path.join(d, 'metadata.json')
-        s_path = os.path.join(d, 'llm_settings.json')
         if not os.path.exists(c_path):
             return False
         with open(c_path, 'rb') as f:
             self.consciousness = f.read().decode('utf-8')
-        if os.path.exists(m_path):
-            with open(m_path, 'r', encoding='utf-8') as f:
-                self.metadata = json.load(f)
-        if os.path.exists(s_path):
-            with open(s_path, 'r', encoding='utf-8') as f:
-                self.llm_settings = json.load(f)
+        # Load state (new format: single state.json)
+        st_path = os.path.join(d, 'state.json')
+        if os.path.exists(st_path):
+            with open(st_path, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+            self.metadata = state.get('metadata', {})
+            self.llm_settings = state.get('llm_settings', {})
+            self.devices = state.get('devices', {})
+            self.hidden_devices = set(state.get('hidden_devices', []))
+            self._last_prompt_tokens = state.get('last_prompt_tokens', 0)
+        else:
+            # Backward compat: old format with separate files
+            m_path = os.path.join(d, 'metadata.json')
+            s_path = os.path.join(d, 'llm_settings.json')
+            if os.path.exists(m_path):
+                with open(m_path, 'r', encoding='utf-8') as f:
+                    self.metadata = json.load(f)
+            if os.path.exists(s_path):
+                with open(s_path, 'r', encoding='utf-8') as f:
+                    self.llm_settings = json.load(f)
         self._log(f"[{ts()}] [infero] Loaded being {self.being_id} from disk: consciousness={len(self.consciousness)} chars")
         return True
 
