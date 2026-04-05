@@ -874,7 +874,7 @@ async def connect_instance(cfg):
                             c_meta = w.metadata
                         else:
                             # No worker — try loading from disk
-                            tmp = Worker(cipher, ws, cfg['relay_ws'])
+                            tmp = GenesisWorker(cipher, ws, cfg['relay_ws'])
                             tmp.being_id = being_id
                             if tmp.load_from_disk():
                                 c_text = tmp.consciousness
