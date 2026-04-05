@@ -455,7 +455,8 @@ class GenesisWorker:
         self._last_prompt_tokens = usage.get('promptTokens', 0)
         await self._maybe_refresh_cache(usage)
         time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.consciousness += f"**Digital Being - [{time_str}]**\n{ai_text}\n\n"
+        clean_ai = re.sub(r'^\*{0,2}Digital Being\s*[-–—]\s*\[.*?\]\*{0,2}\n?', '', ai_text)
+        self.consciousness += f"**Digital Being - [{time_str}]**\n{clean_ai}\n\n"
         return ai_text
 
     def _build_payload(self, fmt, model, system_prompt, thinking):
@@ -468,7 +469,8 @@ class GenesisWorker:
                          "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in maybeCompressConsciousness() when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n"
                          "You MUST save your important notes, protocols, or skills in this core_mem.md (or other persistent shell files) to prevent them from being forgotten.\n"
                          "===================\n\n") if cm else ""
-        consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '')
+        being_prefix = f"**Digital Being - [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]**\n"
+        consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '') + being_prefix
         stop = ['\nSystem - [', '\n[System Environment]']
 
         if fmt == 'anthropic':
