@@ -2497,13 +2497,18 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (changed) renderHistory();
                 if (window._syncThenHandoff === runner) {
                     window._syncThenHandoff = null;
-                    // Sync response received = device has state. Just merge, don't handoff.
-                    // (Timeout path handles the case where device has no worker.)
-                    console.log(`[relay] Sync done from ${runner}, ${remoteConsciousness ? remoteConsciousness.length + ' chars' : 'empty'} — staying in Remote mode`);
-                    settings.hostDevice = runner;
-                    saveSettingsToStorage(settings);
-                    renderDeviceList();
-                    setStatus('Remote');
+                    if (changed) {
+                        // Merge produced a new version — handoff back so device gets the merged consciousness
+                        console.log(`[relay] Sync done from ${runner}, merged — handing off merged consciousness`);
+                        doHandoff(runner);
+                    } else {
+                        // No change — device's version is authoritative, just stay in Remote
+                        console.log(`[relay] Sync done from ${runner}, ${remoteConsciousness ? remoteConsciousness.length + ' chars' : 'empty'} — staying in Remote mode`);
+                        settings.hostDevice = runner;
+                        saveSettingsToStorage(settings);
+                        renderDeviceList();
+                        setStatus('Remote');
+                    }
                     updateSendBtn();
                 } else {
                     setStatus('Remote');
