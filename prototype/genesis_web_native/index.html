@@ -131,7 +131,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     let memContent = rawMem.length > MAX_MEM
                         ? rawMem.slice(0, MAX_MEM) + `\n\n[⚠️ core_mem truncated to ${MAX_MEM} chars. Full long_mem: ${rawMem.length} chars]`
                         : rawMem;
-                    coreMemText = "=== CORE MEMORY( in " + currentBeingId + "/core_mem.md) ===\n" + 
+                    coreMemText = "=== CORE MEMORY( in IndexedDB('GenesisDB', store='beings'){id: \"" + currentBeingId + "/core_mem.md\"}[value]) ===\n" +
                                   memContent + 
                                   "\n\n[Architecture Note]\n" +
                                   "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n" +
@@ -2872,8 +2872,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
             const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
             const label = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
-            const cls = [...sendBtn.classList].join(' ');
-            console.log(`[btn] "${sendBtn.textContent}"→"${label}" cls=[${cls}] go=${isGo} stop=${isAbort} empty=${empty} val="${input.value.slice(0,10)}"`);
             sendBtn.textContent = label;
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
