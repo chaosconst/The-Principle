@@ -274,7 +274,7 @@ class GenesisWorker:
                 lines += '\n         .left-panel #chat-box + #input + #send-btn'
                 lines += '\n    - Memory: IndexedDB(\'GenesisDB\', store=\'beings\', keyPath=\'id\')'
                 lines += '\n    - Capabilities: DOM/UI, canvas/WebGL, fetch, IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)'
-                lines += '\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n```javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById(\'canvas-container\').getBoundingClientRect();\n// return value — use for immediate results (sync or async)\n// trigger(msg) — globally available; call inside async callbacks to resume loop. Do NOT redefine it.\n```'
+                lines += '\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n```javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById(\'canvas-container\').getBoundingClientRect();\n// return value — use for immediate results (sync or async)\n// trigger(value) — use for deferred wakeup\n```'
             else:
                 lines += f'\n  - {name}(online, {dtype})'
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
