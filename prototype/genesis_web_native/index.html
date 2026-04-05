@@ -1848,7 +1848,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function renderStatus() {
             const prompt = _lastPromptTokens ? `${Math.round(_lastPromptTokens/1000)}k` : `${Math.round(consciousness.length / 4096)}k`;
             const cached = `${Math.round(_lastCachedTokens/1000)}k`;
-            const hasCache = cacheName || _lastCachedTokens !== undefined;
+            const fmt = getActiveFormat();
+            const hasCache = (fmt === 'anthropic' || fmt === 'gemini') && (cacheName || _lastCachedTokens > 0);
             const stat = hasCache && _statusFlip
                 ? `Cache: ${cached} tok`
                 : `Mem: ${prompt} tok`;
