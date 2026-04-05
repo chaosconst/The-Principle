@@ -467,7 +467,7 @@ class GenesisWorker:
                          "You MUST save your important notes, protocols, or skills in this core_mem.md (or other persistent shell files) to prevent them from being forgotten.\n"
                          "===================\n\n") if cm else ""
         consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '')
-        stop = ['\nSystem - [Browser]', '\nSystem - [Shell]', '\n[System Environment]']
+        stop = ['\nSystem - [', '\n[System Environment]']
 
         if fmt == 'anthropic':
             # Cache breakpoints: split consciousness at token-aligned positions
@@ -529,7 +529,7 @@ class GenesisWorker:
         gemini_config = {
             'temperature': 0.7,
             'thinkingConfig': {'includeThoughts': True},
-            'stopSequences': ['\nSystem - [Browser]', '\n[System Environment]']
+            'stopSequences': stop
         }
         contents = [{'role': 'user', 'parts': [{'text': buffer_text}]}]
         is_infero = bool(self.llm_settings.get('client_id'))

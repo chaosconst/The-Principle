@@ -115,6 +115,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             setStatus('Inferring...');
             let aiDiv = appendMsgUI('ai', '');
 
+            const STOP_WORDS = ['\nSystem - [', '\n[System Environment]'];
+
             async function buildPayload() {
                 const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
                 const canvasImage = supportsVision ? await getCanvasImage() : null;
@@ -170,7 +172,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         messages: [{ role: 'user', content: userContent }],
                         max_tokens: 8192,
                         stream: true,
-                        stop_sequences: ['System - [Browser]', 'System - [Shell]', '[System Environment]']
+                        stop_sequences: STOP_WORDS
                     };
                     if (settings.thinking) {
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
@@ -193,7 +195,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         ],
                         stream: true,
                         temperature: 0.7,
-                        stop: ['System - [Browser]', 'System - [Shell]', '[System Environment]']
+                        stop: STOP_WORDS
                     };
                     if (settings.thinking) {
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
@@ -211,7 +213,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const contents = [
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
-                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: ['System - [Browser]', 'System - [Shell]', '[System Environment]'] };
+                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: STOP_WORDS };
                 const payload = cacheName ? {
                     model,
                     cachedContent: cacheName,
