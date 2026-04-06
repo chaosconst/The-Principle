@@ -1873,10 +1873,34 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             } else {
                 div.className = `msg ${role}`;
                 div.innerHTML = marked.parse(text);
+                if (role === 'user') {
+                    div.dataset.userText = text;
+                    div.style.cursor = 'pointer';
+                    div.addEventListener('click', () => timeRewind(div));
+                }
             }
             chatBox.appendChild(div);
             scrollToBottom();
             return div;
+        }
+
+        async function timeRewind(div) {
+            if (loopRunning) return;
+            const userText = div.dataset.userText;
+            if (!confirm('从此处开始时光倒流？')) return;
+            // Find the [System Environment] block that contains this user text in consciousness
+            const idx = consciousness.indexOf(userText);
+            if (idx === -1) return;
+            // Walk back to find the start of this [System Environment] block
+            const envTag = '[System Environment]';
+            const envStart = consciousness.lastIndexOf(envTag, idx);
+            if (envStart === -1) return;
+            // Truncate consciousness before this block
+            consciousness = consciousness.slice(0, envStart).trimEnd() + '\n\n';
+            await appendConsciousness('');  // persist
+            // Put text into input box
+            document.getElementById('input').value = userText;
+            await renderHistory();
         }
 
         // --- Settings UI ---
