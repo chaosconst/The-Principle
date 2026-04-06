@@ -1709,7 +1709,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n  - ${name}(online, shell)${isHost ? ' [core loop host]' : ''}`;
                 deviceLines += `\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime`;
                 deviceLines += `\n    - Exec: /exec shell ${name}\n\`\`\`bash\n<command>\n\`\`\``;
-                deviceLines += `\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)`;
+                deviceLines += `\n      (30s timeout. For long tasks use nohup.)`;
+                deviceLines += `\n    - Trigger: echo "msg" >> ~/.infero*/beings/{being_id}/trigger.txt to wake from /call_for_human. Use in nohup for async callback.`;
+                deviceLines += `\n    - Watchdog: 30 min no trigger after /call_for_human → auto-wakes.`;
             }
             // non-shell remote devices, online only (future types)
             for (const name of Object.keys(devices)) {
