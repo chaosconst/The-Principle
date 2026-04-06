@@ -2362,6 +2362,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 let html = window._remoteThinkText ? `<div class="msg-thinking">${marked.parse(window._remoteThinkText)}</div>` : '';
                 html += marked.parse(displayText);
                 window._remoteAiDiv.innerHTML = html;
+                window._remoteAiDiv.querySelectorAll('pre').forEach(pre => { pre.scrollTop = pre.scrollHeight; });
                 scrollToBottom();
                 if (content.done) {
                     if (!window._remoteAiText && window._remoteAiDiv) window._remoteAiDiv.remove();
