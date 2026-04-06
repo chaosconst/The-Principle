@@ -247,6 +247,8 @@ class GenesisWorker:
         if merged:
             self.consciousness += f"System - [Trigger] {merged}\n\n"
             self._log(f"[{ts()}] triggered ({len(msgs)} msgs): {merged[:200]}")
+            await self.send_relay({'type': 'exec_display', 'sender': DEVICE_NAME,
+                'payload': encrypt(self.cipher, {'being_id': self.being_id, 'text': f"System - [Trigger] {merged}"})})
 
     async def on_loop_handoff(self, payload_enc):
         data = decrypt(self.cipher, payload_enc)
@@ -311,8 +313,9 @@ class GenesisWorker:
         if not self.pending_user_input and '/call_for_human' in self.consciousness:
             last_sc = self.consciousness.rfind('/self_continue')
             last_cfh = self.consciousness.rfind('/call_for_human')
-            if last_cfh > last_sc:
-                self._log(f"[{ts()}] [infero] loop(): /call_for_human at end, returning immediately")
+            last_trigger = self.consciousness.rfind('System - [Trigger]')
+            if last_cfh > last_sc and last_cfh > last_trigger:
+                self._log(f"[{ts()}] [infero] loop(): /call_for_human at end, no trigger after it, returning")
                 return
 
         while self.running:
