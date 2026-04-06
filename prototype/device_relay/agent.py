@@ -118,6 +118,9 @@ class GenesisWorker:
         self.hidden_devices = set()
         self.being_id = ''
         self._last_prompt_tokens = 0
+        self.triggers = asyncio.Queue()
+        self._next_sleep = 1800  # default 30 min watchdog
+        self._trigger_watcher = None  # file watcher task
 
     def _being_dir(self):
         if not self.being_id:
@@ -195,6 +198,56 @@ class GenesisWorker:
             return content
         except: return ''
 
+    def trigger(self, msg=''):
+        """Inject a message and wake the loop. Thread-safe."""
+        self._log(f"  [trigger] ({len(msg)} chars): {msg[:100]}")
+        self.triggers.put_nowait(msg)
+
+    def wake_me_up_when(self, sec):
+        """Set next sleep duration. Any trigger wakes early."""
+        self._next_sleep = sec
+        self._log(f"  [wake_me_up_when] {sec}s")
+
+    def _trigger_file_path(self):
+        d = self._being_dir()
+        return os.path.join(d, 'trigger.txt') if d else None
+
+    async def _watch_trigger_file(self):
+        """Poll trigger.txt every 2s. If has content, consume and inject."""
+        path = self._trigger_file_path()
+        if not path:
+            return
+        while self.running:
+            try:
+                if os.path.exists(path) and os.path.getsize(path) > 0:
+                    with open(path, 'r') as f:
+                        content = f.read().strip()
+                    open(path, 'w').close()  # consume
+                    if content:
+                        self.trigger(content)
+            except Exception:
+                pass
+            await asyncio.sleep(2)
+
+    async def _wait_for_trigger(self):
+        """Wait for trigger or watchdog timeout. Merges concurrent triggers."""
+        wait_sec = self._next_sleep
+        self._next_sleep = 1800  # reset
+        self._log(f"[{ts()}] waiting for trigger (timeout {wait_sec}s)")
+        try:
+            msg = await asyncio.wait_for(self.triggers.get(), timeout=wait_sec)
+        except asyncio.TimeoutError:
+            msg = f"[watchdog] {wait_sec}s no trigger, auto-waking"
+        # Grace period to collect concurrent triggers
+        await asyncio.sleep(0.5)
+        msgs = [msg]
+        while not self.triggers.empty():
+            msgs.append(self.triggers.get_nowait())
+        merged = '\n'.join(m for m in msgs if m)
+        if merged:
+            self.consciousness += f"System - [Trigger] {merged}\n\n"
+            self._log(f"[{ts()}] triggered ({len(msgs)} msgs): {merged[:200]}")
+
     async def on_loop_handoff(self, payload_enc):
         data = decrypt(self.cipher, payload_enc)
         self.consciousness = data.get('consciousness', '')
@@ -220,6 +273,8 @@ class GenesisWorker:
             self._log(f"[{ts()}] [infero] Loop error: {e}")
         finally:
             self.running = False
+            if self._trigger_watcher:
+                self._trigger_watcher.cancel()
             self.save_to_disk()
             if not self._stopped_sent:
                 self._stopped_sent = True
@@ -229,28 +284,28 @@ class GenesisWorker:
                 self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
     async def run_loop(self, loop_was_running=False):
-        """Keep looping: run loop(), wait for user input if stopped, repeat until loop_stop."""
+        """Keep looping: run loop(), wait for trigger, repeat until loop_stop."""
+        # Start trigger file watcher
+        self._trigger_watcher = asyncio.create_task(self._watch_trigger_file())
+        # Backward compat: check if consciousness ends with /self_continue
         c_stripped = re.sub(r'^```[\s\S]*?^```', '', self.consciousness, flags=re.MULTILINE)
         last_sc = c_stripped.rfind('/self_continue')
         last_cfh = c_stripped.rfind('/call_for_human')
         should_auto_run = loop_was_running and (last_cfh == -1 or last_sc > last_cfh)
-        self._log(f"[{ts()}] [infero] run_loop: loopWasRunning={loop_was_running}, last_sc={last_sc}, last_cfh={last_cfh}, should_auto_run={should_auto_run}, pending_input={bool(self.pending_user_input)}, running={self.running}")
+        self._log(f"[{ts()}] [infero] run_loop: loopWasRunning={loop_was_running}, should_auto_run={should_auto_run}, pending_input={bool(self.pending_user_input)}")
         if not should_auto_run and not self.pending_user_input:
-            self._log(f"[{ts()}] [infero] run_loop: waiting for user input...")
-            while self.running and not self.pending_user_input:
-                await asyncio.sleep(0.5)
-            self._log(f"[{ts()}] [infero] run_loop: wait ended. running={self.running}, pending_input={bool(self.pending_user_input)}")
+            await self._wait_for_trigger()
+        elif self.pending_user_input:
+            # Inject pending input as trigger so perceive() picks it up
+            pass
         while self.running:
             if not self._stopped_sent:
                 await self.send_relay({'type': 'loop_status', 'status': 'started', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
-            self._log(f"[{ts()}] [infero] run_loop: entering loop(). pending_input={bool(self.pending_user_input)}")
+            self._log(f"[{ts()}] [infero] run_loop: entering loop()")
             await self.loop()
             if not self.running:
-                self._log(f"[{ts()}] [infero] run_loop: self.running=False after loop(), breaking")
                 break
-            self._log(f"[{ts()}] [infero] run_loop: loop() returned, waiting for user input...")
-            while self.running and not self.pending_user_input:
-                await asyncio.sleep(0.5)
+            await self._wait_for_trigger()
 
     async def loop(self):
         if not self.pending_user_input and '/call_for_human' in self.consciousness:
@@ -286,7 +341,9 @@ class GenesisWorker:
         lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved, field: value), metadata.json, arbitrary files'
         lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
         lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/exec shell {DEVICE_NAME}\n```bash\n<command>\n```'
-        lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach, e.g. nohup python train.py > /tmp/out.log 2>&1 &; check results later via log files. Success/failure/timeout does NOT interrupt your inference loop.)'
+        lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
+        lines += f'\n    - Trigger: echo "msg" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt to wake from /call_for_human. Use in nohup scripts for async callback. E.g.: nohup bash -c \'sleep 3600 && echo "1h timer" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt\' &'
+        lines += '\n    - Watchdog: if no trigger for 30 min after /call_for_human, auto-wakes with [watchdog] message.'
         # Other devices
         for name, info in self.devices.items():
             if name == DEVICE_NAME:
@@ -752,11 +809,15 @@ class GenesisWorker:
     def on_user_input(self, msg):
         text = msg.get('text', '')
         self.pending_user_input = text if text else '__go__'  # empty Go → truthy sentinel
+        self.trigger('')  # wake _wait_for_trigger
         self._log(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
 
     async def on_loop_stop(self):
         self._log(f"[{ts()}] [infero] Loop stop requested")
         self.running = False
+        if self._trigger_watcher:
+            self._trigger_watcher.cancel()
+        self.trigger('')  # unblock _wait_for_trigger if stuck
         self.save_to_disk()
         if not self._stopped_sent:
             self._stopped_sent = True
