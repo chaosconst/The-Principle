@@ -739,7 +739,9 @@ class GenesisWorker:
     async def _exec_local_shell(self, cmd):
         self._log(f"[{ts()}] [infero] shell exec (local): {cmd[:60]}")
         try:
-            proc = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            proc = await asyncio.create_subprocess_shell(
+                cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                start_new_session=True)  # isolate process group
             try:
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
                 out = ''
@@ -747,7 +749,11 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                proc.kill()
+                import signal as _sig
+                try:
+                    os.killpg(proc.pid, _sig.SIGKILL)  # kill entire process group
+                except ProcessLookupError:
+                    pass
                 out = "[stderr]\nTimed out (30s)\n[exit_code] -1"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
