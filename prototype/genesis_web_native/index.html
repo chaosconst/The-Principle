@@ -1823,7 +1823,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
                     const target = v === 'full' ? document.body : container;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
-                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-box' });
+                    // Hide old messages, keep last 4 visible for screenshot
+                    const _msgs = chatBox.querySelectorAll('.msg, .msg-timestamp');
+                    const _keepN = 4;
+                    const _hidden = [];
+                    for (let i = 0; i < _msgs.length - _keepN; i++) {
+                        _msgs[i].style.display = 'none';
+                        _hidden.push(_msgs[i]);
+                    }
+                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false });
+                    _hidden.forEach(el => el.style.display = '');
                     result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
                 }
 
