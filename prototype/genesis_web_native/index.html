@@ -1573,7 +1573,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             await saveBeing();
-            renderHistory();
+            await renderHistory();
             // Ask in chat — user replies naturally
             const firstContactMsg = 'System - [First Contact] Describe the Being you want to fly with.\n\n';
             await appendConsciousness(firstContactMsg);
@@ -1587,7 +1587,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const note = `\n\n[System] Being forked from ${sourceId} → ${currentBeingId} at ${new Date().toLocaleString()}\n\n`;
             consciousness += note;
             await saveBeing();
-            renderHistory();
+            await renderHistory();
         }
 
         async function resetUI() {
@@ -2547,7 +2547,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
                 window._forkPoint = consciousness.length;
-                if (changed) renderHistory();
+                if (changed) await renderHistory();
                 if (window._syncThenHandoff === runner) {
                     window._syncThenHandoff = null;
                     if (changed) {
@@ -2815,7 +2815,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         const changed = await mergeConsciousness(targetDevice, data.consciousness);
                         if (changed) {
                             console.log(`[doHandoff] Merged device consciousness before handoff`);
-                            renderHistory();
+                            await renderHistory();
                         }
                     }
                 }
