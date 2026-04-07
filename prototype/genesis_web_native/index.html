@@ -1710,7 +1710,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
                     deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #html-div (living UI entry, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n          #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n            #chat-box (message stream, scrollable)\n              .msg (consciousness history — you already know it, hidden from save & vision)\n            .input-area\n              #input (textarea)\n              #send-btn\n        #main-canvas (z:1)\n      NOTE: if you go full-screen (hide #chat-panel), you MUST implement your own input and use trigger(msg) to feed back to consciousness — otherwise the loop breaks with no way to receive input.`;
                 }
-                deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
+                const dpr = window.devicePixelRatio || 1;
+                deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px CSS (${canvas.width}×${canvas.height}px actual, DPR=${dpr}, ctx pre-scaled — draw in CSS px) | Vision: ${visionInfo}`;
                 const cs = getComputedStyle(document.documentElement);
                 deviceLines += `\n    - Theme: --bg:${cs.getPropertyValue('--bg').trim()} --text:${cs.getPropertyValue('--text').trim()} --accent:${cs.getPropertyValue('--accent').trim()} --border:${cs.getPropertyValue('--border').trim()}`;
                 const proxyBase = location.protocol === 'file:' ? 'https://infero.net' : '';
