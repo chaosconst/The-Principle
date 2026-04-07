@@ -216,7 +216,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const contents = [
                     { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
                 ];
-                const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: STOP_WORDS };
+                const geminiConfig = { temperature: 0.7, stopSequences: STOP_WORDS };
+                if (settings.thinking) {
+                    geminiConfig.thinkingConfig = { includeThoughts: true, thinkingBudget: 10000 };
+                }
                 const payload = cacheName ? {
                     model,
                     cachedContent: cacheName,
