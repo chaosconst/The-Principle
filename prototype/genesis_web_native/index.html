@@ -1714,8 +1714,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const proxyBase = location.protocol === 'file:' ? 'https://infero.net' : '';
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (${proxyBase}/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
                 const canvasEl = document.getElementById('main-canvas');
-                const canvasStyle = `width:${canvasEl.style.width||'50%'} height:${canvasEl.style.height||'100%'} right:${canvasEl.style.right||'0'} position:${canvasEl.style.position||'absolute'}`;
-                deviceLines += `\n    - Canvas CSS: #main-canvas { ${canvasStyle} } — #chat-panel { width:${document.getElementById('chat-panel')?.style.width||'50%'} left:0 } — both resizable`;
+                const cpEl = document.getElementById('chat-panel');
+                const canvasRect = canvasEl.getBoundingClientRect();
+                const cpRect = cpEl ? cpEl.getBoundingClientRect() : null;
+                deviceLines += `\n    - Layout: #main-canvas (${Math.round(canvasRect.x)},${Math.round(canvasRect.y)},${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}) — #chat-panel (${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)},${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}) — both resizable via style`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('main-canvas').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
 \n\`\`\``;
