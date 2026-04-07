@@ -2760,6 +2760,37 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const deviceInfo = settings.devices?.[targetDevice];
             if (!deviceInfo?.keyB64) { console.warn(`[doHandoff] No key for device ${targetDevice}`); return; }
 
+            // Sync first — get device's latest consciousness before overwriting
+            try {
+                const syncResult = await new Promise((resolve) => {
+                    const handler = (evt) => {
+                        try {
+                            const msg = JSON.parse(evt.data);
+                            if (msg.type === 'consciousness_sync' && msg.action === 'response' && msg.device_name) {
+                                _relayWs.removeEventListener('message', handler);
+                                resolve(msg);
+                            }
+                        } catch {}
+                    };
+                    _relayWs.addEventListener('message', handler);
+                    _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name: targetDevice, being_id: currentBeingId, action: 'request' }));
+                    setTimeout(() => { _relayWs.removeEventListener('message', handler); resolve(null); }, 3000);
+                });
+                if (syncResult?.payload) {
+                    const cryptoKeySync = await importDeviceKey(deviceInfo.keyB64);
+                    const data = await decryptPayload(cryptoKeySync, syncResult.payload);
+                    if (data.consciousness) {
+                        const changed = await mergeConsciousness(targetDevice, data.consciousness);
+                        if (changed) {
+                            console.log(`[doHandoff] Merged device consciousness before handoff`);
+                            renderHistory();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[doHandoff] Pre-handoff sync failed, proceeding anyway:', e);
+            }
+
             const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
             // Build devices snapshot for agent's [Realtime] context
             const devicesSnapshot = {};

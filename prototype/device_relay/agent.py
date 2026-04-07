@@ -252,7 +252,22 @@ class GenesisWorker:
 
     async def on_loop_handoff(self, payload_enc):
         data = decrypt(self.cipher, payload_enc)
-        self.consciousness = data.get('consciousness', '')
+        incoming_c = data.get('consciousness', '')
+        # Check if device has newer consciousness (e.g. device ran while browser was offline)
+        existing_c = self.consciousness
+        if not existing_c and self.being_id:
+            # Try loading from disk
+            d = os.path.join(INFERO_DIR, 'beings', data.get('metadata', {}).get('beingId', ''))
+            c_path = os.path.join(d, 'consciousness.txt')
+            if os.path.exists(c_path):
+                with open(c_path, 'rb') as f:
+                    existing_c = f.read().decode('utf-8')
+        if existing_c and len(existing_c) > len(incoming_c) and incoming_c in existing_c:
+            # Device consciousness is a superset of browser's — keep device's
+            self._log(f"[{ts()}] [infero] Handoff: keeping device consciousness ({len(existing_c)} chars > browser {len(incoming_c)} chars)")
+            self.consciousness = existing_c
+        else:
+            self.consciousness = incoming_c
         self.metadata = data.get('metadata', {})
         self.being_id = self.metadata.get('beingId', '')
         core_mem = self.metadata.get('coreMem', '')
