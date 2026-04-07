@@ -3108,6 +3108,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
+            // Auto-wake on reload so AI can restore event bindings
+            if (consciousness && _justReloaded) scheduleAutoInfer();
         }
 
         if (welcomed) {
