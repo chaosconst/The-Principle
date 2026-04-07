@@ -1925,9 +1925,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Truncate consciousness before this block
             consciousness = consciousness.slice(0, envStart).trimEnd() + '\n\n';
             await appendConsciousness('');  // persist
-            // Put text into input box
-            document.getElementById('input').value = userText;
             await renderHistory();
+            // Put text into input box (after renderHistory re-creates the input)
+            document.getElementById('input').value = userText;
         }
 
         // --- Settings UI ---
