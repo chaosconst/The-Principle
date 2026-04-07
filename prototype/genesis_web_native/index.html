@@ -1472,8 +1472,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (snap && snap.htmlContent) {
                 document.getElementById('html-div').innerHTML = snap.htmlContent;
                 _justReloaded = true;
+            } else {
+                // No snapshot — clear old being's content
+                document.getElementById('html-div').innerHTML = '';
             }
-            // Ensure chat-panel exists (new being has no snapshot)
+            // Ensure chat-panel exists (new being or snapshot without it)
             if (!document.getElementById('chat-panel')) {
                 document.getElementById('html-div').insertAdjacentHTML('afterbegin',
                     '<div id="chat-panel"><div id="chat-box"></div><div class="input-area"><textarea id="input" rows="2" placeholder="Enter prompt..."></textarea><button id="send-btn" class="send go">Wake</button></div></div>');
