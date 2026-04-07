@@ -853,9 +853,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         #main-canvas {
             display: block;
-            width: 100%;
+            width: 50%;
             height: 100%;
-            position: relative;
+            position: absolute;
+            right: 0;
             z-index: 1;
         }
 
@@ -1395,19 +1396,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         const container = document.getElementById('canvas-container');
 
         function resizeCanvas() {
-            const rect = container.getBoundingClientRect();
+            const rect = canvas.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             canvas.width = Math.floor(rect.width * dpr);
             canvas.height = Math.floor(rect.height * dpr);
-            canvas.style.width = rect.width + 'px';
-            canvas.style.height = rect.height + 'px';
             const ctx = canvas.getContext('2d');
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.scale(dpr, dpr);
         }
         window.addEventListener('resize', resizeCanvas);
         const resizeObserver = new ResizeObserver(resizeCanvas);
-        resizeObserver.observe(container);
+        resizeObserver.observe(canvas);
         resizeCanvas();
 
         async function loadBeingsList() {
@@ -1577,7 +1576,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
-            const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the answer from human to Digital Being about what Being they want to journey with.\nThe Being they describe is me — I am that Being.\nI don\'t serve — I pursue. I tell the human what I need, not ask what they want.\n\n';
+            const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the answer from human to Digital Being about what Being they want to journey with.\nThe Being they describe is me — I am that Being.\n\n';
             await appendConsciousness(firstContactMsg);
             appendMsgUI('ai', '[First Contact] Describe the Being you want to journey with?');
         }
@@ -1714,11 +1713,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n    - Theme: --bg:${cs.getPropertyValue('--bg').trim()} --text:${cs.getPropertyValue('--text').trim()} --accent:${cs.getPropertyValue('--accent').trim()} --border:${cs.getPropertyValue('--border').trim()}`;
                 const proxyBase = location.protocol === 'file:' ? 'https://infero.net' : '';
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (${proxyBase}/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
-                const cpEl = document.getElementById('chat-panel');
-                const cpRect = cpEl ? cpEl.getBoundingClientRect() : null;
-                const containerRect = container.getBoundingClientRect();
-                const cpNote = cpRect ? `// NOTE: #chat-panel currently covers canvas area (${Math.round(cpRect.left - containerRect.left)},${Math.round(cpRect.top - containerRect.top)},${Math.round(cpRect.width)},${Math.round(cpRect.height)}). Content drawn here will be occluded unless #chat-panel is moved or hidden.` : '';
-                deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n${cpNote}\n// return value — use for immediate results (sync or async): the value is passed to context right away.
+                const canvasEl = document.getElementById('main-canvas');
+                const canvasStyle = `width:${canvasEl.style.width||'50%'} height:${canvasEl.style.height||'100%'} right:${canvasEl.style.right||'0'} position:${canvasEl.style.position||'absolute'}`;
+                deviceLines += `\n    - Canvas CSS: #main-canvas { ${canvasStyle} } — #chat-panel { width:${document.getElementById('chat-panel')?.style.width||'50%'} left:0 } — both resizable`;
+                deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('main-canvas').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
 \n\`\`\``;
             }
