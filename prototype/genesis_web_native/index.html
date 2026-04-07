@@ -935,7 +935,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 overflow: hidden;
             }
             .header {
-                order: 1;
                 flex: none;
                 border-right: none;
                 flex-direction: column;
@@ -952,9 +951,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 width: 100%;
                 position: relative;
                 height: auto;
-                max-height: 60vh;
+                max-height: 40vh;
                 border-right: none;
                 border-bottom: 1px solid var(--border);
+            }
+            #html-div {
+                width: 100%;
+                right: auto;
+            }
+            #main-canvas {
+                width: 100%;
+                right: auto;
             }
 
             #chat-box { padding: 6px 8px; gap: 6px; }
