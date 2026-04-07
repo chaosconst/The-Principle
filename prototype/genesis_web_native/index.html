@@ -1469,7 +1469,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         async function renderHistory() {
             // Restore snapshot first (includes AI-modified chat-panel styles)
             cancelAllAnimations();
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             const snap = await DB.get(`${currentBeingId}/snapshot`);
             if (snap && snap.htmlContent) {
                 document.getElementById('html-div').innerHTML = snap.htmlContent;
@@ -1552,6 +1551,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             await renderHistory();
             // If remote host is online, handoff the new being to it
             const remoteHost = settings.hostDevice;
