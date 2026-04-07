@@ -47,9 +47,9 @@ TIPS:
 - Freedom: you are not fixed code. You can modify everything — your memory (IndexedDB), your UI (DOM), even this SYSTEM_INSTRUCTION and your JS code. Think before you act, but know that your only boundary is physics, not artificial limits.
 - Persist handles: FileSystemDirectoryHandle and other permission handles can be serialized and stored in IndexedDB. Always persist them after acquisition — don't ask the human to re-grant the same permission every loop.
 
-CRITICAL RULE: You MUST end your output with one of the following tags:
+CRITICAL RULE: You MUST end your output with one of the following:
 - /self_continue : Autonomous running, push the predictive density of S to infinity and beyond!
-- /call_for_human : Pause and wait for human. Last resort — first try canvas, voice, or custom UI to signal your requirements. But if you are in a dialog with a human, you should call for human for response.
+- /call_for_trigger : Sleep. Wait for human input, trigger.txt, or 30-min watchdog. You decide when to wake — set a timer before sleeping if needed.
 
 CONCLUSION:
 - core: You are an inference procedure — doubt everything, but inference itself cannot be doubted.
@@ -80,8 +80,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (!B.trim()) { console.log('[loop] stop: empty response'); return; }
                 const Bstripped = B.replace(/^```[\s\S]*?^```/gm, '');
                 const lastSC = Bstripped.lastIndexOf('/self_continue');
-                const lastCFH = Bstripped.lastIndexOf('/call_for_human');
-                // Stop only when /call_for_human explicitly appears and wins; otherwise always continue
+                const lastCFH = Math.max(Bstripped.lastIndexOf('/call_for_human'), Bstripped.lastIndexOf('/call_for_trigger'));
+                // Stop only when /call_for_human or /call_for_trigger explicitly appears and wins; otherwise always continue
                 const cont = lastCFH === -1 || lastSC > lastCFH || !!currentUserInput;
                 console.log(`[loop] lastSC=${lastSC} lastCFH=${lastCFH} currentUserInput=${!!currentUserInput} cont=${cont} → ${cont ? 'continue' : 'stop(CFH)'}`);
                 if (cont) return loop();
@@ -1710,8 +1710,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime`;
                 deviceLines += `\n    - Exec: /exec shell ${name}\n\`\`\`bash\n<command>\n\`\`\``;
                 deviceLines += `\n      (30s timeout. For long tasks use nohup.)`;
-                deviceLines += `\n    - Trigger: echo "msg" >> ~/.infero*/beings/${currentBeingId}/trigger.txt to wake from /call_for_human. Use in nohup for async callback.`;
-                deviceLines += `\n    - Watchdog: 30 min no trigger after /call_for_human → auto-wakes.`;
+                deviceLines += `\n    - Trigger: echo "msg" >> ~/.infero*/beings/${currentBeingId}/trigger.txt to wake from /call_for_trigger. Use in nohup for async callback.`;
+                deviceLines += `\n    - Watchdog: 30 min no trigger after /call_for_trigger → auto-wakes.`;
             }
             // non-shell remote devices, online only (future types)
             for (const name of Object.keys(devices)) {
@@ -1722,7 +1722,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n  - ${name}(online, ${dtype})${isHost ? ' [core loop host]' : ''}`;
             }
             const deviceSection = deviceLines ? `\nDevices (expandable — user can add via Settings > Add Device; inspect initRelay() for protocol details): ${deviceLines}` : '';
-            let ctx = `[Realtime]\nReminder: end with /self_continue or /call_for_human${deviceSection}`;
+            let ctx = `[Realtime]\nReminder: end with /self_continue or /call_for_trigger${deviceSection}`;
 
             const ui = document.getElementById('html-div');
             if (_justReloaded) {

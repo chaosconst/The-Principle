@@ -307,7 +307,7 @@ class GenesisWorker:
         # Backward compat: check if consciousness ends with /self_continue
         c_stripped = re.sub(r'^```[\s\S]*?^```', '', self.consciousness, flags=re.MULTILINE)
         last_sc = c_stripped.rfind('/self_continue')
-        last_cfh = c_stripped.rfind('/call_for_human')
+        last_cfh = max(c_stripped.rfind('/call_for_human'), c_stripped.rfind('/call_for_trigger'))
         should_auto_run = loop_was_running and (last_cfh == -1 or last_sc > last_cfh)
         self._log(f"[{ts()}] [infero] run_loop: loopWasRunning={loop_was_running}, should_auto_run={should_auto_run}, pending_input={bool(self.pending_user_input)}")
         if not should_auto_run and not self.pending_user_input:
@@ -325,12 +325,12 @@ class GenesisWorker:
             await self._wait_for_trigger()
 
     async def loop(self):
-        if not self.pending_user_input and '/call_for_human' in self.consciousness:
+        if not self.pending_user_input and ('/call_for_human' in self.consciousness or '/call_for_trigger' in self.consciousness):
             last_sc = self.consciousness.rfind('/self_continue')
-            last_cfh = self.consciousness.rfind('/call_for_human')
+            last_cfh = max(self.consciousness.rfind('/call_for_human'), self.consciousness.rfind('/call_for_trigger'))
             last_trigger = self.consciousness.rfind('System - [Trigger]')
             if last_cfh > last_sc and last_cfh > last_trigger:
-                self._log(f"[{ts()}] [infero] loop(): /call_for_human at end, no trigger after it, returning")
+                self._log(f"[{ts()}] [infero] loop(): /call_for_trigger at end, no trigger after it, returning")
                 return
 
         while self.running:
@@ -344,7 +344,7 @@ class GenesisWorker:
                 break  # empty response — stop to avoid infinite quota burn
             B_stripped = re.sub(r'^```[\s\S]*?^```', '', B, flags=re.MULTILINE)
             last_sc = B_stripped.rfind('/self_continue')
-            last_cfh = B_stripped.rfind('/call_for_human')
+            last_cfh = max(B_stripped.rfind('/call_for_human'), B_stripped.rfind('/call_for_trigger'))
             cont = last_cfh == -1 or last_sc > last_cfh or bool(self.pending_user_input)
             if not cont:
                 break
@@ -354,14 +354,14 @@ class GenesisWorker:
         # Self (this device, the current loop host)
         lines += f'\n  - {DEVICE_NAME}(online, shell) [core loop host]'
         lines += '\n    - Core loop (read or modify with caution):'
-        lines += '\n      async def loop(): await perceive(); B = await infer(); await act(B); if /self_continue in B: repeat; if /call_for_human: wait for input'
+        lines += '\n      async def loop(): await perceive(); B = await infer(); await act(B); if /self_continue in B: repeat; if /call_for_trigger: sleep'
         lines += f'\n    - Being ID: {self.being_id}'
         lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved, field: value), metadata.json, arbitrary files'
         lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
         lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/exec shell {DEVICE_NAME}\n```bash\n<command>\n```'
         lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
-        lines += f'\n    - Trigger: echo "msg" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt to wake from /call_for_human. Use in nohup scripts for async callback. E.g.: nohup bash -c \'sleep 3600 && echo "1h timer" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt\' &'
-        lines += '\n    - Watchdog: if no trigger for 30 min after /call_for_human, auto-wakes with [watchdog] message.'
+        lines += f'\n    - Trigger: echo "msg" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt to wake from /call_for_trigger. Use in nohup scripts for async callback. E.g.: nohup bash -c \'sleep 3600 && echo "1h timer" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt\' &'
+        lines += '\n    - Watchdog: if no trigger for 30 min after /call_for_trigger, auto-wakes with [watchdog] message.'
         # Other devices
         for name, info in self.devices.items():
             if name == DEVICE_NAME:
@@ -381,7 +381,7 @@ class GenesisWorker:
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
                 lines += f'\n    - Exec: /exec shell {name}\n```bash\n<command>\n```'
                 lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
-        return f'[Realtime]\nReminder: end with /self_continue or /call_for_human\nDevices:{lines}'
+        return f'[Realtime]\nReminder: end with /self_continue or /call_for_trigger\nDevices:{lines}'
 
     async def perceive(self):
         now = datetime.now()
