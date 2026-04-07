@@ -657,9 +657,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             width: 50%;
             display: flex;
             flex-direction: column;
-            background: rgba(10, 10, 15, 0.85);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: var(--bg);
             border-right: 1px solid var(--border);
             pointer-events: auto;
             z-index: 3;
@@ -1579,7 +1577,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Pad as first user message
-            currentUserInput = `[First Contact] Human describes the Being they want: ${firstMessage}`;
+            currentUserInput = '[First Contact] Human was asked: "Describe the Being you want to create." Their answer:\n' + firstMessage;
             await saveBeing();
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
@@ -1825,7 +1823,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
                     const target = v === 'full' ? document.body : container;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
-                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-panel' });
+                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-box' });
                     result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
                 }
 
