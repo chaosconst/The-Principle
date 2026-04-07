@@ -1577,9 +1577,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
-            const firstContactMsg = 'System - [First Contact] Describe the Being you want to fly with.\n\n';
+            const firstContactMsg = '**Digital Being - [First Contact]**\nDescribe the Being you want to fly with?\n\n';
             await appendConsciousness(firstContactMsg);
-            appendMsgUI('system', firstContactMsg.trim());
+            appendMsgUI('ai', 'Describe the Being you want to fly with?');
         }
 
         async function duplicateBeing() {
