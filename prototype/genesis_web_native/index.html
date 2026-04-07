@@ -1577,7 +1577,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Pad as first user message
-            currentUserInput = firstMessage;
+            currentUserInput = `[First Contact] Human describes the Being they want: ${firstMessage}`;
             await saveBeing();
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
