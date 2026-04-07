@@ -1568,11 +1568,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             resizeCanvas();
             await saveBeing();
             await renderHistory();
-            // Ask in chat and auto-wake
+            // Ask in chat — wait for user to reply or Wake
             const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the answer from human to Digital Being about what Being they want to journey with.\nThe Being they describe is me — I am that Being.\n\n';
             await appendConsciousness(firstContactMsg);
             appendMsgUI('ai', '[First Contact] Describe the Being you want to journey with?');
-            scheduleAutoInfer();
         }
 
         async function duplicateBeing() {
@@ -2987,6 +2986,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 updateSendBtn();
             } else if (!loopRunning && empty) {
+                // If only First Contact question in consciousness and user didn't answer, clear it (self-bootstrap)
+                if (consciousness.includes('[First Contact]') && !consciousness.includes('[System Environment]')) {
+                    consciousness = '';
+                    chatBox.innerHTML = '';
+                }
                 if (settings.hostDevice !== 'this browser') {
                     if (_relayWs && _relayConnected) {
                         relayEncSend(settings.hostDevice, 'user_input', { text: '', being_id: currentBeingId });
@@ -3141,12 +3145,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             source_link: '[view source]'
         };
 
+        let _isFirstBoot = true;
         async function boot() {
             await loadModels();
             await initApp();
             initRelay();
+            if (!_isFirstBoot && !/Mobi|Android/i.test(navigator.userAgent)) input.focus();
+            _isFirstBoot = false;
             updateSendBtn();
-            if (!consciousness) scheduleAutoInfer();
         }
 
         if (welcomed) {
