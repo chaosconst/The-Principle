@@ -1353,15 +1353,26 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         var currentAbortController = null;
         var _saveBeingTimer = null;
 
-        // Track all requestAnimationFrame IDs so we can cancel them on being switch
+        // Track all AI-created timers so we can cancel them on being switch
         const _rafIds = new Set();
+        const _intervalIds = new Set();
+        const _timeoutIds = new Set();
         const _origRAF = window.requestAnimationFrame.bind(window);
         const _origCAF = window.cancelAnimationFrame.bind(window);
+        const _origSI = window.setInterval.bind(window);
+        const _origCI = window.clearInterval.bind(window);
+        const _origST = window.setTimeout.bind(window);
+        const _origCT = window.clearTimeout.bind(window);
         window.requestAnimationFrame = (cb) => { const id = _origRAF(cb); _rafIds.add(id); return id; };
         window.cancelAnimationFrame = (id) => { _rafIds.delete(id); _origCAF(id); };
+        window.setInterval = (...args) => { const id = _origSI(...args); _intervalIds.add(id); return id; };
+        window.clearInterval = (id) => { _intervalIds.delete(id); _origCI(id); };
+        window.setTimeout = (...args) => { const id = _origST(...args); _timeoutIds.add(id); return id; };
+        window.clearTimeout = (id) => { _timeoutIds.delete(id); _origCT(id); };
         function cancelAllAnimations() {
-            _rafIds.forEach(id => _origCAF(id));
-            _rafIds.clear();
+            _rafIds.forEach(id => _origCAF(id)); _rafIds.clear();
+            _intervalIds.forEach(id => _origCI(id)); _intervalIds.clear();
+            _timeoutIds.forEach(id => _origCT(id)); _timeoutIds.clear();
         }
 
         let chatBox = document.getElementById('chat-box');
@@ -1534,6 +1545,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function switchBeing(id) {
+            cancelAllAnimations();
             currentBeingId = id;
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
@@ -1572,7 +1584,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
-            // Clear living UI BEFORE save so new being gets clean snapshot
+            // Kill all AI timers/animations, then clear UI
+            cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
             canvas.style.cssText = '';  // reset canvas to default CSS
             const _ctx = canvas.getContext('2d');
