@@ -1193,7 +1193,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function getOrCreateKey() {
             let key = localStorage.getItem('infero_key');
             if (!key) {
-                // 不用 crypto.randomUUID()，它要求 HTTPS 安全上下文
+                // crypto.randomUUID() requires secure context (HTTPS)
                 const hex = () => Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
                 key = 'inf_' + hex() + hex() + hex() + hex();
                 localStorage.setItem('infero_key', key);
@@ -1344,8 +1344,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         // --- State Management ---
         var currentBeingId = null;
-        var consciousness = "";          // 纯文本意识流
-        var cachedLength = 0;            // 已缓存的字符位置
+        var consciousness = "";          // plain-text consciousness stream
+        var cachedLength = 0;            // cached character position
         var cacheName = null;            // Gemini cache ID
         var loopRunning = false;
         var currentUserInput = null;
@@ -1367,7 +1367,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         let input = document.getElementById('input');
         let sendBtn = document.getElementById('send-btn');
 
-        // 用户往上滚动后停止自动滚动
+        // Stop auto-scroll when user scrolls up
         let userScrolledUp = false;
         let ignoreScroll = false;
 
@@ -1916,7 +1916,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         async function timeRewind(div) {
             if (loopRunning) return;
             const userText = div.dataset.userText;
-            if (!confirm('从此处开始时光倒流？')) return;
+            if (!confirm('Rewind from this point?')) return;
             // Find the [System Environment] block that contains this user text in consciousness
             const idx = consciousness.indexOf(userText);
             if (idx === -1) return;
