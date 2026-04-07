@@ -310,6 +310,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         }
                         renderStream(aiText, thinkingText);
                         setStatus(`${Math.round((aiText.length + thinkingText.length) / 3.5)} tok`);
+                        window.onStreamToken?.(aiText, thinkingText);
                         // Broadcast delta to other nodes
                         if (_relayWs && _relayConnected) {
                             const ad = aiText.slice(window._lastStreamAi || 0);
@@ -1685,7 +1686,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
-// trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.\n\`\`\``;
+// trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
+// window.onStreamToken = (text, thinking) => { ... } — called on every streaming token, render your own output live.\n\`\`\``;
             }
             // shells after (online only)
             for (const name of Object.keys(devices)) {
@@ -2378,6 +2380,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 window._remoteAiDiv.querySelectorAll('pre').forEach(pre => { pre.scrollTop = pre.scrollHeight; });
                 scrollToBottom();
                 setStatus(`${Math.round(((window._remoteAiText || '').length + (window._remoteThinkText || '').length) / 3.5)} tok`);
+                window.onStreamToken?.(window._remoteAiText || '', window._remoteThinkText || '');
                 if (content.done) {
                     if (!window._remoteAiText && window._remoteAiDiv) window._remoteAiDiv.remove();
                     window._remoteAiDiv = null;
