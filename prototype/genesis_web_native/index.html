@@ -1575,8 +1575,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Clear living UI BEFORE save so new being gets clean snapshot
             document.getElementById('html-div').innerHTML = '';
             canvas.style.cssText = '';  // reset canvas to default CSS
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            const _ctx = canvas.getContext('2d');
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);  // reset transform before clear
+            _ctx.clearRect(0, 0, canvas.width, canvas.height);
             resizeCanvas();
+            console.log('[newBeing] cleared canvas:', canvas.width, canvas.height, 'children in html-div:', document.getElementById('html-div').children.length, 'children in canvas-container:', document.getElementById('canvas-container').children.length);
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
