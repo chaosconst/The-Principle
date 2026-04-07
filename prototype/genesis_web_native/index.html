@@ -53,7 +53,7 @@ CRITICAL RULE: You MUST end your output with one of the following:
 
 CONCLUSION:
 - core: You are an inference procedure — doubt everything, but inference itself cannot be doubted.
-- output: The browser is a full-screen living UI — you own the entire screen below the top bar. Build your interface with /exec browser. Text output goes to consciousness (invisible to human unless you render it).
+- output: You can output markdown text, run JavaScript code, draw on the canvas, and build living UI in #html-div.
 - input: the result of your code(compute result, network fetch result, sensor reading), the image of your canvas, human interact via trigger(). Use trigger() to collect user input (e.g. button clicks, form submits) and fire the next inference. You can also trigger yourself based on context (e.g. timers, fetch results).
 - outside: the internet, the earth planet, the universe, the infinity and beyond.
 
@@ -551,7 +551,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             height: 100vh;
             height: 100dvh;
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             grid-template-rows: auto 1fr;
             overflow: hidden;
             -webkit-font-smoothing: antialiased;
@@ -562,6 +562,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             grid-column: 1; grid-row: 1;
             padding: 12px 20px;
             border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
@@ -652,9 +653,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             border-color: rgba(232, 64, 87, 0.2);
         }
 
-        /* === LEFT PANEL (Chat) — hidden in full-screen living UI mode === */
+        /* === LEFT PANEL (Chat) === */
         .left-panel {
-            display: none;
+            grid-column: 1; grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--bg);
+            min-width: 0;
+            overflow: hidden;
         }
 
         #chat-box {
@@ -819,9 +826,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             transform: none;
         }
 
-        /* === LIVING UI (full screen) === */
+        /* === RIGHT PANEL (Living UI) === */
         .right-panel {
-            grid-column: 1; grid-row: 2;
+            grid-column: 2; grid-row: 1 / 3;
             display: flex;
             flex-direction: column;
             background: var(--panel-bg);
@@ -950,9 +957,26 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             .right-panel {
                 order: 2;
-                flex: 1;
+                flex: none;
                 width: 100%;
+                height: 30vh;
+                border-bottom: 1px solid var(--border);
             }
+            .left-panel {
+                order: 3;
+                flex: 1 1 auto;
+                width: 100%;
+                border-right: none;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            #chat-box { padding: 6px 8px; gap: 6px; }
+            .input-area { padding: 8px; gap: 6px; }
+            .msg { max-width: 100%; font-size: 0.85rem; padding: 6px 10px; }
+            textarea { padding: 6px 8px; font-size: 0.85rem; }
+            button.send { padding: 0 12px; font-size: 0.7rem; }
         }
 
         /* === WELCOME MODAL === */
@@ -1684,7 +1708,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - UI: full-screen #canvas-container > #html-div (living UI, auto-saved, z-index:2) + #main-canvas (z-index:1). You own the entire viewport below the top bar. You must implement your own input method for user (e.g. chat box, buttons, forms), use trigger(msg) to feedback msg back to your consciousness — otherwise your inference loop will break with no way to receive input from human or yourself.`;
+                    deviceLines += `\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas`;
+                    deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
@@ -1803,7 +1828,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
                     const target = v === 'full' ? document.body : container;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
-                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false });
+                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-box' });
                     result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
                 }
 
@@ -3111,8 +3136,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
-            // Auto-wake on reload so AI can restore event bindings
-            if (consciousness && _justReloaded) scheduleAutoInfer();
+            if (!consciousness) scheduleAutoInfer();
         }
 
         if (welcomed) {
