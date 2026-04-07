@@ -1535,6 +1535,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function switchBeing(id) {
             cancelAllAnimations();
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             currentBeingId = id;
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
@@ -1554,7 +1555,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             await renderHistory();
             // If remote host is online, handoff the new being to it
             const remoteHost = settings.hostDevice;
