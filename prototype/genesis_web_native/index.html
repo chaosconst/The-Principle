@@ -1363,9 +1363,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _rafIds.clear();
         }
 
-        const chatBox = document.getElementById('chat-box');
-        const input = document.getElementById('input');
-        const sendBtn = document.getElementById('send-btn');
+        let chatBox = document.getElementById('chat-box');
+        let input = document.getElementById('input');
+        let sendBtn = document.getElementById('send-btn');
 
         // Stop auto-scroll when user scrolls up
         let userScrolledUp = false;
