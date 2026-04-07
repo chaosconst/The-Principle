@@ -1145,7 +1145,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 <button onclick="event.stopPropagation();startPairing()" style="font-size:0.68rem;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">Add Device</button>
             </div>
             <div id="device-list" style="padding:2px 0 4px 0;min-height:4px;"></div>
-            <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end;gap:16px">
+            <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end;gap:16px;margin-bottom:1px">
                 <span style="color:var(--accent);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="resetUI()">Reset UI</span>
                 <span style="color:var(--red);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="if(confirm('Delete all data? This cannot be undone.')){const devs=settings.devices||{};if(_relayWs&&_relayConnected){Object.keys(devs).forEach(n=>_relayWs.send(JSON.stringify({type:'device_remove',device_name:n})));}indexedDB.deleteDatabase('GenesisDB');localStorage.clear();location.reload();}">Reset all data</span>
             </div>
