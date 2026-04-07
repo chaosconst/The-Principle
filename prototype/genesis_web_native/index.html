@@ -1459,6 +1459,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 });
                 const snapshot = {
                     htmlContent: htmlDiv.innerHTML,
+                    canvasStyle: canvas.style.cssText,
                 };
                 await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
             } catch(e) { /* tainted canvas etc */ }
@@ -1472,6 +1473,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const snap = await DB.get(`${currentBeingId}/snapshot`);
             if (snap && snap.htmlContent) {
                 document.getElementById('html-div').innerHTML = snap.htmlContent;
+                if (snap.canvasStyle) { canvas.style.cssText = snap.canvasStyle; resizeCanvas(); }
                 _justReloaded = true;
             } else {
                 // No snapshot — clear old being's content
