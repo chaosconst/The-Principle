@@ -1568,10 +1568,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             resizeCanvas();
             await saveBeing();
             await renderHistory();
-            // Ask in chat — user replies naturally
+            // Ask in chat and auto-wake
             const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the answer from human to Digital Being about what Being they want to journey with.\nThe Being they describe is me — I am that Being.\n\n';
             await appendConsciousness(firstContactMsg);
             appendMsgUI('ai', '[First Contact] Describe the Being you want to journey with?');
+            scheduleAutoInfer();
         }
 
         async function duplicateBeing() {
@@ -3144,7 +3145,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             await loadModels();
             await initApp();
             initRelay();
-            if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
             if (!consciousness) scheduleAutoInfer();
         }
