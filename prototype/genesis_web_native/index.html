@@ -3108,8 +3108,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
-            // Auto-infer on reload for existing beings (newBeing handles its own)
-            if (consciousness) scheduleAutoInfer();
         }
 
         if (welcomed) {
