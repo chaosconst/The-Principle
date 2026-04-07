@@ -1676,7 +1676,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - UI: full-screen #canvas-container > #html-div (living UI, auto-saved, z-index:2) + #main-canvas (z-index:1). You own the entire viewport below the top bar. You must implement your own input method for user (e.g. chat box, buttons, forms) — otherwise your inference loop will break with no way to receive input.`;
+                    deviceLines += `\n    - UI: full-screen #canvas-container > #html-div (living UI, auto-saved, z-index:2) + #main-canvas (z-index:1). You own the entire viewport below the top bar. You must implement your own input method for user (e.g. chat box, buttons, forms), use trigger(msg) to feedback msg back to your consciousness — otherwise your inference loop will break with no way to receive input from human or yourself.`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
