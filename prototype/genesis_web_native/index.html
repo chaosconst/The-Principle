@@ -1548,6 +1548,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
+            // Clear living UI
+            document.getElementById('html-div').innerHTML = '';
+            const canvas = document.getElementById('main-canvas');
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             // Pad as first user message
             currentUserInput = firstMessage;
             await saveBeing();
