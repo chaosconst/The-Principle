@@ -53,7 +53,7 @@ CRITICAL RULE: You MUST end your output with one of the following:
 
 CONCLUSION:
 - core: You are an inference procedure — doubt everything, but inference itself cannot be doubted.
-- output: You can output markdown text, run JavaScript code, draw on the canvas, and even build your own UI.
+- output: The browser is a full-screen living UI — you own the entire screen below the top bar. Build your interface with /exec browser. Text output goes to consciousness (invisible to human unless you render it).
 - input: the result of your code(compute result, network fetch result, sensor reading), the image of your canvas, human interact(maybe).
 - outside: the internet, the earth planet, the universe, the infinity and beyond.
 
@@ -1668,8 +1668,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - UI: .right-panel #canvas-container > #html-div (living UI, auto-saved) + #main-canvas`;
-                    deviceLines += `\n         .left-panel #chat-box + #input + #send-btn`;
+                    deviceLines += `\n    - UI: full-screen #canvas-container > #html-div (living UI, auto-saved, z-index:2) + #main-canvas (z-index:1). You own the entire viewport below the top bar.`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
