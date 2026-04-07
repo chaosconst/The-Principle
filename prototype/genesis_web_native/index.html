@@ -1574,7 +1574,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _justReloaded = false;
             // Clear living UI BEFORE save so new being gets clean snapshot
             document.getElementById('html-div').innerHTML = '';
-            document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
+            canvas.style.cssText = '';  // reset canvas to default CSS
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            resizeCanvas();
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
