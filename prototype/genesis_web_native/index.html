@@ -951,11 +951,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 width: 100%;
                 position: fixed;
                 bottom: 0; left: 0;
-                height: 60vh;
+                height: calc(100svh - 30vh - 56px); /* 100vh - canvas(30vh) - header(~56px) */
                 border-right: none;
                 border-top: 1px solid var(--border);
                 z-index: 10;
                 background: var(--bg);
+            }
+            #canvas-container {
+                height: 30vh;
             }
             #html-div {
                 width: 100%;
