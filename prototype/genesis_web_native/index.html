@@ -949,11 +949,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             #chat-panel {
                 width: 100%;
-                position: relative;
+                position: fixed;
+                top: auto; bottom: 0; left: 0;
                 height: auto;
-                max-height: 40vh;
+                max-height: 50vh;
                 border-right: none;
-                border-bottom: 1px solid var(--border);
+                border-top: 1px solid var(--border);
+                z-index: 10;
+                background: var(--bg);
             }
             #html-div {
                 width: 100%;
