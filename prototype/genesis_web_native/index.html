@@ -549,19 +549,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             margin: 0;
             height: 100vh;
             height: 100dvh;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto 1fr;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
         /* === HEADER === */
         .header {
-            grid-column: 1; grid-row: 1;
+            flex: none;
             padding: 12px 20px;
             border-bottom: 1px solid var(--border);
-            border-right: 1px solid var(--border);
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
@@ -652,15 +650,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             border-color: rgba(232, 64, 87, 0.2);
         }
 
-        /* === LEFT PANEL (Chat) === */
-        .left-panel {
-            grid-column: 1; grid-row: 2;
+        /* === CHAT PANEL (inside #html-div) === */
+        #chat-panel {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 50%;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid var(--border);
             background: var(--bg);
-            min-width: 0;
-            overflow: hidden;
+            border-right: 1px solid var(--border);
+            pointer-events: auto;
+            z-index: 3;
         }
 
         #chat-box {
@@ -825,16 +825,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             transform: none;
         }
 
-        /* === RIGHT PANEL (Living UI) === */
-        .right-panel {
-            grid-column: 2; grid-row: 1 / 3;
-            display: flex;
-            flex-direction: column;
-            background: var(--panel-bg);
-            position: relative;
-            min-width: 0;
-            overflow: hidden;
-        }
+        /* === CANVAS CONTAINER (full remaining space) === */
 
         #canvas-container {
             flex: 1;
@@ -954,21 +945,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             #being-select { max-width: 120px; }
             .controls { flex-wrap: wrap; gap: 2px; margin-left: auto; }
 
-            .right-panel {
-                order: 2;
-                flex: none;
+            #chat-panel {
                 width: 100%;
-                height: 30vh;
-                border-bottom: 1px solid var(--border);
-            }
-            .left-panel {
-                order: 3;
-                flex: 1 1 auto;
-                width: 100%;
+                position: relative;
+                height: auto;
+                max-height: 60vh;
                 border-right: none;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
+                border-bottom: 1px solid var(--border);
             }
 
             #chat-box { padding: 6px 8px; gap: 6px; }
@@ -1168,19 +1151,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         </div>
     </div>
 
-    <div class="right-panel">
-        <div id="canvas-container">
-            <div id="html-div"></div>
-            <canvas id="main-canvas"></canvas>
+    <div id="canvas-container">
+        <div id="html-div">
+            <div id="chat-panel">
+                <div id="chat-box"></div>
+                <div class="input-area">
+                    <textarea id="input" rows="2" placeholder="Enter prompt..."></textarea>
+                    <button id="send-btn" class="send go">Wake</button>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <div class="left-panel">
-        <div id="chat-box"></div>
-        <div class="input-area">
-            <textarea id="input" rows="2" placeholder="Enter prompt..."></textarea>
-            <button id="send-btn" class="send go">Wake</button>
-        </div>
+        <canvas id="main-canvas"></canvas>
     </div>
 
     <script>
@@ -1470,8 +1451,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         el.setAttribute('value', el.value);
                     }
                 });
+                // Save html-div content excluding #chat-panel (framework element)
+                const chatPanel = document.getElementById('chat-panel');
+                if (chatPanel) chatPanel.setAttribute('data-skip-save', '');
+                const saveDiv = htmlDiv.cloneNode(true);
+                const skipEl = saveDiv.querySelector('[data-skip-save]');
+                if (skipEl) skipEl.remove();
+                if (chatPanel) chatPanel.removeAttribute('data-skip-save');
                 const snapshot = {
-                    htmlContent: htmlDiv.innerHTML,
+                    htmlContent: saveDiv.innerHTML,
                 };
                 await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
             } catch(e) { /* tainted canvas etc */ }
@@ -1481,7 +1469,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function renderHistory() {
             chatBox.innerHTML = '<div class="msg ai">System online. Initializing.</div>';
-            if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('html-div').innerHTML = ''; return; }
+            if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); const __hd = document.getElementById('html-div'); const __cp = document.getElementById('chat-panel'); Array.from(__hd.children).forEach(c => { if (c !== __cp) c.remove(); }); return; }
 
             // Only render the last 100k characters to keep UI responsive
             const RENDER_LIMIT = 100000;
@@ -1523,11 +1511,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             scrollToBottom(true);
             cancelAllAnimations();
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('html-div').innerHTML = '';
-            // Restore snapshot
+            // Clear html-div AI content but preserve #chat-panel
+            const _htmlDiv = document.getElementById('html-div');
+            const _chatPanel = document.getElementById('chat-panel');
+            Array.from(_htmlDiv.children).forEach(c => { if (c !== _chatPanel) c.remove(); });
+            // Restore snapshot (AI content only, chat-panel excluded from save)
             const snap = await DB.get(`${currentBeingId}/snapshot`);
-            if (snap) {
-                if (snap.htmlContent) document.getElementById('html-div').innerHTML = snap.htmlContent;
+            if (snap && snap.htmlContent) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = snap.htmlContent;
+                Array.from(tmp.children).forEach(c => _htmlDiv.appendChild(c));
                 _justReloaded = true;
             }
         }
@@ -1575,10 +1568,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
-            // Clear living UI
-            document.getElementById('html-div').innerHTML = '';
-            const canvas = document.getElementById('main-canvas');
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            // Clear living UI (preserve #chat-panel)
+            const _hd = document.getElementById('html-div');
+            const _cp = document.getElementById('chat-panel');
+            Array.from(_hd.children).forEach(c => { if (c !== _cp) c.remove(); });
+            document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Pad as first user message
             currentUserInput = firstMessage;
             await saveBeing();
@@ -1673,7 +1667,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
             const { width: w, height: h } = container.getBoundingClientRect();
-            const chatEl = document.querySelector('.left-panel');
+            const chatEl = document.getElementById('chat-panel');
             const canvasRect = container.getBoundingClientRect();
             const chatRect = chatEl ? chatEl.getBoundingClientRect() : null;
             const panelName = (chatRect && canvasRect.top < chatRect.top - 10) ? 'top panel' : 'right panel';
@@ -1707,7 +1701,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #html-div (living UI entry point, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n        #chat-box (message stream, scrollable, default: left/bottom)\n          .msg (consciousness history — you already know it, hidden from save & vision)\n          #input (textarea)\n          #send-btn\n        #main-canvas (z:1)`;
+                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #html-div (living UI entry, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n          #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n            #chat-box (message stream, scrollable)\n              .msg (consciousness history — you already know it, hidden from save & vision)\n            .input-area\n              #input (textarea)\n              #send-btn\n        #main-canvas (z:1)`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
