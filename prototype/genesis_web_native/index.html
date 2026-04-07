@@ -862,8 +862,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         #html-div {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: 0; right: 0;
+            width: 50%; height: 100%;
             z-index: 2;
             pointer-events: none;
             overflow: auto;
@@ -1454,6 +1454,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 });
                 const snapshot = {
                     htmlContent: htmlDiv.innerHTML,
+                    htmlDivStyle: htmlDiv.style.cssText,
                     canvasStyle: canvas.style.cssText,
                     chatPanelStyle: document.getElementById('chat-panel').style.cssText,
                 };
@@ -1469,6 +1470,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (snap && snap.htmlContent) {
                 document.getElementById('html-div').innerHTML = snap.htmlContent;
                 if (snap.canvasStyle) { canvas.style.cssText = snap.canvasStyle; resizeCanvas(); }
+                if (snap.htmlDivStyle) document.getElementById('html-div').style.cssText = snap.htmlDivStyle;
                 if (snap.chatPanelStyle) document.getElementById('chat-panel').style.cssText = snap.chatPanelStyle;
                 _justReloaded = true;
             } else {
@@ -1560,7 +1562,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Kill all AI timers/animations, then clear UI
             cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
-            document.getElementById('chat-panel').style.cssText = '';  // reset chat-panel to default
+            document.getElementById('html-div').style.cssText = '';
+            document.getElementById('chat-panel').style.cssText = '';
             canvas.style.cssText = '';  // reset canvas to default CSS
             const _ctx = canvas.getContext('2d');
             _ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1587,6 +1590,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         async function resetUI() {
             cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
+            document.getElementById('html-div').style.cssText = '';
             document.getElementById('chat-panel').style.cssText = '';
             canvas.style.cssText = '';
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
@@ -1714,8 +1718,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const cpEl = document.getElementById('chat-panel');
                 const canvasRect = canvasEl.getBoundingClientRect();
                 const cpRect = cpEl ? cpEl.getBoundingClientRect() : null;
+                const hdEl = document.getElementById('html-div');
+                const hdRect = hdEl.getBoundingClientRect();
                 deviceLines += `\n    - Layout (resizable via style):`;
                 deviceLines += `\n      #chat-panel: top-left(${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)}` : '?'}) size ${cpRect ? `${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}`;
+                deviceLines += `\n      #html-div: top-left(${Math.round(hdRect.x)},${Math.round(hdRect.y)}) size ${Math.round(hdRect.width)}×${Math.round(hdRect.height)}`;
                 deviceLines += `\n      #main-canvas: top-left(${Math.round(canvasRect.x)},${Math.round(canvasRect.y)}) size ${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// Canvas: never set canvas.width/height directly. Resize via CSS (e.g. canvas.style.width='70%') — ResizeObserver auto-syncs internal resolution + DPR.\n// Use getBoundingClientRect() for drawing dimensions: const { width: w, height: h } = document.getElementById('main-canvas').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
