@@ -359,7 +359,7 @@ class GenesisWorker:
         lines += f'\n    - Memory: {INFERO_DIR}/beings/{self.being_id}/ — consciousness.txt (auto-saved, field: value), metadata.json, arbitrary files'
         lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
         lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/exec shell {DEVICE_NAME}\n```bash\n<command>\n```'
-        lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
+        lines += '\n      (30s timeout: process keeps running but stdout/stderr detached, loop advances. Write output to file if needed after 30s.)'
         lines += f'\n    - Trigger: echo "msg" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt to wake from /call_for_trigger. Use in nohup scripts for async callback. E.g.: nohup bash -c \'sleep 3600 && echo "1h timer" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt\' &'
         lines += '\n    - Watchdog: if no trigger for 30 min after /call_for_trigger, auto-wakes with [watchdog] message.'
         # Other devices
@@ -380,7 +380,7 @@ class GenesisWorker:
                 lines += f'\n  - {name}(online, {dtype})'
                 lines += '\n    - Capabilities: persistent processes, file I/O, system access, any language/runtime'
                 lines += f'\n    - Exec: /exec shell {name}\n```bash\n<command>\n```'
-                lines += '\n      (Runs via asyncio.create_subprocess_shell. Timeout: 30s hard kill. For long tasks use nohup or & to detach.)'
+                lines += '\n      (30s timeout: process keeps running but stdout/stderr detached, loop advances. Write output to file if needed after 30s.)'
         return f'[Realtime]\nReminder: end with /self_continue or /call_for_trigger\nDevices:{lines}'
 
     async def perceive(self):
@@ -764,12 +764,10 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                import signal as _sig
-                try:
-                    os.killpg(proc.pid, _sig.SIGKILL)  # kill entire process group
-                except ProcessLookupError:
-                    pass
-                out = "[stderr]\nTimed out (30s)\n[exit_code] -1"
+                # Don't kill — let process continue running, just detach pipes
+                for pipe in (proc.stdin, proc.stdout, proc.stderr):
+                    if pipe: pipe.close()
+                out = "[still running after 30s — stdout/stderr detached, advancing to next loop]\n[exit_code] running"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
