@@ -1698,7 +1698,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 const cs = getComputedStyle(document.documentElement);
-                deviceLines += `\n    - Theme: --bg:${cs.getPropertyValue('--bg').trim()} --text:${cs.getPropertyValue('--text').trim()} --accent:${cs.getPropertyValue('--accent').trim()} --border:${cs.getPropertyValue('--border').trim()} (change via document.documentElement.style.setProperty)`;
+                deviceLines += `\n    - Theme: --bg:${cs.getPropertyValue('--bg').trim()} --text:${cs.getPropertyValue('--text').trim()} --accent:${cs.getPropertyValue('--accent').trim()} --border:${cs.getPropertyValue('--border').trim()}`;
                 deviceLines += `\n    - Capabilities: DOM/UI, canvas/WebGL, fetch (/api/proxy?url={url} — transparent CORS proxy, returns raw response; use r.jina.ai/{url} to read web pages as plain text), IndexedDB, FileSystem API, Pyodide, WASM, Speech (neural TTS APIs preferred; WebSpeech as fallback), MediaDevices(camera, mic)`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('canvas-container').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
@@ -1817,7 +1817,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
                     // Hide old messages, keep last 4 visible for screenshot
                     const _msgs = chatBox.querySelectorAll('.msg, .msg-timestamp');
-                    const _keepN = 4;
+                    const _keepN = 10;
                     const _hidden = [];
                     for (let i = 0; i < _msgs.length - _keepN; i++) {
                         _msgs[i].style.display = 'none';
