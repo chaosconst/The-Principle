@@ -1573,7 +1573,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
-            // Clear living UI — renderHistory() will restore chat-panel from default
+            // Clear living UI BEFORE save so new being gets clean snapshot
+            document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Pad as first user message
             currentUserInput = firstMessage;
