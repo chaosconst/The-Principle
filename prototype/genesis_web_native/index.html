@@ -1601,7 +1601,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function resetUI() {
-            // Clear AI-generated UI, restore default chat panel
+            // Kill timers, then clear AI-generated UI
+            cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Remove saved snapshot so it doesn't restore on reload
