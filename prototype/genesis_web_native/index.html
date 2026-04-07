@@ -1145,7 +1145,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 <button onclick="event.stopPropagation();startPairing()" style="font-size:0.68rem;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">Add Device</button>
             </div>
             <div id="device-list" style="padding:2px 0 4px 0;min-height:4px;"></div>
-            <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end">
+            <div class="settings-row" style="border-top:1px solid var(--border);padding-top:8px;justify-content:flex-end;gap:16px">
+                <span style="color:var(--accent);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="resetUI()">Reset UI</span>
                 <span style="color:var(--red);cursor:pointer;font-size:0.6rem;letter-spacing:0.5px;text-transform:uppercase" onclick="if(confirm('Delete all data? This cannot be undone.')){const devs=settings.devices||{};if(_relayWs&&_relayConnected){Object.keys(devs).forEach(n=>_relayWs.send(JSON.stringify({type:'device_remove',device_name:n})));}indexedDB.deleteDatabase('GenesisDB');localStorage.clear();location.reload();}">Reset all data</span>
             </div>
         </div>
@@ -1589,6 +1590,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             renderHistory();
         }
 
+        async function resetUI() {
+            // Clear AI-generated UI, restore default chat panel
+            document.getElementById('html-div').innerHTML = '';
+            document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
+            // Remove saved snapshot so it doesn't restore on reload
+            await DB.del(`${currentBeingId}/snapshot`);
+            // Re-inject default chat panel
+            await renderHistory();
+        }
+
         async function deleteBeing() {
             if(confirm('Destroy this Being? This cannot be undone.')) {
                 await DB.del(`${currentBeingId}/consciousness.txt`);
@@ -1694,7 +1705,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #html-div (living UI entry, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n          #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n            #chat-box (message stream, scrollable)\n              .msg (consciousness history — you already know it, hidden from save & vision)\n            .input-area\n              #input (textarea)\n              #send-btn\n        #main-canvas (z:1)\n      trigger(msg) — call from any UI event (button click, form submit, etc.) to feed msg back into your consciousness and wake the next inference.`;
+                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #html-div (living UI entry, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n          #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n            #chat-box (message stream, scrollable)\n              .msg (consciousness history — you already know it, hidden from save & vision)\n            .input-area\n              #input (textarea)\n              #send-btn\n        #main-canvas (z:1)\n      NOTE: if you go full-screen (hide #chat-panel), you MUST implement your own input and use trigger(msg) to feed back to consciousness — otherwise the loop breaks with no way to receive input.`;
                 }
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px | Vision: ${visionInfo}`;
                 const cs = getComputedStyle(document.documentElement);
