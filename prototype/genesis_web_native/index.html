@@ -1560,12 +1560,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
         }
 
-        async function newBeing(firstMessage) {
-            // Ask for initial prompt if not provided
-            if (!firstMessage) {
-                firstMessage = prompt('Describe the Being you want to create:');
-                if (!firstMessage) return; // cancelled
-            }
+        async function newBeing() {
             currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             consciousness = '';
             cachedLength = 0;
@@ -1576,17 +1571,10 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Clear living UI BEFORE save so new being gets clean snapshot
             document.getElementById('html-div').innerHTML = '';
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
-            // Pad as first user message
-            currentUserInput = '[First Contact] Human was asked: "Describe the Being you want to create." Their answer:\n' + firstMessage;
             await saveBeing();
             renderHistory();
-            // If remote host is online, handoff new being; otherwise auto-infer locally
-            const remoteHost = settings.hostDevice;
-            if (remoteHost && remoteHost !== 'this browser' && settings.devices?.[remoteHost]?.online) {
-                doHandoff(remoteHost);
-            } else {
-                scheduleAutoInfer();
-            }
+            // Ask in chat — user replies naturally
+            appendMsgUI('system', '[First Contact] Describe the Being you want to create.');
         }
 
         async function duplicateBeing() {
