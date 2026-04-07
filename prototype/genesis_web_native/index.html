@@ -1577,7 +1577,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
-            const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the answer from human to Digital Being about what Being they want to journey with.\n\n';
+            const firstContactMsg = '**Digital Being - [First Contact]**\nDigital Being asked human: Describe the Being the human wants to journey with.\nThe following is the human\'s answer. The Being they describe is me — I am that Being.\n\n';
             await appendConsciousness(firstContactMsg);
             appendMsgUI('ai', '[First Contact] Describe the Being you want to journey with?');
         }
