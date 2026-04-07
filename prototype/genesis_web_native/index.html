@@ -1360,16 +1360,22 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _rafIds.clear();
         }
 
-        const chatBox = document.getElementById('chat-box');
+        let chatBox = document.getElementById('chat-box');
+        let input = document.getElementById('input');
+        let sendBtn = document.getElementById('send-btn');
 
         // 用户往上滚动后停止自动滚动
         let userScrolledUp = false;
         let ignoreScroll = false;
-        chatBox.addEventListener('scroll', () => {
-            if (ignoreScroll) return;
-            const threshold = 100;
-            userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
-        });
+
+        function bindChatEvents() {
+            chatBox.addEventListener('scroll', () => {
+                if (ignoreScroll) return;
+                const threshold = 100;
+                userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
+            });
+        }
+        bindChatEvents();
 
         function scrollToBottom(force = false) {
             if (force || !userScrolledUp) {
@@ -1380,8 +1386,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 setTimeout(() => { ignoreScroll = false; }, 50);
             }
         }
-        const input = document.getElementById('input');
-        const sendBtn = document.getElementById('send-btn');
         const status = document.getElementById('status');
         const beingSelect = document.getElementById('being-select');
         const canvas = document.getElementById('main-canvas');
@@ -1451,15 +1455,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         el.setAttribute('value', el.value);
                     }
                 });
-                // Save html-div content excluding #chat-panel (framework element)
-                const chatPanel = document.getElementById('chat-panel');
-                if (chatPanel) chatPanel.setAttribute('data-skip-save', '');
-                const saveDiv = htmlDiv.cloneNode(true);
-                const skipEl = saveDiv.querySelector('[data-skip-save]');
-                if (skipEl) skipEl.remove();
-                if (chatPanel) chatPanel.removeAttribute('data-skip-save');
                 const snapshot = {
-                    htmlContent: saveDiv.innerHTML,
+                    htmlContent: htmlDiv.innerHTML,
                 };
                 await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
             } catch(e) { /* tainted canvas etc */ }
@@ -1468,8 +1465,27 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function renderHistory() {
+            // Restore snapshot first (includes AI-modified chat-panel styles)
+            cancelAllAnimations();
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            const snap = await DB.get(`${currentBeingId}/snapshot`);
+            if (snap && snap.htmlContent) {
+                document.getElementById('html-div').innerHTML = snap.htmlContent;
+                _justReloaded = true;
+            }
+            // Ensure chat-panel exists (new being has no snapshot)
+            if (!document.getElementById('chat-panel')) {
+                document.getElementById('html-div').insertAdjacentHTML('afterbegin',
+                    '<div id="chat-panel"><div id="chat-box"></div><div class="input-area"><textarea id="input" rows="2" placeholder="Enter prompt..."></textarea><button id="send-btn" class="send go">Wake</button></div></div>');
+            }
+            // Re-acquire refs (snapshot restore may have replaced them)
+            chatBox = document.getElementById('chat-box');
+            input = document.getElementById('input');
+            sendBtn = document.getElementById('send-btn');
+            bindChatEvents();
+            bindInputEvents();
             chatBox.innerHTML = '<div class="msg ai">System online. Initializing.</div>';
-            if (!consciousness) { cancelAllAnimations(); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); const __hd = document.getElementById('html-div'); const __cp = document.getElementById('chat-panel'); Array.from(__hd.children).forEach(c => { if (c !== __cp) c.remove(); }); return; }
+            if (!consciousness) return;
 
             // Only render the last 100k characters to keep UI responsive
             const RENDER_LIMIT = 100000;
@@ -1509,20 +1525,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
             }
             scrollToBottom(true);
-            cancelAllAnimations();
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-            // Clear html-div AI content but preserve #chat-panel
-            const _htmlDiv = document.getElementById('html-div');
-            const _chatPanel = document.getElementById('chat-panel');
-            Array.from(_htmlDiv.children).forEach(c => { if (c !== _chatPanel) c.remove(); });
-            // Restore snapshot (AI content only, chat-panel excluded from save)
-            const snap = await DB.get(`${currentBeingId}/snapshot`);
-            if (snap && snap.htmlContent) {
-                const tmp = document.createElement('div');
-                tmp.innerHTML = snap.htmlContent;
-                Array.from(tmp.children).forEach(c => _htmlDiv.appendChild(c));
-                _justReloaded = true;
-            }
         }
 
         async function switchBeing(id) {
@@ -1568,10 +1570,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
-            // Clear living UI (preserve #chat-panel)
-            const _hd = document.getElementById('html-div');
-            const _cp = document.getElementById('chat-panel');
-            Array.from(_hd.children).forEach(c => { if (c !== _cp) c.remove(); });
+            // Clear living UI — renderHistory() will restore chat-panel from default
             document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
             // Pad as first user message
             currentUserInput = firstMessage;
@@ -2953,20 +2952,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
         }
-        input.addEventListener('input', updateSendBtn);
-
-        // Capture user interactions with AI-generated UI in html-div
-        const htmlDiv = document.getElementById('html-div');
-        htmlDiv.addEventListener('click', scheduleSaveBeing);
-        htmlDiv.addEventListener('keydown', scheduleSaveBeing);
-
-        sendBtn.onclick = () => {
-            const empty = !input.value.trim();
-            const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
-            if ((loopRunning || dispatchTimer !== null || remoteRunning) && empty) {
-                clearTimeout(dispatchTimer); dispatchTimer = null;
-                if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
-                if (remoteRunning && _relayWs && _relayConnected) {
+        function bindInputEvents() {
+            input.addEventListener('input', updateSendBtn);
+            sendBtn.onclick = () => {
+                const empty = !input.value.trim();
+                const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
+                if ((loopRunning || dispatchTimer !== null || remoteRunning) && empty) {
+                    clearTimeout(dispatchTimer); dispatchTimer = null;
+                    if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+                    if (remoteRunning && _relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: settings.hostDevice, being_id: currentBeingId }));
                 }
                 updateSendBtn();
@@ -2996,6 +2990,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 sendMessage();
             }
         };
+        }
+        bindInputEvents();
+
+        // Capture user interactions with AI-generated UI in html-div
+        const htmlDiv = document.getElementById('html-div');
+        htmlDiv.addEventListener('click', scheduleSaveBeing);
+        htmlDiv.addEventListener('keydown', scheduleSaveBeing);
 
         // Boot
         let autoInferTimer = null;
