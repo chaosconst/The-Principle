@@ -175,6 +175,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         model,
                         system: SYSTEM_INSTRUCTION,
                         messages: [{ role: 'user', content: userContent }],
+                        max_tokens: 16000,
                         stream: true,
                         stop_sequences: STOP_WORDS
                     };
