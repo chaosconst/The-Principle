@@ -657,7 +657,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             width: 50%;
             display: flex;
             flex-direction: column;
-            background: var(--bg);
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             border-right: 1px solid var(--border);
             pointer-events: auto;
             z-index: 3;
@@ -1823,7 +1825,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
                     const target = v === 'full' ? document.body : container;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
-                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-box' });
+                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'chat-panel' });
                     result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
                 }
 
