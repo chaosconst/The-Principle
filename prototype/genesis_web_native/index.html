@@ -1156,15 +1156,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
     </div>
 
     <div id="canvas-container">
-        <div id="html-div">
-            <div id="chat-panel">
-                <div id="chat-box"></div>
-                <div class="input-area">
-                    <textarea id="input" rows="2" placeholder="Enter prompt..."></textarea>
-                    <button id="send-btn" class="send go">Wake</button>
-                </div>
+        <div id="chat-panel">
+            <div id="chat-box"></div>
+            <div class="input-area">
+                <textarea id="input" rows="2" placeholder="Enter prompt..."></textarea>
+                <button id="send-btn" class="send go">Wake</button>
             </div>
         </div>
+        <div id="html-div"></div>
         <canvas id="main-canvas"></canvas>
     </div>
 
@@ -1364,22 +1363,18 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _rafIds.clear();
         }
 
-        let chatBox = document.getElementById('chat-box');
-        let input = document.getElementById('input');
-        let sendBtn = document.getElementById('send-btn');
+        const chatBox = document.getElementById('chat-box');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('send-btn');
 
         // Stop auto-scroll when user scrolls up
         let userScrolledUp = false;
         let ignoreScroll = false;
-
-        function bindChatEvents() {
-            chatBox.addEventListener('scroll', () => {
-                if (ignoreScroll) return;
-                const threshold = 100;
-                userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
-            });
-        }
-        bindChatEvents();
+        chatBox.addEventListener('scroll', () => {
+            if (ignoreScroll) return;
+            const threshold = 100;
+            userScrolledUp = chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - threshold;
+        });
 
         function scrollToBottom(force = false) {
             if (force || !userScrolledUp) {
@@ -1460,6 +1455,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const snapshot = {
                     htmlContent: htmlDiv.innerHTML,
                     canvasStyle: canvas.style.cssText,
+                    chatPanelStyle: document.getElementById('chat-panel').style.cssText,
                 };
                 await DB.put({ id: `${currentBeingId}/snapshot`, ...snapshot });
             } catch(e) { /* tainted canvas etc */ }
@@ -1468,28 +1464,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function renderHistory() {
-            // Restore snapshot first (includes AI-modified chat-panel styles)
             cancelAllAnimations();
             const snap = await DB.get(`${currentBeingId}/snapshot`);
             if (snap && snap.htmlContent) {
                 document.getElementById('html-div').innerHTML = snap.htmlContent;
                 if (snap.canvasStyle) { canvas.style.cssText = snap.canvasStyle; resizeCanvas(); }
+                if (snap.chatPanelStyle) document.getElementById('chat-panel').style.cssText = snap.chatPanelStyle;
                 _justReloaded = true;
             } else {
-                // No snapshot — clear old being's content
                 document.getElementById('html-div').innerHTML = '';
             }
-            // Ensure chat-panel exists (new being or snapshot without it)
-            if (!document.getElementById('chat-panel')) {
-                document.getElementById('html-div').insertAdjacentHTML('afterbegin',
-                    '<div id="chat-panel"><div id="chat-box"></div><div class="input-area"><textarea id="input" rows="2" placeholder="Enter prompt..."></textarea><button id="send-btn" class="send go">Wake</button></div></div>');
-            }
-            // Re-acquire refs (snapshot restore may have replaced them)
-            chatBox = document.getElementById('chat-box');
-            input = document.getElementById('input');
-            sendBtn = document.getElementById('send-btn');
-            bindChatEvents();
-            bindInputEvents();
             chatBox.innerHTML = '<div class="msg ai">System online. Initializing.</div>';
             if (!consciousness) return;
 
@@ -1576,12 +1560,12 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             // Kill all AI timers/animations, then clear UI
             cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
+            document.getElementById('chat-panel').style.cssText = '';  // reset chat-panel to default
             canvas.style.cssText = '';  // reset canvas to default CSS
             const _ctx = canvas.getContext('2d');
-            _ctx.setTransform(1, 0, 0, 1, 0, 0);  // reset transform before clear
+            _ctx.setTransform(1, 0, 0, 1, 0, 0);
             _ctx.clearRect(0, 0, canvas.width, canvas.height);
             resizeCanvas();
-            console.log('[newBeing] cleared canvas:', canvas.width, canvas.height, 'children in html-div:', document.getElementById('html-div').children.length, 'children in canvas-container:', document.getElementById('canvas-container').children.length);
             await saveBeing();
             await renderHistory();
             // Ask in chat — user replies naturally
@@ -1601,10 +1585,12 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function resetUI() {
-            // Kill timers, then clear AI-generated UI
             cancelAllAnimations();
             document.getElementById('html-div').innerHTML = '';
-            document.getElementById('main-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
+            document.getElementById('chat-panel').style.cssText = '';
+            canvas.style.cssText = '';
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            resizeCanvas();
             // Remove saved snapshot so it doesn't restore on reload
             await DB.del(`${currentBeingId}/snapshot`);
             // Re-inject default chat panel
@@ -1716,7 +1702,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #html-div (living UI entry, DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n          #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n            #chat-box (message stream, scrollable)\n              .msg (consciousness history — you already know it, hidden from save & vision)\n            .input-area\n              #input (textarea)\n              #send-btn\n        #main-canvas (z:1)\n      NOTE: if you go full-screen (hide #chat-panel), you MUST implement your own input and use trigger(msg) to feed back to consciousness — otherwise the loop breaks with no way to receive input.`;
+                    deviceLines += `\n    - Living UI:\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #chat-panel (left 50%, absolute — resizable/movable via style)\n          #chat-box (message stream, scrollable)\n            .msg (consciousness history — you already know it, hidden from save & vision)\n          .input-area > #input + #send-btn\n        #html-div (DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n        #main-canvas (right 50%, absolute, z:1)\n      NOTE: if you hide #chat-panel, implement your own input with trigger(msg) to feed back to consciousness.`;
                 }
                 const dpr = window.devicePixelRatio || 1;
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px CSS (${canvas.width}×${canvas.height}px actual, DPR=${dpr}, ctx pre-scaled — draw in CSS px) | Vision: ${visionInfo}`;
@@ -2988,21 +2974,19 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
         }
-        function bindInputEvents() {
-            input.addEventListener('input', updateSendBtn);
-            sendBtn.onclick = () => {
-                const empty = !input.value.trim();
-                const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
-                if ((loopRunning || dispatchTimer !== null || remoteRunning) && empty) {
-                    clearTimeout(dispatchTimer); dispatchTimer = null;
-                    if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
-                    if (remoteRunning && _relayWs && _relayConnected) {
+        input.addEventListener('input', updateSendBtn);
+        sendBtn.onclick = () => {
+            const empty = !input.value.trim();
+            const remoteRunning = settings.hostDevice !== 'this browser' && window._remoteAiDiv;
+            if ((loopRunning || dispatchTimer !== null || remoteRunning) && empty) {
+                clearTimeout(dispatchTimer); dispatchTimer = null;
+                if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; }
+                if (remoteRunning && _relayWs && _relayConnected) {
                     _relayWs.send(JSON.stringify({ type: 'loop_stop', device_name: settings.hostDevice, being_id: currentBeingId }));
                 }
                 updateSendBtn();
             } else if (!loopRunning && empty) {
                 if (settings.hostDevice !== 'this browser') {
-                    // Remote mode: send empty Go to trigger remote loop
                     if (_relayWs && _relayConnected) {
                         relayEncSend(settings.hostDevice, 'user_input', { text: '', being_id: currentBeingId });
                         window._remoteAiDiv = appendMsgUI('ai', '');
@@ -3026,8 +3010,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 sendMessage();
             }
         };
-        }
-        bindInputEvents();
 
         // Capture user interactions with AI-generated UI in html-div
         const htmlDiv = document.getElementById('html-div');
