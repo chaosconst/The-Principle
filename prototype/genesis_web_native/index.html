@@ -1534,7 +1534,12 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             }
         }
 
-        async function newBeing() {
+        async function newBeing(firstMessage) {
+            // Ask for initial prompt if not provided
+            if (!firstMessage) {
+                firstMessage = prompt('Describe the Being you want to create:');
+                if (!firstMessage) return; // cancelled
+            }
             currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             consciousness = '';
             cachedLength = 0;
@@ -1542,6 +1547,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
+            // Pad as first user message
+            currentUserInput = firstMessage;
             await saveBeing();
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
@@ -3092,7 +3099,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
-            if (!consciousness) scheduleAutoInfer();
+            // Auto-infer on reload for existing beings (newBeing handles its own)
+            if (consciousness) scheduleAutoInfer();
         }
 
         if (welcomed) {
