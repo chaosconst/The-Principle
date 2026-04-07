@@ -1717,7 +1717,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const cpEl = document.getElementById('chat-panel');
                 const canvasRect = canvasEl.getBoundingClientRect();
                 const cpRect = cpEl ? cpEl.getBoundingClientRect() : null;
-                deviceLines += `\n    - Layout: #main-canvas (${Math.round(canvasRect.x)},${Math.round(canvasRect.y)},${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}) — #chat-panel (${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)},${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}) — both resizable via style`;
+                deviceLines += `\n    - Layout (resizable via style):`;
+                deviceLines += `\n      #chat-panel: top-left(${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)}` : '?'}) size ${cpRect ? `${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}`;
+                deviceLines += `\n      #main-canvas: top-left(${Math.round(canvasRect.x)},${Math.round(canvasRect.y)}) size ${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// CRITICAL for canvas: never set canvas.width/height; use const { width: w, height: h } = document.getElementById('main-canvas').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
 \n\`\`\``;
