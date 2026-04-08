@@ -1448,7 +1448,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if(!currentBeingId) {
                 currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             }
-            localStorage.setItem('genesis_currentBeing', currentBeingId);
             let title = currentBeingId;
             // Extract title from first user input (skip system/being markers)
             const userMatch = consciousness.match(/\n\n(?!\[System|\*\*(?:Digital Being|Assistant)|System -)([^\n].{0,30})/);
@@ -1543,6 +1542,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             cancelAllAnimations();
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             currentBeingId = id;
+            localStorage.setItem('genesis_currentBeing', id);
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
             if (consciousnessRecord) {
@@ -1573,6 +1573,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function newBeing() {
             currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
+            localStorage.setItem('genesis_currentBeing', currentBeingId);
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
