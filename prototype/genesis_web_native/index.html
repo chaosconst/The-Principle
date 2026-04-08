@@ -3000,7 +3000,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
             const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
             const isNewBeing = !consciousness || (consciousness.includes('[First Contact]') && !consciousness.includes('[System Environment]'));
-            const label = isAbort ? 'Abort' : isGo ? ((_justReloaded || isNewBeing) ? 'Wake' : 'Go') : 'Send';
+            const needsWake = _justReloaded || isNewBeing || _isFirstBoot;
+            const label = isAbort ? 'Abort' : isGo ? (needsWake ? 'Wake' : 'Go') : 'Send';
             sendBtn.textContent = label;
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
@@ -3182,8 +3183,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             await initApp();
             initRelay();
             if (!_isFirstBoot && !/Mobi|Android/i.test(navigator.userAgent)) input.focus();
-            _isFirstBoot = false;
             updateSendBtn();
+            _isFirstBoot = false;
         }
 
         if (welcomed) {
