@@ -1740,7 +1740,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const cvCS = getComputedStyle(canvasEl);
                 const cssProps = (cs) => ['left','right','top','bottom','width','height','position'].map(p => `${p}:${cs.getPropertyValue(p)}`).filter(s => !s.endsWith(':auto') && !s.endsWith(':static')).join(', ');
                 const luRect = container.getBoundingClientRect();
-                deviceLines += `\n    - Layout (${isMobile ? 'MOBILE — vertical stack' : 'DESKTOP — side by side'}, resizable via style):`;
+                deviceLines += `\n    - Layout (${isMobile ? 'MOBILE' : 'DESKTOP'}, resizable via style):`;
                 deviceLines += `\n      #living-ui: ${Math.round(luRect.width)}×${Math.round(luRect.height)}`;
                 deviceLines += `\n      #chat-panel {${cpCS ? cssProps(cpCS) : '?'}} at (${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)}` : '?'}) size ${cpRect ? `${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}`;
                 deviceLines += `\n      #html-div {${cssProps(hdCS)}} at (${Math.round(hdRect.x)},${Math.round(hdRect.y)}) size ${Math.round(hdRect.width)}×${Math.round(hdRect.height)}`;
