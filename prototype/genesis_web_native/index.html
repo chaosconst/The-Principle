@@ -1362,7 +1362,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         };
 
         // --- State Management ---
-        var currentBeingId = localStorage.getItem('genesis_currentBeing') || null;
+        var currentBeingId = null;
         var consciousness = "";          // plain-text consciousness stream
         var cachedLength = 0;            // cached character position
         var cacheName = null;            // Gemini cache ID
@@ -1542,7 +1542,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             cancelAllAnimations();
             canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
             currentBeingId = id;
-            localStorage.setItem('genesis_currentBeing', id);
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
             if (consciousnessRecord) {
@@ -1573,7 +1572,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function newBeing() {
             currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
-            localStorage.setItem('genesis_currentBeing', currentBeingId);
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
@@ -1627,7 +1625,6 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 await DB.del(`${currentBeingId}/consciousness.txt`);
                 await DB.del(currentBeingId);
                 currentBeingId = null;
-                localStorage.removeItem('genesis_currentBeing');
                 await initApp();
             }
         }
