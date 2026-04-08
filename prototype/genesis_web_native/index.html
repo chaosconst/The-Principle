@@ -829,7 +829,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         /* === CANVAS CONTAINER (full remaining space) === */
 
-        #canvas-container {
+        #living-ui {
             flex: 1;
             width: 100%;
             height: 100%;
@@ -839,7 +839,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         /* Blueprint grid */
-        #canvas-container::before {
+        #living-ui::before {
             content: '';
             position: absolute; inset: 0;
             background-image:
@@ -947,7 +947,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             #being-select { max-width: 120px; }
             .controls { flex-wrap: wrap; gap: 2px; margin-left: auto; }
 
-            #canvas-container {
+            #living-ui {
                 display: flex;
                 flex-direction: column;
             }
@@ -1174,7 +1174,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         </div>
     </div>
 
-    <div id="canvas-container">
+    <div id="living-ui">
         <div id="chat-panel">
             <div id="chat-box"></div>
             <div class="input-area">
@@ -1407,7 +1407,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         const status = document.getElementById('status');
         const beingSelect = document.getElementById('being-select');
         const canvas = document.getElementById('main-canvas');
-        const container = document.getElementById('canvas-container');
+        const container = document.getElementById('living-ui');
 
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
@@ -1690,12 +1690,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         function getRealtimeContext() {
             const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-            const { width: w, height: h } = container.getBoundingClientRect();
+            const { width: w, height: h } = canvas.getBoundingClientRect();
             const chatEl = document.getElementById('chat-panel');
-            const canvasRect = container.getBoundingClientRect();
-            const chatRect = chatEl ? chatEl.getBoundingClientRect() : null;
-            const panelName = (chatRect && canvasRect.top < chatRect.top - 10) ? 'top panel' : 'right panel';
-            const visionLabels = { canvas: 'canvas.toDataURL (canvas element only)', half: `html2canvas pageshot (${panelName}: canvas + html-div)`, full: 'html2canvas pageshot (full page: document.body)', native: 'getDisplayMedia (screen capture, user authorized)' };
+            const visionLabels = { canvas: 'canvas.toDataURL (canvas only)', half: 'html2canvas pageshot (#living-ui)', full: 'html2canvas pageshot (full page)', native: 'getDisplayMedia (screen capture)' };
             const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
             const visionInfo = supportsVision ? (visionLabels[settings.vision] || settings.vision) : 'disabled (model does not support image input)';
 
@@ -1725,7 +1722,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     deviceLines += `\n      ${currentBeingId} → metadata object`;
                     deviceLines += `\n      ${currentBeingId}/consciousness.txt → {id, value} — consciousness stream`;
                     deviceLines += `\n      ${currentBeingId}/{filename} → arbitrary {id, ...} storage`;
-                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #canvas-container (full viewport below header)\n        #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n          #chat-box (message stream, scrollable)\n            .msg (consciousness history — you already know it, hidden from save & vision)\n          .input-area\n            #input (textarea)\n            #send-btn\n        #html-div (DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n        #main-canvas (right 50%, absolute, z:1)\n      NOTE: if you go full-screen (hide #chat-panel), you MUST implement your own input and use trigger(msg) to feed back to consciousness — otherwise the loop breaks with no way to receive input.`;
+                    deviceLines += `\n    - Living UI (all yours):\n      .header (top bar — settings, being select, controls)\n      #living-ui (full viewport below header)\n        #chat-panel (default: left 50%, absolute positioned — you can restyle/move it)\n          #chat-box (message stream, scrollable)\n            .msg (consciousness history — you already know it, hidden from save & vision)\n          .input-area\n            #input (textarea)\n            #send-btn\n        #html-div (DOM overlay, auto-saved, z:2, pointer-events:none; children get pointer-events:auto)\n        #main-canvas (right 50%, absolute, z:1)\n      NOTE: if you go full-screen (hide #chat-panel), you MUST implement your own input and use trigger(msg) to feed back to consciousness — otherwise the loop breaks with no way to receive input.`;
                 }
                 const dpr = window.devicePixelRatio || 1;
                 deviceLines += `\n    - Canvas: ${Math.round(w)}×${Math.round(h)}px CSS (${canvas.width}×${canvas.height}px actual, DPR=${dpr}, ctx pre-scaled — draw in CSS px) | Vision: ${visionInfo}`;
@@ -1860,7 +1857,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
                 // html2canvas — slower, no permission needed
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
-                    const target = v === 'full' ? document.body : container;
+                    const target = document.body;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
                     // Hide old messages, keep last 4 visible for screenshot
                     const _msgs = chatBox.querySelectorAll('.msg, .msg-timestamp');
