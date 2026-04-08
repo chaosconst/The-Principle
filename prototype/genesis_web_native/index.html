@@ -1739,10 +1739,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const cpRect = cpEl ? cpEl.getBoundingClientRect() : null;
                 const hdEl = document.getElementById('html-div');
                 const hdRect = hdEl.getBoundingClientRect();
+                const cpCS = cpEl ? getComputedStyle(cpEl) : null;
+                const hdCS = getComputedStyle(hdEl);
+                const cvCS = getComputedStyle(canvasEl);
+                const cssProps = (cs) => ['left','right','top','bottom','width','height','position'].map(p => `${p}:${cs.getPropertyValue(p)}`).filter(s => !s.endsWith(':auto') && !s.endsWith(':static')).join(', ');
                 deviceLines += `\n    - Layout (resizable via style):`;
-                deviceLines += `\n      #chat-panel {left:0, width:${cpEl?.style.width||'50%'}} at (${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)}` : '?'}) size ${cpRect ? `${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}`;
-                deviceLines += `\n      #html-div {right:0, width:${hdEl.style.width||'50%'}} at (${Math.round(hdRect.x)},${Math.round(hdRect.y)}) size ${Math.round(hdRect.width)}×${Math.round(hdRect.height)}`;
-                deviceLines += `\n      #main-canvas {right:0, width:${canvasEl.style.width||'50%'}} at (${Math.round(canvasRect.x)},${Math.round(canvasRect.y)}) size ${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}`;
+                deviceLines += `\n      #chat-panel {${cpCS ? cssProps(cpCS) : '?'}} at (${cpRect ? `${Math.round(cpRect.x)},${Math.round(cpRect.y)}` : '?'}) size ${cpRect ? `${Math.round(cpRect.width)}×${Math.round(cpRect.height)}` : 'hidden'}`;
+                deviceLines += `\n      #html-div {${cssProps(hdCS)}} at (${Math.round(hdRect.x)},${Math.round(hdRect.y)}) size ${Math.round(hdRect.width)}×${Math.round(hdRect.height)}`;
+                deviceLines += `\n      #main-canvas {${cssProps(cvCS)}} at (${Math.round(canvasRect.x)},${Math.round(canvasRect.y)}) size ${Math.round(canvasRect.width)}×${Math.round(canvasRect.height)}`;
                 deviceLines += `\n    - Exec (MUST use this exact format — wrong format = code displayed as text, never executed):\n/exec browser\n\`\`\`javascript\n// your code here\n// Canvas: never set canvas.width/height directly. Resize via CSS (e.g. canvas.style.width='70%') — ResizeObserver auto-syncs internal resolution + DPR.\n// Use getBoundingClientRect() for drawing dimensions: const { width: w, height: h } = document.getElementById('main-canvas').getBoundingClientRect();\n// return value — use for immediate results (sync or async): the value is passed to context right away.
 // trigger(value) — use for deferred wakeup: e.g. attach to a button click or async callback to resume the loop later when an event fires.
 \n\`\`\``;
