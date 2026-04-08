@@ -2998,7 +2998,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             const remoteRunning = settings.hostDevice !== 'this browser' && !!(window._remoteLoopRunning || window._remoteAiDiv);
             const isAbort = (loopRunning || dispatchTimer !== null || remoteRunning) && empty;
             const isGo    = !loopRunning && !remoteRunning && dispatchTimer === null && empty;
-            const label = isAbort ? 'Abort' : isGo ? (_justReloaded ? 'Wake' : 'Go') : 'Send';
+            const label = isAbort ? 'Abort' : isGo ? ((_justReloaded || !consciousness) ? 'Wake' : 'Go') : 'Send';
             sendBtn.textContent = label;
             sendBtn.classList.toggle('stop', isAbort);
             sendBtn.classList.toggle('go', isGo);
