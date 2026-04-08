@@ -1362,7 +1362,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         };
 
         // --- State Management ---
-        var currentBeingId = null;
+        var currentBeingId = localStorage.getItem('genesis_currentBeing') || null;
         var consciousness = "";          // plain-text consciousness stream
         var cachedLength = 0;            // cached character position
         var cacheName = null;            // Gemini cache ID
@@ -1448,6 +1448,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if(!currentBeingId) {
                 currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             }
+            localStorage.setItem('genesis_currentBeing', currentBeingId);
             let title = currentBeingId;
             // Extract title from first user input (skip system/being markers)
             const userMatch = consciousness.match(/\n\n(?!\[System|\*\*(?:Digital Being|Assistant)|System -)([^\n].{0,30})/);
@@ -1625,6 +1626,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 await DB.del(`${currentBeingId}/consciousness.txt`);
                 await DB.del(currentBeingId);
                 currentBeingId = null;
+                localStorage.removeItem('genesis_currentBeing');
                 await initApp();
             }
         }
