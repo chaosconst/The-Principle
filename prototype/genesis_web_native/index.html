@@ -1973,6 +1973,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 document.getElementById('set-provider').value = settings.provider;
                 document.getElementById('set-endpoint').value = settings.apiEndpoint || '';
                 document.getElementById('set-token').value = settings.tokens?.[settings.provider] || '';
+                if (settings.vision === 'half') settings.vision = 'full'; // migrate
                 document.getElementById('set-vision').value = settings.vision || 'full';
                 document.getElementById('set-preview').checked = settings.preview || false;
                 document.getElementById('set-thinking').checked = settings.thinking || false;
