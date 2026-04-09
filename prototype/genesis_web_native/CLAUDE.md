@@ -41,27 +41,7 @@ Server: `ubuntu@54.168.240.219`, key: `~/.ssh/ec2_tokyo_2023.pem`
 
 ## Deployment
 
-**Frontend** (hot-reload via git pull — no restart needed):
-```bash
-# Dev
-git push origin dev && \
-ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
-  "cd /home/ubuntu/The-Principle-dev && git pull origin dev"
-
-# Prod: merge dev → main first, then pull
-git checkout main && git merge dev && git push origin main && git checkout dev && \
-ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
-  "cd /home/ubuntu/The-Principle && git pull origin main"
-```
-
-**Device relay** (restart required when `relay.py` or `agent.py` changes):
-```bash
-# Dev device relay
-ssh -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
-  "cp /home/ubuntu/The-Principle-dev/prototype/device_relay/relay.py /home/ubuntu/device_relay_dev/relay.py; kill \$(lsof -ti:8087 -ti:8088) 2>/dev/null"
-ssh -f -i ~/.ssh/ec2_tokyo_2023.pem ubuntu@54.168.240.219 \
-  "sleep 1; cd /home/ubuntu/device_relay_dev && HTTP_PORT=8087 WS_PORT=8088 RELAY_WS_URL=wss://dev.infero.net/device-relay/ws nohup python3 relay.py >> relay.log 2>&1 < /dev/null &"
-```
+See **`DEPLOY.md`** (gitignored, local only) for full deployment commands, service list, and one-click scripts. If deployment methods change, update `DEPLOY.md` accordingly.
 
 Also works from GitHub Pages, Vercel, or local `file://` (no device relay needed).
 
