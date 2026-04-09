@@ -2065,6 +2065,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     stopHeartbeat();
                     const hadOnline = settings.devices && Object.values(settings.devices).some(d => d.online && !d.hidden);
                     if (settings.devices) Object.values(settings.devices).forEach(d => d.online = false);
+                    // Auto takeover if host device is now unreachable
+                    if (settings.hostDevice !== 'this browser') {
+                        console.log(`[relay] Relay lost, taking over from ${settings.hostDevice}`);
+                        settings.hostDevice = 'this browser';
+                        saveSettingsToStorage(settings);
+                        setStatus('Ready');
+                    }
                     renderDeviceList();
                     // Delay notification 3s — give silent reconnect a chance
                     if (hadOnline && !_disconnectNotifyTimer) {
