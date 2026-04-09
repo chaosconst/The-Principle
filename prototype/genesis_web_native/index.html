@@ -1320,6 +1320,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     };
                     req.onsuccess = e => resolve(e.target.result);
                     req.onerror = e => reject(e.target.error);
+                    req.onblocked = () => console.warn('[DB] open blocked — close other tabs with this site');
                 });
             },
             async get(id) {
