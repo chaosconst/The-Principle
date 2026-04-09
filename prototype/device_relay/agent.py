@@ -342,10 +342,12 @@ class GenesisWorker:
             self.save_to_disk()
             if not B.strip():
                 break  # empty response — stop to avoid infinite quota burn
-            B_stripped = re.sub(r'^```[\s\S]*?^```', '', B, flags=re.MULTILINE)
-            last_sc = B_stripped.rfind('/self_continue')
-            last_cfh = max(B_stripped.rfind('/call_for_human'), B_stripped.rfind('/call_for_trigger'))
-            cont = last_cfh == -1 or last_sc > last_cfh or bool(self.pending_user_input)
+            # Check tail after last code block for stop/continue signals
+            last_fence = B.rfind('\n```')
+            tail = B[last_fence:] if last_fence != -1 else B
+            last_sc = 1 if '/self_continue' in tail else -1
+            last_cfh = 1 if any(s in tail for s in ('/call_for_human', '/call_for_trigger')) else -1
+            cont = last_cfh == -1 or last_sc != -1 or bool(self.pending_user_input)
             if not cont:
                 break
 

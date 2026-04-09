@@ -78,11 +78,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
 
                 if (!B.trim()) { console.log('[loop] stop: empty response'); return; }
-                const Bstripped = B.replace(/^```[\s\S]*?^```/gm, '');
-                const lastSC = Bstripped.lastIndexOf('/self_continue');
-                const lastCFH = Math.max(Bstripped.lastIndexOf('/call_for_human'), Bstripped.lastIndexOf('/call_for_trigger'));
-                // Stop only when /call_for_human or /call_for_trigger explicitly appears and wins; otherwise always continue
-                const cont = lastCFH === -1 || lastSC > lastCFH || !!currentUserInput;
+                // Check the tail of the raw output (after last code block) for stop/continue signals
+                const lastFence = B.lastIndexOf('\n```');
+                const tail = lastFence !== -1 ? B.slice(lastFence) : B;
+                const lastSC = tail.includes('/self_continue') ? 1 : -1;
+                const lastCFH = (tail.includes('/call_for_human') || tail.includes('/call_for_trigger')) ? 1 : -1;
+                // Stop only when /call_for_human or /call_for_trigger explicitly appears in tail; otherwise always continue
+                const cont = lastCFH === -1 || lastSC !== -1 || !!currentUserInput;
                 console.log(`[loop] lastSC=${lastSC} lastCFH=${lastCFH} currentUserInput=${!!currentUserInput} cont=${cont} → ${cont ? 'continue' : 'stop(CFH)'}`);
                 if (cont) return loop();
             } catch (e) {
@@ -3058,41 +3060,21 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('welcome-text').innerHTML = t.welcome_text.replace('{source}', link);
             const optionsEl = document.getElementById('welcome-options');
 
-            // Default to last option (primary)
-            let selectedOpt = t.options[t.options.length - 1];
-
-            const confirmBtn = document.createElement('button');
-            confirmBtn.textContent = t.confirm || "I've made up my mind";
-            confirmBtn.className = 'primary';
-            confirmBtn.style.cssText = 'margin-top:16px;width:100%;';
-
-            const btns = [];
             t.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.textContent = opt.text;
                 btn.style.textAlign = 'left';
                 btn.onclick = () => {
-                    btns.forEach(b => b.style.borderColor = '');
-                    btn.style.borderColor = 'var(--accent)';
-                    selectedOpt = opt;
+                    if (opt.close) {
+                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
+                    } else {
+                        localStorage.setItem('genesis_welcomed', '1');
+                        modal.classList.add('hidden');
+                        boot();
+                    }
                 };
                 optionsEl.appendChild(btn);
-                btns.push(btn);
             });
-            // Highlight default selection
-            btns[btns.length - 1].style.borderColor = 'var(--accent)';
-
-            optionsEl.appendChild(confirmBtn);
-
-            confirmBtn.onclick = () => {
-                if (selectedOpt.close) {
-                    modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
-                } else {
-                    localStorage.setItem('genesis_welcomed', '1');
-                    modal.classList.add('hidden');
-                    boot();
-                }
-            };
 
             modal.classList.remove('hidden');
         }
