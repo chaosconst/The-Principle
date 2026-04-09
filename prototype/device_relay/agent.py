@@ -119,7 +119,7 @@ class GenesisWorker:
         self.being_id = ''
         self._last_prompt_tokens = 0
         self.triggers = asyncio.Queue()
-        self._next_sleep = 1800  # default 30 min watchdog
+        # _next_sleep removed — no watchdog auto-wake
         self._trigger_watcher = None  # file watcher task
 
     def _being_dir(self):
@@ -204,9 +204,9 @@ class GenesisWorker:
         self.triggers.put_nowait(msg)
 
     def wake_me_up_when(self, sec):
-        """Set next sleep duration. Any trigger wakes early."""
-        self._next_sleep = sec
+        """Schedule a trigger after `sec` seconds."""
         self._log(f"  [wake_me_up_when] {sec}s")
+        asyncio.get_event_loop().call_later(sec, lambda: self.triggers.put_nowait(f"[timer] {sec}s elapsed"))
 
     def _trigger_file_path(self):
         d = self._being_dir()
@@ -230,14 +230,9 @@ class GenesisWorker:
             await asyncio.sleep(2)
 
     async def _wait_for_trigger(self):
-        """Wait for trigger or watchdog timeout. Merges concurrent triggers."""
-        wait_sec = self._next_sleep
-        self._next_sleep = 1800  # reset
-        self._log(f"[{ts()}] waiting for trigger (timeout {wait_sec}s)")
-        try:
-            msg = await asyncio.wait_for(self.triggers.get(), timeout=wait_sec)
-        except asyncio.TimeoutError:
-            msg = f"[watchdog] {wait_sec}s no trigger, auto-waking"
+        """Wait for trigger. No timeout — waits indefinitely."""
+        self._log(f"[{ts()}] waiting for trigger")
+        msg = await self.triggers.get()
         # Grace period to collect concurrent triggers
         await asyncio.sleep(0.5)
         msgs = [msg]
@@ -363,7 +358,7 @@ class GenesisWorker:
         lines += f'\n    - Exec (MUST use this exact format — wrong format = code never executed):\n/exec shell {DEVICE_NAME}\n```bash\n<command>\n```'
         lines += '\n      (30s timeout: process keeps running but stdout/stderr detached, loop advances. Write output to file if needed after 30s.)'
         lines += f'\n    - Trigger: echo "msg" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt to wake from /call_for_trigger. Use in nohup scripts for async callback. E.g.: nohup bash -c \'sleep 3600 && echo "1h timer" >> {INFERO_DIR}/beings/{self.being_id}/trigger.txt\' &'
-        lines += '\n    - Watchdog: if no trigger for 30 min after /call_for_trigger, auto-wakes with [watchdog] message.'
+        lines += '\n    - wake_me_up_when(sec): schedule a trigger after N seconds. No automatic watchdog — Being sleeps until triggered.'
         # Other devices
         for name, info in self.devices.items():
             if name == DEVICE_NAME:
