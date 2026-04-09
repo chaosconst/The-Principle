@@ -1561,6 +1561,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function newBeing() {
+            console.log('[newBeing] start');
             currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             consciousness = '';
             cachedLength = 0;
@@ -1569,6 +1570,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             _lastCachedTokens = 0;
             _justReloaded = false;
             await saveBeing();
+            console.log('[newBeing] saved, id:', currentBeingId);
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
             const remoteHost = settings.hostDevice;
@@ -1634,9 +1636,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function initApp() {
+            console.log('[initApp] start');
             const beings = (await DB.list()).filter(s => !s.id.includes('/'));
+            console.log('[initApp] beings:', beings.length);
             if (beings.length === 0) {
+                console.log('[initApp] no beings, creating new');
                 await newBeing();
+                console.log('[initApp] newBeing done');
             } else {
                 if (!currentBeingId || !beings.find(s => s.id === currentBeingId)) {
                     currentBeingId = beings.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
@@ -3121,8 +3127,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         };
 
         async function boot() {
+            console.log('[boot] start');
             await loadModels();
+            console.log('[boot] models loaded');
             await initApp();
+            console.log('[boot] initApp done');
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
