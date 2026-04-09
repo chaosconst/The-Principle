@@ -1637,8 +1637,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
         }
 
         async function initApp() {
-            console.log('[initApp] start');
-            const beings = (await DB.list()).filter(s => !s.id.includes('/'));
+            console.log('[initApp] start, calling DB.list()...');
+            let allRecords;
+            try {
+                allRecords = await DB.list();
+                console.log('[initApp] DB.list() returned', allRecords.length, 'records');
+            } catch(e) {
+                console.error('[initApp] DB.list() failed:', e);
+                allRecords = [];
+            }
+            const beings = allRecords.filter(s => !s.id.includes('/'));
             console.log('[initApp] beings:', beings.length);
             if (beings.length === 0) {
                 console.log('[initApp] no beings, creating new');
