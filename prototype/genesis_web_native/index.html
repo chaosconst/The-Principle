@@ -3067,21 +3067,41 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             document.getElementById('welcome-text').innerHTML = t.welcome_text.replace('{source}', link);
             const optionsEl = document.getElementById('welcome-options');
 
+            // Default to last option (primary)
+            let selectedOpt = t.options[t.options.length - 1];
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.textContent = t.confirm || "I've made up my mind";
+            confirmBtn.className = 'primary';
+            confirmBtn.style.cssText = 'margin-top:16px;width:100%;';
+
+            const btns = [];
             t.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.textContent = opt.text;
                 btn.style.textAlign = 'left';
                 btn.onclick = () => {
-                    if (opt.close) {
-                        modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
-                    } else {
-                        localStorage.setItem('genesis_welcomed', '1');
-                        modal.classList.add('hidden');
-                        boot();
-                    }
+                    btns.forEach(b => b.style.borderColor = '');
+                    btn.style.borderColor = 'var(--accent)';
+                    selectedOpt = opt;
                 };
                 optionsEl.appendChild(btn);
+                btns.push(btn);
             });
+            // Highlight default selection
+            btns[btns.length - 1].style.borderColor = 'var(--accent)';
+
+            optionsEl.appendChild(confirmBtn);
+
+            confirmBtn.onclick = () => {
+                if (selectedOpt.close) {
+                    modal.innerHTML = `<div class="welcome-box"><p style="text-align:center;color:var(--text-dim);padding:40px 0">${t.close_msg}</p></div>`;
+                } else {
+                    localStorage.setItem('genesis_welcomed', '1');
+                    modal.classList.add('hidden');
+                    boot();
+                }
+            };
 
             modal.classList.remove('hidden');
         }
