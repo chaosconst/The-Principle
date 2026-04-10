@@ -316,6 +316,8 @@ class GenesisWorker:
             await self.loop()
             if not self.running:
                 break
+            # Notify browser that loop is idle (waiting for trigger)
+            await self.send_relay({'type': 'loop_status', 'status': 'idle', 'device_name': DEVICE_NAME, 'being_id': self.being_id})
             await self._wait_for_trigger()
 
     async def loop(self):

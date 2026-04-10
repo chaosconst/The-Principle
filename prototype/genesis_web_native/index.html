@@ -2465,17 +2465,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     setStatus('Remote');
                     console.log(`[relay] Remote loop started on ${msg.device_name}`);
                 }
-                if (msg.status === 'stopped') {
+                if (msg.status === 'idle' || msg.status === 'stopped') {
                     const runner = msg.device_name || settings.hostDevice;
-                    console.log(`[relay] Remote loop stopped from ${runner}, syncing via consciousness_sync...`);
+                    console.log(`[relay] Remote loop ${msg.status} from ${runner}, syncing via consciousness_sync...`);
                     window._remoteLoopRunning = false;
                     updateSendBtn();
 
-                    // Sync consciousness via chunked consciousness_sync (replaces inline payload)
+                    // Sync consciousness via chunked consciousness_sync
                     _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name: runner, being_id: currentBeingId, action: 'request' }));
-
-                    // The consciousness_sync response handler (above) will merge and decide next action
-                    // Store runner info so the sync handler can do handoff logic
                     window._syncStoppedRunner = runner;
                 }
             }
