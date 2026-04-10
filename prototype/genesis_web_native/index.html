@@ -393,7 +393,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             setStatus('Executing...');
             const results = [];
             for (const match of matches) {
-                results.push(await _runJS(match[1].trim()));
+                const code = match[1].trim().replace(/\\`/g, '`');
+                results.push(await _runJS(code));
             }
             let result = results.length === 1 ? results[0] : results.map((r, i) => `[Block ${i + 1}]\n${r}`).join('\n\n');
 
