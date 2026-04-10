@@ -1894,8 +1894,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (loopRunning) return;
             const userText = div.dataset.userText;
             if (!confirm('从此处开始时光倒流？')) return;
-            // Find the [System Environment] block that contains this user text in consciousness
-            const idx = consciousness.indexOf(userText);
+            // Find the [System Environment] block that contains this user text in consciousness (search from end)
+            const idx = consciousness.lastIndexOf(userText);
             if (idx === -1) return;
             // Walk back to find the start of this [System Environment] block
             const envTag = '[System Environment]';
