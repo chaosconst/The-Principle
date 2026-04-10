@@ -2533,6 +2533,9 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
                 window._forkPoint = consciousness.length;
+                // Runtime idle sync: stream_token already rendered, skip heavy renderHistory
+                // Initial sync (page load): need renderHistory to show missed messages
+                if (changed && !window._syncStoppedRunner) renderHistory();
                 if (window._syncStoppedRunner === runner) {
                     // Post-stop sync complete — decide next action
                     window._syncStoppedRunner = null;
