@@ -2197,6 +2197,47 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             return JSON.parse(new TextDecoder().decode(plain));
         }
 
+        // Gunzip helper (uses native DecompressionStream)
+        async function gunzip(uint8) {
+            const ds = new DecompressionStream('gzip');
+            const writer = ds.writable.getWriter();
+            writer.write(uint8);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const parts = [];
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                parts.push(value);
+            }
+            const total = parts.reduce((s, p) => s + p.length, 0);
+            const result = new Uint8Array(total);
+            let offset = 0;
+            for (const p of parts) { result.set(p, offset); offset += p.length; }
+            return new TextDecoder().decode(result);
+        }
+
+        // Reassemble chunked consciousness_sync response
+        const _syncChunks = {};  // keyed by being_id
+        async function handleSyncChunk(msg, cryptoKey) {
+            const data = await decryptPayload(cryptoKey, msg.payload);
+            // Legacy: non-chunked response (has 'consciousness' directly)
+            if (data.consciousness !== undefined) return data;
+            // Chunked: has gz, i, n
+            const key = msg.being_id || '_';
+            if (!_syncChunks[key]) _syncChunks[key] = [];
+            _syncChunks[key][data.i] = Uint8Array.from(atob(data.gz), c => c.charCodeAt(0));
+            if (_syncChunks[key].filter(Boolean).length < data.n) return null;  // waiting for more
+            // All chunks received — reassemble
+            const totalLen = _syncChunks[key].reduce((s, c) => s + c.length, 0);
+            const full = new Uint8Array(totalLen);
+            let off = 0;
+            for (const c of _syncChunks[key]) { full.set(c, off); off += c.length; }
+            delete _syncChunks[key];
+            const json = await gunzip(full);
+            return JSON.parse(json);
+        }
+
         let _bip39 = null;
         async function _loadBip39() {
             if (_bip39) return _bip39;
@@ -2507,18 +2548,19 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 });
             }
 
-            // consciousness_sync response from remote runner
+            // consciousness_sync response from remote runner (supports chunked gzip)
             if (msg.type === 'consciousness_sync' && msg.action === 'response') {
                 if (msg.being_id && msg.being_id !== currentBeingId) return;  // not our being
                 const runner = msg.device_name || settings.hostDevice;
-                console.log(`[relay] Consciousness sync response from ${runner}`);
                 let remoteConsciousness = null;
                 if (msg.payload) {
                     try {
                         const deviceInfo = settings.devices?.[runner];
                         if (deviceInfo?.keyB64) {
                             const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
-                            const data = await decryptPayload(cryptoKey, msg.payload);
+                            const data = await handleSyncChunk(msg, cryptoKey);
+                            if (!data) return;  // waiting for more chunks
+                            console.log(`[relay] Consciousness sync response from ${runner} (complete)`);
                             remoteConsciousness = data.consciousness || null;
                             if (data.metadata) {
                                 cachedLength = data.metadata.cachedLength || 0;
@@ -2772,13 +2814,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
             // Sync first — get device's latest consciousness before overwriting
             try {
-                const syncResult = await new Promise((resolve) => {
-                    const handler = (evt) => {
+                const cryptoKeySync = await importDeviceKey(deviceInfo.keyB64);
+                const syncData = await new Promise((resolve) => {
+                    const handler = async (evt) => {
                         try {
                             const msg = JSON.parse(evt.data);
                             if (msg.type === 'consciousness_sync' && msg.action === 'response' && msg.device_name) {
+                                const data = await handleSyncChunk(msg, cryptoKeySync);
+                                if (!data) return;  // waiting for more chunks
                                 _relayWs.removeEventListener('message', handler);
-                                resolve(msg);
+                                resolve(data);
                             }
                         } catch {}
                     };
@@ -2786,21 +2831,17 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name: targetDevice, being_id: currentBeingId, action: 'request' }));
                     setTimeout(() => { _relayWs.removeEventListener('message', handler); resolve(null); }, 10000);
                 });
-                if (!syncResult) {
+                if (!syncData) {
                     console.warn('[doHandoff] Sync timeout (10s) — aborting handoff');
                     appendMsgUI('system', `Handoff to ${targetDevice} cancelled: sync timeout`);
                     setStatus('Ready');
                     return;
                 }
-                if (syncResult.payload) {
-                    const cryptoKeySync = await importDeviceKey(deviceInfo.keyB64);
-                    const data = await decryptPayload(cryptoKeySync, syncResult.payload);
-                    if (data.consciousness) {
-                        const changed = await mergeConsciousness(targetDevice, data.consciousness);
-                        if (changed) {
-                            console.log(`[doHandoff] Merged device consciousness before handoff`);
-                            renderHistory();
-                        }
+                if (syncData.consciousness) {
+                    const changed = await mergeConsciousness(targetDevice, syncData.consciousness);
+                    if (changed) {
+                        console.log(`[doHandoff] Merged device consciousness before handoff`);
+                        renderHistory();
                     }
                 }
             } catch (e) {
