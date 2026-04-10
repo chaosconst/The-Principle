@@ -975,14 +975,14 @@ async def connect_instance(cfg):
                         c_meta = {}
                         if w and w.consciousness:
                             c_text = w.consciousness
-                            c_meta = w.metadata
+                            c_meta = {**w.metadata, 'coreMem': w._read_core_mem()}
                         else:
                             # No worker — try loading from disk
                             tmp = GenesisWorker(cipher, ws, cfg['relay_ws'])
                             tmp.being_id = being_id
                             if tmp.load_from_disk():
                                 c_text = tmp.consciousness
-                                c_meta = tmp.metadata
+                                c_meta = {**tmp.metadata, 'coreMem': tmp._read_core_mem()}
                                 log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: loaded from disk: {len(c_text)} chars")
                         try:
                             raw = json.dumps({'consciousness': c_text, 'metadata': c_meta}).encode()
