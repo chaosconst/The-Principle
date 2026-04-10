@@ -2467,54 +2467,16 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 if (msg.status === 'stopped') {
                     const runner = msg.device_name || settings.hostDevice;
-                    console.log(`[relay] Remote loop stopped from ${runner}, syncing... (msg.device_name=${msg.device_name}, hostDevice=${settings.hostDevice})`);
-
-                    // Decrypt remote consciousness if present
-                    let remoteConsciousness = null;
-                    if (msg.payload) {
-                        try {
-                            const deviceInfo = settings.devices?.[runner];
-                            if (deviceInfo?.keyB64) {
-                                const cryptoKey = await importDeviceKey(deviceInfo.keyB64);
-                                const data = await decryptPayload(cryptoKey, msg.payload);
-                                remoteConsciousness = data.consciousness || null;
-                                if (data.metadata) {
-                                    cachedLength = data.metadata.cachedLength || 0;
-                                    cacheName = data.metadata.cacheName || null;
-                                    _lastPromptTokens = data.metadata.promptTokens || 0;
-                                    _lastCachedTokens = data.metadata.cachedTokens || 0;
-                                    if (data.metadata.coreMem !== undefined) {
-                                        window._coreMem = data.metadata.coreMem;
-                                        try {
-                                            const db = await new Promise(r => { const req = indexedDB.open('GenesisDB'); req.onsuccess = () => r(req.result); });
-                                            db.transaction('beings', 'readwrite').objectStore('beings').put({ id: currentBeingId + '/core_mem.md', value: data.metadata.coreMem });
-                                        } catch(e) { console.error('coreMem save failed', e); }
-                                    }
-                                }
-                            }
-                        } catch (e) { console.error('[relay] Sync decrypt error:', e); }
-                    }
-
-                    // Merge consciousness
-                    await mergeConsciousness(runner, remoteConsciousness);
-
-                    // Decide next action
-                    if (_pendingHandoff) {
-                        const target = _pendingHandoff;
-                        _pendingHandoff = null;
-                        doHandoff(target);
-                    } else if (settings.preferredHost === runner && settings.hostDevice !== runner && !window._manualTakeover) {
-                        console.log(`[relay] Synced with preferred host ${runner}, handing off`);
-                        doHandoff(runner);
-                    } else if (settings.hostDevice === 'this browser') {
-                        window._manualTakeover = false;
-                        setStatus('Ready');
-                        if (!consciousness) scheduleAutoInfer();
-                    } else {
-                        setStatus('Stopped');
-                    }
+                    console.log(`[relay] Remote loop stopped from ${runner}, syncing via consciousness_sync...`);
                     window._remoteLoopRunning = false;
                     updateSendBtn();
+
+                    // Sync consciousness via chunked consciousness_sync (replaces inline payload)
+                    _relayWs.send(JSON.stringify({ type: 'consciousness_sync', device_name: runner, being_id: currentBeingId, action: 'request' }));
+
+                    // The consciousness_sync response handler (above) will merge and decide next action
+                    // Store runner info so the sync handler can do handoff logic
+                    window._syncStoppedRunner = runner;
                 }
             }
 
@@ -2575,14 +2537,30 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
                 window._forkPoint = consciousness.length;
                 if (changed) renderHistory();
-                if (window._syncThenHandoff === runner) {
+                if (window._syncStoppedRunner === runner) {
+                    // Post-stop sync complete — decide next action
+                    window._syncStoppedRunner = null;
+                    if (_pendingHandoff) {
+                        const target = _pendingHandoff;
+                        _pendingHandoff = null;
+                        doHandoff(target);
+                    } else if (settings.preferredHost === runner && settings.hostDevice !== runner && !window._manualTakeover) {
+                        console.log(`[relay] Synced with preferred host ${runner}, handing off`);
+                        doHandoff(runner);
+                    } else if (settings.hostDevice === 'this browser') {
+                        window._manualTakeover = false;
+                        setStatus('Ready');
+                        if (!consciousness) scheduleAutoInfer();
+                    } else {
+                        setStatus('Stopped');
+                    }
+                    updateSendBtn();
+                } else if (window._syncThenHandoff === runner) {
                     window._syncThenHandoff = null;
                     if (changed) {
-                        // Merge produced a new version — handoff back so device gets the merged consciousness
                         console.log(`[relay] Sync done from ${runner}, merged — handing off merged consciousness`);
                         doHandoff(runner);
                     } else {
-                        // No change — device's version is authoritative, just stay in Remote
                         console.log(`[relay] Sync done from ${runner}, ${remoteConsciousness ? remoteConsciousness.length + ' chars' : 'empty'} — staying in Remote mode`);
                         settings.hostDevice = runner;
                         saveSettingsToStorage(settings);

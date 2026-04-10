@@ -291,8 +291,7 @@ class GenesisWorker:
             if not self._stopped_sent:
                 self._stopped_sent = True
                 await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                    'device_name': DEVICE_NAME, 'being_id': self.being_id,
-                    'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': {**self.metadata, 'coreMem': self._read_core_mem()}})})
+                    'device_name': DEVICE_NAME, 'being_id': self.being_id})
                 self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
     async def run_loop(self, loop_was_running=False):
@@ -841,8 +840,7 @@ class GenesisWorker:
         if not self._stopped_sent:
             self._stopped_sent = True
             await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                'device_name': DEVICE_NAME, 'being_id': self.being_id,
-                'payload': encrypt(self.cipher, {'consciousness': self.consciousness, 'metadata': self.metadata})})
+                'device_name': DEVICE_NAME, 'being_id': self.being_id})
             self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
 
 # ─── Connection handler ───────────────────────────────────────────────────────
