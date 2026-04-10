@@ -2533,7 +2533,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 }
                 const changed = await mergeConsciousness(runner, remoteConsciousness);
                 window._forkPoint = consciousness.length;
-                if (changed) renderHistory();
+                if (changed) { renderHistory(); _justReloaded = false; }
                 if (window._syncStoppedRunner === runner) {
                     // Post-stop sync complete — decide next action
                     window._syncStoppedRunner = null;
