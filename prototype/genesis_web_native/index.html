@@ -2539,6 +2539,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 if (window._syncStoppedRunner === runner) {
                     // Post-stop sync complete — decide next action
                     window._syncStoppedRunner = null;
+                    _justReloaded = false;
                     if (_pendingHandoff) {
                         const target = _pendingHandoff;
                         _pendingHandoff = null;
