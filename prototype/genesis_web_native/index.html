@@ -2469,6 +2469,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     const runner = msg.device_name || settings.hostDevice;
                     console.log(`[relay] Remote loop ${msg.status} from ${runner}, syncing via consciousness_sync...`);
                     window._remoteLoopRunning = false;
+                    _justReloaded = false;
                     updateSendBtn();
 
                     // Sync consciousness via chunked consciousness_sync
