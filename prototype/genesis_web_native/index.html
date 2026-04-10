@@ -2451,6 +2451,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         _lastCachedTokens = content.usage.cachedTokens || 0;
                     }
                     setStatus(settings.hostDevice !== 'this browser' ? 'Remote' : 'Ready');
+                    updateSendBtn();
                 } else {
                     setStatus('Inferring...');
                 }
