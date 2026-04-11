@@ -79,7 +79,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
                 if (!B.trim()) { console.log('[loop] stop: empty response'); return; }
                 // Check the tail of the raw output (after last code block) for stop/continue signals
-                const lastFence = B.lastIndexOf('\n```');
+                const lastFence = B.lastIndexOf('\n```\n');
                 const tail = lastFence !== -1 ? B.slice(lastFence) : B;
                 const lastSC = tail.includes('/self_continue') ? 1 : -1;
                 const lastCFH = (tail.includes('/call_for_human') || tail.includes('/call_for_trigger')) ? 1 : -1;
@@ -387,7 +387,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execCode(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/(?:exec browser|browser exec)\n```(?:javascript|js)?\n([\s\S]*?)\n```/gm)];
+            const matches = [...B_out.matchAll(/^\/(?:exec browser|browser exec)\n```(?:javascript|js)?\n([\s\S]*?)\n```\n/gm)];
             if (!matches.length) return null;
 
             setStatus('Executing...');
@@ -2610,7 +2610,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function _execShellBlocks(B_out) {
             if (!B_out) return null;
-            const matches = [...B_out.matchAll(/^\/(?:exec shell|shell exec) (\S+)\n```[^\n]*\n([\s\S]*?)\n```/gm)];
+            const matches = [...B_out.matchAll(/^\/(?:exec shell|shell exec) (\S+)\n```[^\n]*\n([\s\S]*?)\n```\n/gm)];
             if (!matches.length) return null;
             setStatus('Executing on device...');
 

@@ -339,7 +339,7 @@ class GenesisWorker:
             if not B.strip():
                 break  # empty response — stop to avoid infinite quota burn
             # Check tail after last code block for stop/continue signals
-            last_fence = B.rfind('\n```')
+            last_fence = B.rfind('\n```\n')
             tail = B[last_fence:] if last_fence != -1 else B
             last_sc = 1 if '/self_continue' in tail else -1
             last_cfh = 1 if any(s in tail for s in ('/call_for_human', '/call_for_trigger')) else -1
@@ -730,10 +730,10 @@ class GenesisWorker:
         if not B_out: return
         tasks = []
         # Parse /browser exec and /exec browser blocks
-        for m in re.finditer(r'^/(?:browser exec|exec browser)\n```(?:javascript|js)?\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:browser exec|exec browser)\n```(?:javascript|js)?\n([\s\S]*?)\n```\n', B_out, re.MULTILINE):
             tasks.append(self._exec_browser(m.group(1).strip()))
         # Parse /shell exec and /exec shell blocks
-        for m in re.finditer(r'^/(?:shell exec|exec shell) (\S+)\n```[^\n]*\n([\s\S]*?)\n```', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:shell exec|exec shell) (\S+)\n```[^\n]*\n([\s\S]*?)\n```\n', B_out, re.MULTILINE):
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))
