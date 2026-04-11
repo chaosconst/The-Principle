@@ -2540,10 +2540,18 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         }
                     } catch (e) { console.error('[relay] Sync decrypt error:', e); }
                 }
-                const changed = await mergeConsciousness(runner, remoteConsciousness);
+                let changed = false;
+                if (window._syncStoppedRunner === runner && remoteConsciousness) {
+                    // Runtime idle sync: agent is authoritative, take remote directly (no merge)
+                    if (remoteConsciousness !== consciousness) {
+                        consciousness = remoteConsciousness;
+                        await saveBeing();
+                        changed = true;
+                    }
+                } else {
+                    changed = await mergeConsciousness(runner, remoteConsciousness);
+                }
                 window._forkPoint = consciousness.length;
-                // Runtime idle sync: stream_token already rendered, skip heavy renderHistory
-                // Initial sync (page load): need renderHistory to show missed messages
                 if (changed && !window._syncStoppedRunner) renderHistory();
                 if (window._syncStoppedRunner === runner) {
                     // Post-stop sync complete — decide next action
