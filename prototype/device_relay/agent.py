@@ -439,7 +439,7 @@ class GenesisWorker:
         usage = {}  # {promptTokens, cachedTokens, outputTokens}
         self._log(f"[{ts()}] [infero] Infer: {fmt} {url[:80]}")
         try:
-            timeout = aiohttp.ClientTimeout(total=180)  # 3 min total timeout for infer
+            timeout = aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=120)  # 30s connect, 120s between chunks
             async with aiohttp.ClientSession(auto_decompress=False, timeout=timeout) as session:
                 async with session.post(url, json=payload, headers=headers) as resp:
                     self._log(f"[{ts()}] [infero] Infer HTTP {resp.status} content-type={resp.headers.get('Content-Type','?')[:40]}")
