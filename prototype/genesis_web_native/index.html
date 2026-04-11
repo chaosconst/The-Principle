@@ -2833,12 +2833,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                     setStatus('Ready');
                     return;
                 }
-                if (syncData.consciousness) {
-                    const changed = await mergeConsciousness(targetDevice, syncData.consciousness);
-                    if (changed) {
-                        console.log(`[doHandoff] Merged device consciousness before handoff`);
-                        renderHistory();
-                    }
+                if (syncData.consciousness && syncData.consciousness !== consciousness) {
+                    consciousness = syncData.consciousness;
+                    await saveBeing();
+                    console.log(`[doHandoff] Took device consciousness: ${consciousness.length} chars`);
+                    renderHistory();
                 }
             } catch (e) {
                 console.warn('[doHandoff] Pre-handoff sync failed — aborting handoff:', e);
