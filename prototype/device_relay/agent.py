@@ -728,12 +728,13 @@ class GenesisWorker:
 
     async def act(self, B_out):
         if not B_out: return
+        text = B_out if B_out.endswith('\n') else B_out + '\n'
         tasks = []
         # Parse /browser exec and /exec browser blocks
-        for m in re.finditer(r'^/(?:browser exec|exec browser)\n```(?:javascript|js)?\n([\s\S]*?)\n```\n', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:browser exec|exec browser)\n```(?:javascript|js)?\n([\s\S]*?)\n```\n', text, re.MULTILINE):
             tasks.append(self._exec_browser(m.group(1).strip()))
         # Parse /shell exec and /exec shell blocks
-        for m in re.finditer(r'^/(?:shell exec|exec shell) (\S+)\n```[^\n]*\n([\s\S]*?)\n```\n', B_out, re.MULTILINE):
+        for m in re.finditer(r'^/(?:shell exec|exec shell) (\S+)\n```[^\n]*\n([\s\S]*?)\n```\n', text, re.MULTILINE):
             device_name, cmd = m.group(1), m.group(2).strip()
             if device_name == DEVICE_NAME:
                 tasks.append(self._exec_local_shell(cmd))
