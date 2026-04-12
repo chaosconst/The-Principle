@@ -764,9 +764,13 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                # Don't kill — let process continue running, just detach pipes
-                for pipe in (proc.stdin, proc.stdout, proc.stderr):
-                    if pipe: pipe.close()
+                # Don't kill — let process continue running, just close pipe transports
+                try:
+                    if proc.stdout: proc.stdout._transport.close()
+                    if proc.stderr: proc.stderr._transport.close()
+                    if proc.stdin: proc.stdin.close()
+                except Exception:
+                    pass
                 out = "[still running after 30s — stdout/stderr detached, advancing to next loop]\n[exit_code] running"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
