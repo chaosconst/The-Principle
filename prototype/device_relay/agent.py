@@ -764,14 +764,9 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                # Don't kill — let process continue running, just close pipe transports
-                try:
-                    if proc.stdout: proc.stdout._transport.close()
-                    if proc.stderr: proc.stderr._transport.close()
-                    if proc.stdin: proc.stdin.close()
-                except Exception:
-                    pass
-                out = "[still running after 30s — stdout/stderr detached, advancing to next loop]\n[exit_code] running"
+                # Don't kill, don't close pipes (SIGPIPE would kill the process).
+                # Let fd leak — kernel reclaims when process exits.
+                out = "[still running after 30s — advancing to next loop. Write output to file if needed.]\n[exit_code] running"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
