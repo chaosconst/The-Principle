@@ -834,17 +834,9 @@ class GenesisWorker:
         self._log(f"[{ts()}] [infero] User input received: {self.pending_user_input[:40]}...")
 
     async def on_loop_stop(self):
-        self._log(f"[{ts()}] [infero] Loop stop requested")
-        self.running = False
-        if self._trigger_watcher:
-            self._trigger_watcher.cancel()
-        self.trigger('')  # unblock _wait_for_trigger if stuck
-        self.save_to_disk()
-        if not self._stopped_sent:
-            self._stopped_sent = True
-            await self.send_relay({'type': 'loop_status', 'status': 'stopped',
-                'device_name': DEVICE_NAME, 'being_id': self.being_id})
-            self._log(f"[{ts()}] [infero] Loop stopped. consciousness={len(self.consciousness)} chars")
+        # Ignored — loop naturally stops at /call_for_trigger and waits for next trigger.
+        # Setting self.running=False caused run_loop to exit permanently, breaking user_input.
+        self._log(f"[{ts()}] [infero] Loop stop received (ignored — loop will idle naturally)")
 
 # ─── Connection handler ───────────────────────────────────────────────────────
 
@@ -956,14 +948,7 @@ async def connect_instance(cfg):
                                 else:
                                     log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: no saved being for {iid}")
                             log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={iid}, worker={w is not None}, text={str(content.get('text',''))[:30]}")
-                            if w:
-                                w.on_user_input(content)
-                                # If run_loop fully exited (task done), restart it
-                                if w._loop_task and w._loop_task.done():
-                                    log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: restarting run_loop (was stopped)")
-                                    w.running = True
-                                    w._stopped_sent = False
-                                    w._loop_task = asyncio.create_task(w.run_loop(False))
+                            if w: w.on_user_input(content)
                         except Exception as e:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] user_input decrypt error: {e}")
                     elif mtype == 'result':
