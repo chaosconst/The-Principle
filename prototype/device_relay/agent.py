@@ -955,7 +955,14 @@ async def connect_instance(cfg):
                                 else:
                                     log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: no saved being for {iid}")
                             log(cfg['relay_ws'], f"[{ts()}] [infero] MSG user_input for being={iid}, worker={w is not None}, text={str(content.get('text',''))[:30]}")
-                            if w: w.on_user_input(content)
+                            if w:
+                                w.on_user_input(content)
+                                # If run_loop exited (e.g. after loop_stop), restart it
+                                if not w.running:
+                                    log(cfg['relay_ws'], f"[{ts()}] [infero] user_input: restarting run_loop (was stopped)")
+                                    w.running = True
+                                    w._stopped_sent = False
+                                    asyncio.create_task(w.run_loop(False))
                         except Exception as e:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] user_input decrypt error: {e}")
                     elif mtype == 'result':
