@@ -764,9 +764,19 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                # Don't kill, don't close pipes (SIGPIPE would kill the process).
-                # Let fd leak — kernel reclaims when process exits.
-                out = "[still running after 30s — advancing to next loop. Write output to file if needed.]\n[exit_code] running"
+                self._log(f"[{ts()}] [infero] shell exec timeout (30s), killing process group pgid={proc.pid}")
+                try:
+                    import signal
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except Exception as e:
+                    self._log(f"[{ts()}] [infero] killpg failed: {e}")
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5)
+                except asyncio.TimeoutError:
+                    try: os.killpg(proc.pid, signal.SIGKILL)
+                    except Exception: pass
+                self._log(f"[{ts()}] [infero] shell exec timeout cleanup done")
+                out = "[still running after 30s — process killed, advancing to next loop. Use nohup & for long tasks.]\n[exit_code] timeout"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
