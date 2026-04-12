@@ -764,14 +764,8 @@ class GenesisWorker:
                 if stderr: out += f"[stderr]\n{stderr.decode()}"
                 out += f"[exit_code] {proc.returncode}"
             except asyncio.TimeoutError:
-                self._log(f"[{ts()}] [infero] shell exec timeout (30s), detaching pipes")
-                # Close underlying transports to unblock event loop, process keeps running
-                try:
-                    proc._transport.close()
-                except Exception as e:
-                    self._log(f"[{ts()}] [infero] transport close: {e}")
-                self._log(f"[{ts()}] [infero] shell exec timeout cleanup done")
-                out = "[still running after 30s — stdout/stderr detached, advancing to next loop. Write output to file if needed.]\n[exit_code] running"
+                self._log(f"[{ts()}] [infero] shell exec timeout (30s), process keeps running")
+                out = "[still running after 30s — advancing to next loop. Write output to file if needed.]\n[exit_code] running"
         except Exception as e:
             out = f"[Shell Error]\n{e}"
         sysMsg = f"System - [Shell][{DEVICE_NAME}] - Result:\n```text\n{out.strip()}\n```\n\n"
