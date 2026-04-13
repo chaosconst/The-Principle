@@ -2922,7 +2922,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function loadModels() {
             try {
-                const modelsUrl = location.host && !location.host.startsWith('localhost') ? location.origin + '/genesis/models.json' : 'https://infero.net/genesis/models.json';
+                const isLocal = !location.host || location.host.startsWith('localhost') || location.host.startsWith('127.0.0.1');
+                const modelsUrl = isLocal ? './models.json' : location.origin + '/genesis/models.json';
                 const res = await fetch(modelsUrl);
                 const data = await res.json();
                 const select = document.getElementById('set-model');
