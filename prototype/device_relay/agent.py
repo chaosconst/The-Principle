@@ -1,4 +1,4 @@
-import asyncio, json, subprocess, base64, hashlib, os, sys, socket, re
+import asyncio, json, subprocess, base64, hashlib, os, sys, socket, re, gzip
 from datetime import datetime
 import aiohttp
 
@@ -985,18 +985,24 @@ async def connect_instance(cfg):
                                 c_meta = tmp.metadata
                                 log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync: loaded from disk: {len(c_text)} chars")
                         try:
-                            resp_payload = encrypt(cipher, {
-                                'consciousness': c_text,
-                                'metadata': c_meta
-                            })
-                            await ws.send(json.dumps({
-                                'type': 'consciousness_sync',
-                                'action': 'response',
-                                'device_name': DEVICE_NAME,
-                                'being_id': being_id,
-                                'payload': resp_payload
-                            }))
-                            log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync response sent: {len(c_text)} chars")
+                            raw = json.dumps({'consciousness': c_text, 'metadata': c_meta}).encode()
+                            compressed = gzip.compress(raw)
+                            CHUNK_SIZE = 384 * 1024  # ~512KB after encrypt+base64, stays under 1MB WS limit
+                            chunks = [compressed[i:i+CHUNK_SIZE] for i in range(0, len(compressed), CHUNK_SIZE)]
+                            n = len(chunks)
+                            for i, chunk in enumerate(chunks):
+                                chunk_payload = encrypt(cipher, {
+                                    'gz': base64.b64encode(chunk).decode(),
+                                    'i': i, 'n': n
+                                })
+                                await ws.send(json.dumps({
+                                    'type': 'consciousness_sync',
+                                    'action': 'response',
+                                    'device_name': DEVICE_NAME,
+                                    'being_id': being_id,
+                                    'payload': chunk_payload
+                                }))
+                            log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync response sent: {len(c_text)} chars, {len(raw)}→{len(compressed)} bytes gzip, {n} chunks")
                         except Exception as e:
                             log(cfg['relay_ws'], f"[{ts()}] [infero] consciousness_sync error: {e}")
                     elif mtype == 'settings_update':

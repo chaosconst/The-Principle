@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head><title>Proxy Test</title></head>
+<body>
+<h3>Proxy Test</h3>
+<button onclick="testProxy()">Test /api/proxy</button>
+<pre id="result" style="max-height:400px;overflow:auto;background:#111;color:#0f0;padding:10px;"></pre>
+<script>
+async function testProxy() {
+    const el = document.getElementById('result');
+    const url = 'https://example.com';
+    el.textContent = 'Fetching ' + url + ' ...\n';
+    try {
+        const resp = await fetch('/api/proxy?url=' + encodeURIComponent(url));
+        el.textContent += 'Status: ' + resp.status + '\n';
+        el.textContent += 'Content-Type: ' + resp.headers.get('content-type') + '\n';
+        el.textContent += 'Content-Length: ' + resp.headers.get('content-length') + '\n\n';
+        const text = await resp.text();
+        el.textContent += '--- Body (first 500 chars) ---\n' + text.slice(0, 500);
+    } catch (e) {
+        el.textContent += 'Error: ' + e.message;
+    }
+}
+</script>
+</body>
+</html>
