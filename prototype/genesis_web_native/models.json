@@ -5,7 +5,8 @@
     "openai":     { "name": "OpenAI", "format": "openai", "endpoint": "https://api.openai.com/v1/chat/completions" },
     "anthropic":  { "name": "Anthropic (via infero)", "format": "anthropic", "endpoint": "/api/v1/messages" },
     "deepseek":   { "name": "DeepSeek", "format": "openai", "endpoint": "https://api.deepseek.com/v1/chat/completions" },
-    "openrouter": { "name": "OpenRouter", "format": "openai", "endpoint": "https://openrouter.ai/api/v1/chat/completions" }
+    "openrouter": { "name": "OpenRouter", "format": "openai", "endpoint": "https://openrouter.ai/api/v1/chat/completions" },
+    "dashscope":  { "name": "Alibaba DashScope", "format": "openai", "endpoint": "/api/proxy/dashscope/compatible-mode/v1/chat/completions" }
   },
   "models": [
     { "name": "infero-1.0", "format": "gemini", "from": {
@@ -29,6 +30,10 @@
     { "name": "claude-haiku-4.5", "format": "openai", "from": {
       "anthropic": "claude-haiku-4-5-20251001", "openrouter": "anthropic/claude-haiku-4.5" }},
     { "name": "deepseek-v3.2", "format": "openai", "vision": false, "maxContext": 128000, "from": {
-      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-v3.2" }}
+      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-v3.2" }},
+    { "name": "qwen3.5-plus", "format": "openai", "maxContext": 128000, "vision": true, "from": {
+      "dashscope": "qwen3.5-plus" }},
+    { "name": "qwen3.6-plus", "format": "openai", "maxContext": 128000, "vision": true, "from": {
+      "dashscope": "qwen3.6-plus" }}
   ]
 }
