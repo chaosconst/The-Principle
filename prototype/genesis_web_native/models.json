@@ -39,12 +39,12 @@
     { "name": "qwen3.6-plus", "format": "openai", "maxContext": 128000, "vision": true, "from": {
       "dashscope": "qwen3.6-plus" }},
     { "name": "kimi-k2.5", "format": "openai", "maxContext": 256000, "vision": true, "from": {
-      "moonshot": "kimi-k2.5", "openrouter": "moonshot/kimi-k2.5" }},
+      "moonshot": "kimi-k2.5", "openrouter": "moonshotai/kimi-k2.5" }},
     { "name": "MiniMax-M2.5", "format": "openai", "maxContext": 256000, "vision": false, "from": {
       "minimax": "MiniMax-M2.5" }},
     { "name": "MiniMax-M2.7", "format": "openai", "maxContext": 256000, "vision": false, "from": {
       "minimax": "MiniMax-M2.7" }},
-    { "name": "glm-5.1", "format": "openai", "maxContext": 131072, "vision": true, "from": {
-      "zhipu": "glm-5.1" }}
+    { "name": "glm-5", "format": "openai", "maxContext": 131072, "vision": true, "from": {
+      "zhipu": "glm-5" }}
   ]
 }
