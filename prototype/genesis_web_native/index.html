@@ -303,7 +303,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                             if (data.usage) lastUsage = { promptTokenCount: data.usage.prompt_tokens, candidatesTokenCount: data.usage.completion_tokens };
                         } else {
                             if (data.usageMetadata) lastUsage = data.usageMetadata;
-                            if (data.candidates?.[0]?.content) {
+                            if (data.candidates?.[0]?.content?.parts) {
                                 for (const part of data.candidates[0].content.parts) {
                                     if (part.thought) thinkingText += part.text || '';
                                     else aiText += part.text || '';
