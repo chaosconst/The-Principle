@@ -83,8 +83,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const tail = lastFence !== -1 ? B.slice(lastFence) : B;
                 const lastSC = tail.includes('/self_continue') ? 1 : -1;
                 const lastCFH = (tail.includes('/call_for_human') || tail.includes('/call_for_trigger')) ? 1 : -1;
-                // Stop only when /call_for_human or /call_for_trigger explicitly appears in tail; otherwise always continue
-                const cont = lastCFH === -1 || lastSC !== -1 || !!currentUserInput;
+                // Continue only when /self_continue is explicit; stop on /call_for_trigger or when neither signal present
+                const cont = lastSC !== -1 || !!currentUserInput;
                 console.log(`[loop] lastSC=${lastSC} lastCFH=${lastCFH} currentUserInput=${!!currentUserInput} cont=${cont} → ${cont ? 'continue' : 'stop(CFH)'}`);
                 if (cont) return loop();
             } catch (e) {
@@ -200,13 +200,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         ],
                         stream: true,
                         temperature: 0.7,
-                        stop: STOP_WORDS
+                        ...(MODEL_LIST[settings.model]?.stop !== false && { stop: STOP_WORDS })
                     };
-                    if (settings.thinking) {
-                        payload.thinking = { type: 'enabled', budget_tokens: 10000 };
-                        payload.reasoning = { max_tokens: 8000 };
-                        payload.temperature = 1;
-                    }
                     return payload;
                 }
 
@@ -2959,7 +2954,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 // Load models
                 MODEL_LIST = {};
                 data.models.forEach(m => {
-                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {}, vision: m.vision !== false, maxContext: m.maxContext || 0 };
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {}, vision: m.vision !== false, maxContext: m.maxContext || 0, stop: m.stop !== false };
                     const opt = document.createElement('option');
                     opt.value = m.name;
                     opt.textContent = m.name;
