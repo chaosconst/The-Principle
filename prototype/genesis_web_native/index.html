@@ -249,7 +249,13 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const abortSignal = currentAbortController.signal;
                 const body = JSON.stringify(await buildPayload());
                 if (abortSignal.aborted) throw new DOMException('Aborted', 'AbortError');
-                const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getActiveToken() };
+                const token = getActiveToken();
+                const headers = { 'Content-Type': 'application/json' };
+                if (settings.provider === 'google') {
+                    headers['x-goog-api-key'] = token;
+                } else {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
                 if (settings.provider === 'infero') headers['X-Client-ID'] = CLIENT_ID;
                 const response = await fetch(getActiveEndpoint(), {
                     method: 'POST',
@@ -1303,6 +1309,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (!p) return INFERO_ENDPOINTS.gemini;
             if (settings.provider === 'custom') return settings.apiEndpoint;
             if (settings.provider === 'infero') return INFERO_ENDPOINTS[getActiveFormat()] || INFERO_ENDPOINTS.gemini;
+            // Direct gemini-format providers (e.g. google) need full streaming URL with model path
+            if (getActiveFormat() === 'gemini' && p.endpoint) {
+                const base = p.endpoint.replace(/\/$/, '');
+                return `${base}/models/${getActiveModel()}:streamGenerateContent?alt=sse`;
+            }
             return p.endpoint;
         }
         function getActiveToken() {
