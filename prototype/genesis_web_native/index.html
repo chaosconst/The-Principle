@@ -1258,7 +1258,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             infero: { name: 'infero.net' },
             custom: { name: 'Custom' },
         };
-        const _inferoOrigin = location.host && !location.host.startsWith('localhost') ? location.origin : 'https://infero.net';
+        const _isLocalHost = !location.host || location.host.startsWith('localhost') || location.host.startsWith('127.0.0.1');
+        const _inferoOrigin = _isLocalHost ? 'https://infero.net' : location.origin;
         const INFERO_ENDPOINTS = { gemini: _inferoOrigin + '/api/relay', openai: _inferoOrigin + '/api/v1/chat/completions' };
         const SETTINGS_DEFAULTS = {
             model: 'gemini-3.1-pro',
@@ -1269,7 +1270,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             vision: 'half',
             preview: false,
             thinking: true,
-            relayUrl: location.host && !location.host.startsWith('localhost') ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws` : 'wss://infero.net/device-relay/ws',
+            relayUrl: _isLocalHost ? 'wss://infero.net/device-relay/ws' : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws`,
             devices: {},
             hostDevice: 'this browser',
         };
