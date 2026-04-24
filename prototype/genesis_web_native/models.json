@@ -29,6 +29,10 @@
     { "name": "claude-haiku-4.5", "format": "openai", "from": {
       "anthropic": "claude-haiku-4-5-20251001", "openrouter": "anthropic/claude-haiku-4.5" }},
     { "name": "deepseek-v3.2", "format": "openai", "vision": false, "maxContext": 128000, "from": {
-      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-v3.2" }}
+      "deepseek": "deepseek-chat", "openrouter": "deepseek/deepseek-v3.2" }},
+    { "name": "deepseek-v4-pro", "format": "openai", "vision": false, "maxContext": 1000000, "from": {
+      "deepseek": "deepseek-v4-pro", "openrouter": "deepseek/deepseek-v4-pro" }},
+    { "name": "deepseek-v4-flash", "format": "openai", "vision": false, "maxContext": 1000000, "from": {
+      "deepseek": "deepseek-v4-flash", "openrouter": "deepseek/deepseek-v4-flash" }}
   ]
 }
