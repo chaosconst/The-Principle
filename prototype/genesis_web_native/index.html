@@ -206,6 +206,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
                         payload.reasoning = { max_tokens: 8000 };
                         payload.temperature = 1;
+                    } else if (settings.provider === 'deepseek') {
+                        payload.thinking = { type: 'disabled' };
                     }
                     return payload;
                 }
