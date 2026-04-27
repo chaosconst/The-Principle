@@ -251,7 +251,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const abortSignal = currentAbortController.signal;
                 const body = JSON.stringify(await buildPayload());
                 if (abortSignal.aborted) throw new DOMException('Aborted', 'AbortError');
-                const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getActiveToken() };
+                const headers = { 'Content-Type': 'application/json' };
+                const token = getActiveToken();
+                if (settings.provider === 'anthropic') {
+                    headers['x-api-key'] = token;
+                    headers['anthropic-version'] = '2023-06-01';
+                    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+                } else {
+                    headers['Authorization'] = 'Bearer ' + token;
+                }
                 if (settings.provider === 'infero') headers['X-Client-ID'] = CLIENT_ID;
                 const response = await fetch(getActiveEndpoint(), {
                     method: 'POST',
