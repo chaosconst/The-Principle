@@ -83,8 +83,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const tail = lastFence !== -1 ? B.slice(lastFence) : B;
                 const lastSC = tail.includes('/self_continue') ? 1 : -1;
                 const lastCFH = (tail.includes('/call_for_human') || tail.includes('/call_for_trigger')) ? 1 : -1;
-                // Stop only when /call_for_human or /call_for_trigger explicitly appears in tail; otherwise always continue
-                const cont = lastCFH === -1 || lastSC !== -1 || !!currentUserInput;
+                // Continue only when /self_continue is explicit; stop on /call_for_trigger or when neither signal present
+                const cont = lastSC !== -1 || !!currentUserInput;
                 console.log(`[loop] lastSC=${lastSC} lastCFH=${lastCFH} currentUserInput=${!!currentUserInput} cont=${cont} → ${cont ? 'continue' : 'stop(CFH)'}`);
                 if (cont) return loop();
             } catch (e) {
@@ -200,7 +200,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                         ],
                         stream: true,
                         temperature: 0.7,
-                        stop: STOP_WORDS
+                        ...(MODEL_LIST[settings.model]?.stop !== false && { stop: STOP_WORDS })
                     };
                     if (settings.thinking) {
                         payload.thinking = { type: 'enabled', budget_tokens: 10000 };
@@ -251,12 +251,14 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 const abortSignal = currentAbortController.signal;
                 const body = JSON.stringify(await buildPayload());
                 if (abortSignal.aborted) throw new DOMException('Aborted', 'AbortError');
-                const headers = { 'Content-Type': 'application/json' };
                 const token = getActiveToken();
+                const headers = { 'Content-Type': 'application/json' };
                 if (settings.provider === 'anthropic') {
                     headers['x-api-key'] = token;
                     headers['anthropic-version'] = '2023-06-01';
                     headers['anthropic-dangerous-direct-browser-access'] = 'true';
+                } else if (settings.provider === 'google') {
+                    headers['x-goog-api-key'] = token;
                 } else {
                     headers['Authorization'] = 'Bearer ' + token;
                 }
@@ -1268,7 +1270,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             infero: { name: 'infero.net' },
             custom: { name: 'Custom' },
         };
-        const _inferoOrigin = location.host && !location.host.startsWith('localhost') ? location.origin : 'https://infero.net';
+        const _isLocalHost = !location.host || location.host.startsWith('localhost') || location.host.startsWith('127.0.0.1');
+        const _inferoOrigin = _isLocalHost ? 'https://infero.net' : location.origin;
         const INFERO_ENDPOINTS = { gemini: _inferoOrigin + '/api/relay', openai: _inferoOrigin + '/api/v1/chat/completions' };
         const SETTINGS_DEFAULTS = {
             model: 'gemini-3.1-pro',
@@ -1279,7 +1282,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             vision: 'half',
             preview: false,
             thinking: true,
-            relayUrl: location.host && !location.host.startsWith('localhost') ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws` : 'wss://infero.net/device-relay/ws',
+            relayUrl: _isLocalHost ? 'wss://infero.net/device-relay/ws' : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/device-relay/ws`,
             devices: {},
             hostDevice: 'this browser',
         };
@@ -1313,6 +1316,11 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             if (!p) return INFERO_ENDPOINTS.gemini;
             if (settings.provider === 'custom') return settings.apiEndpoint;
             if (settings.provider === 'infero') return INFERO_ENDPOINTS[getActiveFormat()] || INFERO_ENDPOINTS.gemini;
+            // Direct gemini-format providers (e.g. google) need full streaming URL with model path
+            if (getActiveFormat() === 'gemini' && p.endpoint) {
+                const base = p.endpoint.replace(/\/$/, '');
+                return `${base}/models/${getActiveModel()}:streamGenerateContent?alt=sse`;
+            }
             return p.endpoint;
         }
         function getActiveToken() {
@@ -2932,7 +2940,8 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
 
         async function loadModels() {
             try {
-                const modelsUrl = location.host && !location.host.startsWith('localhost') ? location.origin + '/genesis/models.json' : 'https://infero.net/genesis/models.json';
+                const isLocal = !location.host || location.host.startsWith('localhost') || location.host.startsWith('127.0.0.1');
+                const modelsUrl = isLocal ? './models.json' : location.origin + '/genesis/models.json';
                 const res = await fetch(modelsUrl);
                 const data = await res.json();
                 const select = document.getElementById('set-model');
@@ -2954,7 +2963,7 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 // Load models
                 MODEL_LIST = {};
                 data.models.forEach(m => {
-                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {}, vision: m.vision !== false, maxContext: m.maxContext || 0 };
+                    MODEL_LIST[m.name] = { format: m.format, from: m.from || {}, vision: m.vision !== false, maxContext: m.maxContext || 0, stop: m.stop !== false };
                     const opt = document.createElement('option');
                     opt.value = m.name;
                     opt.textContent = m.name;
