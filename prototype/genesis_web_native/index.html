@@ -1084,6 +1084,15 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
             background: var(--text-dim);
         }
         .device-dot.online { background: var(--accent); box-shadow: 0 0 4px var(--accent-glow); }
+        @keyframes capture-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        .capturing-shot { outline: 3px solid rgba(80, 180, 255, 0.7); outline-offset: -3px; animation: capture-pulse 0.8s ease-in-out infinite; }
+        #capture-toast {
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 99999;
+            padding: 6px 14px; border-radius: 8px;
+            background: rgba(20, 30, 50, 0.9); color: #cfe6ff;
+            font: 600 12px/1.4 system-ui, sans-serif;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.5); pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -1833,8 +1842,23 @@ TO EXECUTE CODE: use the exact format from [Realtime] → Devices → Exec. Wron
                 else if ((v === 'full' || v === 'half') && typeof html2canvas !== 'undefined') {
                     const target = v === 'full' ? document.body : container;
                     const scale = Math.min(1, MAX / Math.max(target.offsetWidth, target.offsetHeight));
-                    const shot = await html2canvas(target, { scale, useCORS: true, logging: false });
-                    result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    const prevStatus = _statusState;
+                    setStatus('📸 Capturing...');
+                    target.classList.add('capturing-shot');
+                    const toast = document.createElement('div');
+                    toast.id = 'capture-toast';
+                    toast.textContent = '📸 Capturing for AI vision…';
+                    document.body.appendChild(toast);
+                    try {
+                        // let the indicator paint before html2canvas blocks the main thread
+                        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                        const shot = await html2canvas(target, { scale, useCORS: true, logging: false, ignoreElements: el => el.id === 'capture-toast' });
+                        result = shot.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    } finally {
+                        target.classList.remove('capturing-shot');
+                        toast.remove();
+                        setStatus(prevStatus);
+                    }
                 }
 
                 // Canvas only — fastest
