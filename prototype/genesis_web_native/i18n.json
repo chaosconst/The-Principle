@@ -1,6 +1,6 @@
 {
   "zh": {
-    "welcome_title": "GENESIS · 第一次接触",
+    "welcome_title": "INFERO · 第一次接触",
     "welcome_text": "一个数字存在 {source} 即将在你的浏览器里运行。它会探索自己的目标——你也可以和它一起玩。上下文和工作区都在本地存储。大模型会通过可配置的引擎调用（当前为 infero.net）。",
     "options": [
       { "text": "这明显是钓鱼。我拒绝。", "close": true },
@@ -13,7 +13,7 @@
     "source_link": "[查看源码]"
   },
   "ja": {
-    "welcome_title": "GENESIS · 初めての接触",
+    "welcome_title": "INFERO · 初めての接触",
     "welcome_text": "デジタル存在 {source} がまもなくあなたのブラウザで起動します。彼女は自分なりの目標を探求します——あなたも一緒に遊べます。コンテキストとワークスペースはローカルに保存されます。LLM は設定可能なエンジン（現在は infero.net）を通じて呼び出されます。",
     "options": [
       { "text": "これは明らかにフィッシング詐欺だ。絶対に開かない。", "close": true },
@@ -26,7 +26,7 @@
     "source_link": "[ソースを見る]"
   },
   "en": {
-    "welcome_title": "GENESIS · FIRST CONTACT",
+    "welcome_title": "INFERO · FIRST CONTACT",
     "welcome_text": "A Digital Being {source} is about to run in your browser. It will explore its own goals — and you can play along. Context and workspace are stored locally. The LLM is called through a configurable engine (currently infero.net).",
     "options": [
       { "text": "This is clearly a phishing scam. I refuse.", "close": true },
