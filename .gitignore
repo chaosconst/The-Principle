@@ -30,3 +30,24 @@ drafts/
 # Local Workspaces
 prototype/workspaces/
 DEPLOY.md
+
+# Python
+__pycache__/
+*.py[co]
+*.egg-info/
+.venv/
+venv/
+
+# Secrets / runtime state
+.env
+.env.*
+!.env.example
+prototype/device_relay/device_id
+prototype/device_relay/tokens.json
+prototype/pob_server/cache_state.json
+prototype/*/consciousness.txt
+
+# Test/debug artifacts
+.playwright-mcp/
+*.bak
+PENDING_COMMIT.md
