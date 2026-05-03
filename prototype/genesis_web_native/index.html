@@ -1580,6 +1580,8 @@ Returns: Promise<true|false>.`,
     if (!r.ok) { console.error('[hub] install failed:', r.status); return false; }
     const s = await r.json();
     const key = currentBeingId + '/skill/' + s.name;
+    const existing = await DB.get(key);
+    const prevCode = existing && existing.value && existing.value.code;
     await DB.put({ id: key, value: {
         id: s.name,
         instruction: s.instruction || '',
@@ -1587,9 +1589,11 @@ Returns: Promise<true|false>.`,
         code: s.code || null,
         code_readme: s.code_readme || null
     }});
-    if (s.code) {
+    if (s.code && s.code !== prevCode) {
         try { (0, eval)(s.code); console.log('[hub] installed + eval:', s.name); }
         catch (e) { console.error('[hub] eval failed:', s.name, e); }
+    } else if (s.code) {
+        console.log('[hub] installed (code unchanged, skipped eval):', s.name);
     } else {
         console.log('[hub] installed (no code):', s.name);
     }
