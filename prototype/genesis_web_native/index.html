@@ -1512,7 +1512,7 @@ When changes take effect:
 
             { name: "identity_seed", instruction: `# identity_seed
 
-A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is 8 hex derived from the dedicated INFERO Being path \`m/44'/9999'/0'/0/0\` — independent of Nostr/BTC/ETH or any third-party protocol; safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
+A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is 8 hex derived from the INFERO Being path \`m/44'/9999'/0'/0/0\`, safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
                 code: `window.identityInit = async function() {
     if (window._identity) return window._identity;
     const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
