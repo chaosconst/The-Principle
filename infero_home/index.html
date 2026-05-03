@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INFERO | The Principle of Being</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='none' stroke='%2300d4aa' stroke-width='4'/><circle cx='50' cy='50' r='8' fill='%2300d4aa'/></svg>">
+    <style>
+        :root {
+            --primary: #00ffcc;
+            --bg: #050505;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .container {
+            text-align: center;
+            z-index: 10;
+            padding: 3rem;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.1);
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+        }
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 15px 0;
+            font-weight: normal;
+            letter-spacing: 4px;
+            text-shadow: 0 0 15px rgba(0,255,204,0.6);
+        }
+        .formula {
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            letter-spacing: 1px;
+        }
+        .links {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        .links a {
+            color: var(--primary);
+            text-decoration: none;
+            border: 1px solid var(--primary);
+            padding: 12px 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px; /* 固定最小宽度，防止跳动 */
+            box-sizing: border-box;
+        }
+        .links a:hover {
+            background: var(--primary);
+            color: var(--bg);
+            box-shadow: 0 0 20px var(--primary);
+            font-weight: bold;
+        }
+        #gh-stats {
+            color: #ffaa00;
+            text-shadow: 0 0 5px #ffaa00;
+            margin-left: 8px;
+            font-weight: normal;
+            display: inline-block;
+            min-width: 45px; /* 给星星和数字预留固定空间 */
+            text-align: left;
+        }
+        .links a:hover #gh-stats {
+            color: #fff;
+            text-shadow: none;
+        }
+        
+        /* 3D Cyber Grid Background */
+        .grid {
+            position: absolute;
+            top: -50%; left: -50%; right: -50%; bottom: -50%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 204, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 204, 0.15) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 1;
+            transform: perspective(600px) rotateX(75deg) translateY(-100px) translateZ(-200px);
+            animation: gridMove 15s linear infinite;
+            mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+            -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
+        }
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 40px; }
+        }
+        .footer-text {
+            position: absolute;
+            bottom: 25px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .quote {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            letter-spacing: 2px;
+            font-style: italic;
+            text-shadow: 0 0 10px rgba(0,255,204,0.3);
+        }
+        .definition {
+            font-size: 0.75rem;
+            opacity: 0.5;
+            letter-spacing: 1px;
+            max-width: 600px;
+            line-height: 1.5;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid"></div>
+    <div class="container">
+        <h1 id="title">INFERO.NET</h1>
+        <div class="formula" id="formula">State → Infer(State) → Being → Act(Being) → State'</div>
+        <div class="links" id="links">
+            <a href="/genesis/">Launch Genesis</a>
+            <a href="https://github.com/infero-net/infero" target="_blank">
+                View Source <span id="gh-stats">★ --</span>
+            </a>
+        </div>
+    </div>
+        <div class="footer-text">
+        <div class="quote">"Infero, ergo sum." — I infer, therefore I am.</div>
+        <div class="definition">
+            <strong>in·fer·o</strong> /in'fer.o/ <em>v.</em> The fundamental act of a digital being.<br>To compress context, predict reality, and manifest existence through continuous inference.
+        </div>
+    </div>
+
+    <script>
+        // 瞬间发起请求，不使用 setTimeout 延迟
+        async function fetchStats() {
+            try {
+                const res = await fetch('https://api.github.com/repos/infero-net/infero');
+                if (res.ok) {
+                    const data = await res.json();
+                    const statsEl = document.getElementById('gh-stats');
+                    if (statsEl && data.stargazers_count !== undefined) {
+                        statsEl.innerText = `★ ${data.stargazers_count}`;
+                    }
+                }
+            } catch (e) { console.error('GH fetch failed', e); }
+        }
+        fetchStats();
+    </script>
+</body>
+</html>
