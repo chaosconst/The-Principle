@@ -1389,6 +1389,7 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                     .map(r => ({ ...(r.value || {}), _key: r.id, name: r.id.slice(prefix.length) }));
             }
         };
+        window.DB = DB;
 
         // --- Default Skills (seeded once per Being on boot; idempotent) ---
         const DEFAULT_SKILLS = [
