@@ -1116,7 +1116,6 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
             <button title="Export Being" onclick="exportBeing()">&#x2193;</button>
             <button title="Import Being" onclick="document.getElementById('import-file').click()">&#x2191;</button>
             <button title="Destroy Being" class="clear-btn" onclick="deleteBeing()">&#x00d7;</button>
-            <button title="Skill Hub" onclick="window.open('./hub.html', '_blank')">&#x2630;</button>
             <button title="Settings" onclick="toggleSettings()">&#x2699;</button>
             <input type="file" id="import-file" style="display:none" accept=".json,.txt" onchange="importBeing(event)">
         </div>
@@ -1167,9 +1166,13 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 <label>Think</label>
                 <label style="min-width:0;cursor:pointer;color:var(--text)"><input type="checkbox" id="set-thinking"> Enable deep thinking</label>
             </div>
+            <div class="settings-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+                <label>Skill</label>
+                <button onclick="window.open('./hub.html','_blank')" style="font-size:0.68rem;padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">Open Hub</button>
+            </div>
             <div class="settings-row">
                 <label>Companion</label>
-                <input id="set-companion-name" type="text" maxlength="32" placeholder="your human name shown alongside Being on hub">
+                <input id="set-companion-name" type="text" maxlength="32" placeholder="your name on hub">
             </div>
             <div class="settings-row" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
                 <label>Devices</label>
@@ -1473,11 +1476,19 @@ const all = await DB.listSkills(currentBeingId);
 
 // install a new skill
 const name = "my_skill";
-const key = currentBeingId + "/skill/" + name;
-await DB.put({ id: key, value: { id: name, instruction: "...natural language...", enable: true, code: null, code_readme: null } });
+const rec = {};
+rec.id = currentBeingId + "/skill/" + name;
+rec.value = { id: name, instruction: "...natural language...", enable: true, code: null, code_readme: null };
+await DB.put(rec);
+
+// update an existing skill
+const rec = await DB.get(currentBeingId + "/skill/" + name);
+rec.value.instruction = "...new text...";
+rec.value.code = "...new code...";
+await DB.put(rec);
 
 // disable a skill
-const rec = await DB.get(key);
+const rec = await DB.get(currentBeingId + "/skill/" + name);
 rec.value.enable = false;
 await DB.put(rec);
 
