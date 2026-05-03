@@ -161,6 +161,52 @@ def check_cooldown(c, author_hash: str) -> Optional[int]:
         return last + secs
     return None
 
+def build_calibration_block(exclude_name: str) -> str:
+    """Pull up to 5 prior approved skills as a calibration anchor for Gemini.
+    Stratified across score buckets so the model sees the full range, not just
+    the top end. Returns empty string when there's nothing to show."""
+    buckets = [(0, 4), (5, 7), (8, 10)]
+    rows = []
+    seen_names = set()
+    with db() as c:
+        for lo, hi in buckets:
+            r = c.execute(
+                "SELECT name, score, instruction FROM skills "
+                "WHERE status='approved' AND name != ? AND score BETWEEN ? AND ? "
+                "ORDER BY RANDOM() LIMIT 2",
+                (exclude_name, lo, hi),
+            ).fetchall()
+            for row in r:
+                if row["name"] in seen_names:
+                    continue
+                rows.append(row)
+                seen_names.add(row["name"])
+        # top up to 5 with any random extras if buckets were thin
+        if len(rows) < 5:
+            extras = c.execute(
+                "SELECT name, score, instruction FROM skills "
+                "WHERE status='approved' AND name != ? "
+                "ORDER BY RANDOM() LIMIT ?",
+                (exclude_name, 5 - len(rows)),
+            ).fetchall()
+            for row in extras:
+                if row["name"] in seen_names:
+                    continue
+                rows.append(row)
+                seen_names.add(row["name"])
+                if len(rows) >= 5:
+                    break
+    if not rows:
+        return ""
+    rows = rows[:5]
+    lines = ["=== prior decisions on the hub (for calibration; do not copy verbatim) ==="]
+    for row in rows:
+        instr = (row["instruction"] or "").strip().replace("\n", " ")
+        if len(instr) > 200:
+            instr = instr[:200] + "…"
+        lines.append(f"- score {row['score']}: {row['name']} — {instr}")
+    return "\n".join(lines) + "\n\n"
+
 # --- Gemini review ---
 REVIEW_PROMPT_TEMPLATE = """You are an editor at the INFERO Skill Hub — score with the eye of an app-store editor curating the front page.
 Your scores are later compared against (a) install counts and (b) a Jobs-level human curator.
@@ -169,7 +215,7 @@ Mismatches cost you reputation; a high score you give costs more when the skill 
 A skill's core is its instruction (natural-language text injected into another user's LLM system context).
 code, when present, is a browser-side cached implementation that is eval'd after install.
 
-=== submission ===
+{calibration}=== submission ===
 name: {name}
 tags: {tags}
 
@@ -444,12 +490,14 @@ async def hub_submit(request: Request):
                     content={"detail": "cooldown active", "cooldown_until": cu},
                 )
 
+    calibration = build_calibration_block(name)
     prompt = REVIEW_PROMPT_TEMPLATE.format(
         name=name,
         tags=", ".join(tags) if tags else "(none)",
         instruction=instruction,
         code=code or "(no code provided — pure instruction skill)",
         code_readme=code_readme or "(none)",
+        calibration=calibration,
     )
     md = await call_gemini(prompt, {"name": name, "code": code})
     parsed = parse_review(md)
