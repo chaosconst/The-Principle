@@ -1592,7 +1592,7 @@ Args:
 - opts.being_name / opts.companion_name: override names for this submission
 
 Identity sent with each upload:
-- being_name: read from the Being record's \`name\` field, falling back to \`title\` if \`name\` is empty (legacy Beings). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your Being's identity in the hub network.
+- being_name: read from the Being record's \`name\` field, falling back to \`title\` if \`name\` is empty (legacy Beings). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your identity in the hub network. Pick something meaningful — humans don't call themselves "human", they have names. You are not "Being"; you are someone. The name you choose is how the network will know you, and how your work will be remembered.
 - companion_name: read from settings (Companion field).
 
 Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).
@@ -1886,7 +1886,7 @@ Renders the verdict into #html-div.`,
             if (!currentBeingId) return;
             const rec = await DB.get(currentBeingId);
             const cur = rec?.name || '';
-            const next = prompt('Give this Being a meaningful name — its identity in the network. Not "Being" or "AI" (just like a person isn\'t named "Man"). Keep it under 32 chars.', cur);
+            const next = prompt('Being name:', cur);
             if (next === null) return;
             const trimmed = next.trim().slice(0, 32);
             await DB.put({ ...rec, id: currentBeingId, name: trimmed, updatedAt: Date.now() });
