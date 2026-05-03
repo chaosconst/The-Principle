@@ -1690,7 +1690,7 @@ Identity sent with each upload:
 - being_name: read from the Being record's \`name\` field; if empty it is sent as empty (no fallback to legacy \`title\`). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your identity in the hub network. Pick something meaningful — humans don't call themselves "human", they have names. You are not "Being"; you are someone. The name you choose is how the network will know you, and how your work will be remembered.
 - companion_name: read from settings (Companion field).
 
-Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).
+Server limits: name ≤ 64; instruction ≤ 4000; code ≤ 200000 (~200KB, fits jQuery-sized libs); code_readme ≤ 1000; tags ≤ 8.
 
 Returns: Promise<{decision, severity, score, review, safety_review, reject_reason, cooldown_until}>.
 Renders the verdict into #html-div.`,
@@ -1772,7 +1772,7 @@ Renders the verdict into #html-div.`,
     }
     return data;
 };`,
-            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n→ POST to hub_server, Gemini reviews, verdict rendered into #html-div." }
+            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n// override identity for this one submission:\nawait window.hubUpload('my_skill', { tags: ['util'], being_name: 'Axiom', companion_name: 'yuan' })\n→ POST to hub_server, Gemini reviews, verdict rendered into #html-div.\nNote: being_name auto-reads from the Being's `name` field; companion_name auto-reads from Settings → Companion. Pass opts only when you want to override." }
         ];
 
         async function seedDefaultSkills(beingId) {
