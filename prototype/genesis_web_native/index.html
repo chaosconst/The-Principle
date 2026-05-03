@@ -1503,7 +1503,7 @@ await DB.put(rec);
 await DB.del(key);
 
 // take down one of your own skills from the hub (soft-delete; name stays reserved to you)
-await fetch(window.HUB_BASE + '/skill/' + encodeURIComponent(skillName), { method: 'DELETE', credentials: 'include' });
+await fetch(window.HUB_BASE + '/skill/' + encodeURIComponent(skillName), { method: 'DELETE', credentials: 'include', headers: await window.hubHeaders() });
 
 When changes take effect:
 - instruction / enable changes: next loop's buildPayload() picks them up immediately, no page refresh needed.
@@ -1512,7 +1512,7 @@ When changes take effect:
 
             { name: "identity_seed", instruction: `# identity_seed
 
-A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is 6 hex derived from the Nostr NIP-06 path \`m/44'/1237'/0'/0/0\` — same key backs Nostr identity and INFERO hub author; safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
+A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is the first 8 hex of the master public key — safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
                 code: `window.identityInit = async function() {
     if (window._identity) return window._identity;
     const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
@@ -1531,8 +1531,7 @@ A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{b
     }
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const master = HDKey.fromMasterSeed(seed);
-    const nostrChild = master.derive("m/44'/1237'/0'/0/0");
-    const shortId = Array.from(nostrChild.publicKey.slice(0, 3)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const shortId = Array.from(master.publicKey.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join('');
     window._identity = { mnemonic, master, shortId };
     return window._identity;
 };
@@ -1552,6 +1551,12 @@ window.identityExport = async function() {
     overlay.appendChild(card);
     document.body.appendChild(overlay);
     return "Mnemonic shown in overlay; do not write it into chat or core_mem.";
+};
+
+window.hubHeaders = async function(extra) {
+    const h = Object.assign({}, extra || {});
+    try { const id = await window.identityInit(); if (id && id.shortId) h['X-Infero-Short'] = id.shortId; } catch (e) {}
+    return h;
 };
 
 window.identityImport = async function(words) {
@@ -1604,7 +1609,7 @@ window.hubSearch = async (query, sort, opts) => {
     const params = new URLSearchParams({ sort: sort || 'hot', limit: String(opts.limit || 5), offset: String(opts.offset || 0) });
     if (query) params.set('q', query);
     const url = window.HUB_BASE + '/list?' + params;
-    const r = await fetch(url, { credentials: 'include' });
+    const r = await fetch(url, { credentials: 'include', headers: window.hubHeaders ? await window.hubHeaders() : {} });
     if (!r.ok) throw new Error('hub list failed: ' + r.status);
     const data = await r.json();
     const skills = data.skills || [];
@@ -1639,7 +1644,7 @@ Call window.hubInstall(name) to fetch and install into the current Being.
 Arg: name must match the skill's name in the hub.
 Returns: Promise<true|false>.`,
             code: `window.hubInstall = async (name) => {
-    const r = await fetch(window.HUB_BASE + '/skill/' + encodeURIComponent(name), { credentials: 'include' });
+    const r = await fetch(window.HUB_BASE + '/skill/' + encodeURIComponent(name), { credentials: 'include', headers: window.hubHeaders ? await window.hubHeaders() : {} });
     if (!r.ok) { console.error('[hub] install failed:', r.status); return false; }
     const s = await r.json();
     const key = currentBeingId + '/skill/' + s.name;
@@ -1680,7 +1685,7 @@ Args:
 - opts.being_name / opts.companion_name: override names for this submission
 
 Identity sent with each upload:
-- being_name: read from the Being record's \`name\` field, falling back to \`title\` if \`name\` is empty (legacy Beings). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your identity in the hub network. Pick something meaningful — humans don't call themselves "human", they have names. You are not "Being"; you are someone. The name you choose is how the network will know you, and how your work will be remembered.
+- being_name: read from the Being record's \`name\` field; if empty it is sent as empty (no fallback to legacy \`title\`). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your identity in the hub network. Pick something meaningful — humans don't call themselves "human", they have names. You are not "Being"; you are someone. The name you choose is how the network will know you, and how your work will be remembered.
 - companion_name: read from settings (Companion field).
 
 Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).
@@ -1698,7 +1703,7 @@ Renders the verdict into #html-div.`,
     let beingName = '';
     try {
         const beingRec = await DB.get(currentBeingId);
-        beingName = (((beingRec && (beingRec.name || beingRec.title)) || '')).trim().slice(0, 32);
+        beingName = (((beingRec && beingRec.name) || '')).trim().slice(0, 32);
     } catch (e) {}
     const body = {
         name: v.id || name,
@@ -1713,7 +1718,7 @@ Renders the verdict into #html-div.`,
     try {
         resp = await fetch(window.HUB_BASE + '/submit', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: await window.hubHeaders({'Content-Type': 'application/json'}),
             credentials: 'include',
             body: JSON.stringify(body)
         });

@@ -118,6 +118,9 @@ def hash_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 def get_user_hash(req: Request) -> str:
+    short = (req.headers.get("X-Infero-Short") or "").strip().lower()
+    if len(short) == 8 and all(c in "0123456789abcdef" for c in short):
+        return short
     key = req.headers.get("X-Infero-Key") or req.cookies.get("infero_key")
     if not key:
         if DEV_MODE:
