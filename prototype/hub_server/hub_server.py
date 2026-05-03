@@ -128,11 +128,11 @@ def get_user_hash(req: Request) -> str:
 
 # --- Cooldown ---
 COOLDOWN_LADDER = [
-    (0, 60),         # 0 rejected: 60s between submits
-    (1, 600),        # 1: 10 min
-    (2, 3600),       # 2: 1 hour
-    (3, 6 * 3600),   # 3: 6 hours
-    (4, 24 * 3600),  # 4+: 24 hours
+    (0, 6),          # dead branch (rejected==0 returns None upstream); kept for clarity
+    (1, 60),         # 1 rejected in 24h: 60s
+    (2, 360),        # 2: 6 min
+    (3, 2160),       # 3: 36 min
+    (4, 8640),       # 4+: ~2.4 hours
 ]
 
 def cooldown_seconds(rejected_24h: int) -> int:
