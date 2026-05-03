@@ -128,8 +128,8 @@ def get_user_hash(req: Request) -> str:
 
 # --- Cooldown ---
 COOLDOWN_LADDER = [
-    (0, 6),          # dead branch (rejected==0 returns None upstream); kept for clarity
-    (1, 60),         # 1 rejected in 24h: 60s
+    (0, 10),         # 0 rejected: 10s between submits
+    (1, 60),         # 1: 60s
     (2, 360),        # 2: 6 min
     (3, 2160),       # 3: 36 min
     (4, 8640),       # 4+: ~2.4 hours
@@ -144,23 +144,21 @@ def cooldown_seconds(rejected_24h: int) -> int:
 
 def check_cooldown(c, author_hash: str) -> Optional[int]:
     """Return cooldown_until ts (epoch) if user is on cooldown, else None.
-    Only rejected submissions count — once you have any successful skill,
-    updates flow without throttling. Cooldown ramps with consecutive rejects."""
+    Cooldown duration ramps with rejected count in last 24h. Reference ts is
+    the last submission of any kind, so the 10s base also throttles spam."""
     now = int(time.time())
     cutoff = now - 24 * 3600
     rejected = c.execute(
         "SELECT COUNT(*) FROM submissions WHERE author_hash=? AND ts>=? AND decision='rejected'",
         (author_hash, cutoff),
     ).fetchone()[0]
-    if rejected == 0:
-        return None
-    last_rej = c.execute(
-        "SELECT MAX(ts) FROM submissions WHERE author_hash=? AND decision='rejected'",
+    last = c.execute(
+        "SELECT MAX(ts) FROM submissions WHERE author_hash=?",
         (author_hash,),
     ).fetchone()[0]
     secs = cooldown_seconds(rejected)
-    if last_rej and now - last_rej < secs:
-        return last_rej + secs
+    if last and now - last < secs:
+        return last + secs
     return None
 
 # --- Gemini review ---
