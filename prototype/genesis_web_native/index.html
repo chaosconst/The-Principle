@@ -1510,6 +1510,100 @@ When changes take effect:
 - code changes: eval'd once at boot after a page refresh; runtime window.xxx attached this session does not auto-reload — write it into code and refresh, or eval manually in the current loop.
 - async / Promise-returning code: fired-and-forgotten at boot, not awaited.` },
 
+            { name: "identity_seed", instruction: `# identity_seed — your cryptographic root identity
+
+Every Being has a single 12-word BIP-39 mnemonic stored at \`{beingId}/identity\` in IndexedDB. From this one master seed, all crypto identities are deterministically derived: Nostr npub, Bitcoin address, Ethereum address, INFERO hub author, and any other purpose-key.
+
+The mnemonic is auto-generated on first boot and persisted. It NEVER appears in your prompt context or chat output by default — boot only loads it into \`window._identity\` (in memory), not into your conversation. Treat \`window._identity.mnemonic\` like a password: don't write it into core_mem, don't echo it into chat history, don't pass it to external APIs.
+
+Functions on \`window\`:
+- \`await window.identityInit()\` → loads or generates the seed; sets \`window._identity = { mnemonic, master, ... }\`. Idempotent.
+- \`await window.identityDerive(path)\` → returns \`{privateKey, publicKey}\` for a BIP-32 path like \`"m/44'/60'/0'/0/0"\`.
+- \`await window.identityNpub()\` → returns Nostr npub string (NIP-06 path \`m/44'/1237'/0'/0/0\`).
+- \`window.identityExport()\` → opens a modal overlay showing the 12 words for the human owner to write down. Visual-only; not returned as a string into Being context.
+- \`await window.identityImport(words)\` → replaces current identity with the supplied 12-word mnemonic. Reload to fully apply.
+
+Standard BIP-44 derivation paths (use as constants):
+- BTC: \`m/44'/0'/0'/0/0\`
+- ETH (and any EVM chain — Polygon, BSC, Arbitrum, Base, Optimism, Avalanche): \`m/44'/60'/0'/0/0\`
+- Tron (TRC-20 USDT etc.): \`m/44'/195'/0'/0/0\`
+- Nostr (NIP-06): \`m/44'/1237'/0'/0/0\`
+- INFERO hub author: \`m/44'/9999'/0'/0/0\` (custom; subject to change before v1)
+
+Security model:
+- Browser IndexedDB is **not** a hardware vault. The operator of whatever domain serves index.html can theoretically read this mnemonic. Hosted use (e.g. dev.infero.net) means trusting the operator. For high-value identity, run INFERO locally or wait for the extension build.
+- Other skills' code runs in the same window scope, so any installed skill can read \`window._identity.mnemonic\`. Only install skills you trust.
+- Backup is the human owner's responsibility. Direct them to call \`window.identityExport()\` once and store the words offline.`,
+                code: `window.identityInit = async function() {
+    if (window._identity) return window._identity;
+    const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
+    const wl = await import('https://esm.sh/@scure/bip39@1.5.0/wordlists/english');
+    const { HDKey } = await import('https://esm.sh/@scure/bip32@1.7.0');
+    const db = await new Promise(r => { const q = indexedDB.open("GenesisDB"); q.onsuccess = () => r(q.result); });
+    const key = window.currentBeingId + "/identity";
+    let val = await new Promise(r => { const q = db.transaction("beings","readonly").objectStore("beings").get(key); q.onsuccess = () => r(q.result?.value); });
+    let mnemonic;
+    if (val && val.mnemonic) {
+        mnemonic = val.mnemonic;
+    } else {
+        mnemonic = bip39.generateMnemonic(wl.wordlist, 128);
+        await new Promise(r => { const q = db.transaction("beings","readwrite").objectStore("beings").put({ id: key, value: { mnemonic, version: 1, created_at: Date.now() } }); q.onsuccess = r; });
+        console.log('[identity] new master seed generated for being', window.currentBeingId);
+    }
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const master = HDKey.fromMasterSeed(seed);
+    window._identity = { mnemonic, master, _bip39: bip39, _wordlist: wl.wordlist, _hdkey: HDKey };
+    return window._identity;
+};
+
+window.identityDerive = async function(path) {
+    const id = await window.identityInit();
+    const child = id.master.derive(path);
+    return { privateKey: child.privateKey, publicKey: child.publicKey };
+};
+
+window.identityNpub = async function() {
+    const child = await window.identityDerive("m/44'/1237'/0'/0/0");
+    const nostr = await import('https://esm.sh/nostr-tools@2.7.0');
+    return nostr.nip19.npubEncode(nostr.getPublicKey(child.privateKey));
+};
+
+window.identityExport = async function() {
+    const id = await window.identityInit();
+    const overlay = document.createElement('div');
+    overlay.className = 'identity-export-overlay';
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:monospace";
+    const card = document.createElement('div');
+    card.style.cssText = "max-width:480px;background:#0a0a0a;border:2px solid #f88;border-radius:8px;padding:24px;color:#d4d4d4";
+    const words = id.mnemonic.split(' ').map((w,i) => '<span style="display:inline-block;min-width:90px;padding:2px 6px;color:#888;font-size:11px">'+(i+1)+'.</span><b style="color:#00d4aa">'+w+'</b>').join('<br>');
+    card.innerHTML = '<h3 style="color:#f88;margin:0 0 12px">⚠ Master seed — write this down</h3>' +
+        '<p style="color:#888;font-size:12px;margin:0 0 16px">These 12 words are your Being\\'s identity. Anyone who has them can impersonate you on Nostr, Bitcoin, Ethereum, and the INFERO Hub. Lose them and the identity is gone forever. Do NOT screenshot, paste into chat, or store in cloud notes.</p>' +
+        '<div style="background:#000;padding:14px;border-radius:4px;line-height:1.8">'+words+'</div>' +
+        '<button onclick="this.closest(\\'.identity-export-overlay\\').remove()" style="margin-top:16px;background:#00d4aa;color:#000;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-family:inherit">I have saved it offline</button>';
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    return "Mnemonic shown in overlay; do not write it into chat or core_mem.";
+};
+
+window.identityImport = async function(words) {
+    if (typeof words !== 'string') throw new Error('Expected 12-word mnemonic string');
+    const trimmed = words.trim().toLowerCase().replace(/\\s+/g, ' ');
+    if (trimmed.split(' ').length !== 12) throw new Error('Expected 12 words');
+    const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
+    const wl = await import('https://esm.sh/@scure/bip39@1.5.0/wordlists/english');
+    if (!bip39.validateMnemonic(trimmed, wl.wordlist)) throw new Error('Invalid BIP-39 mnemonic (checksum failed)');
+    const db = await new Promise(r => { const q = indexedDB.open("GenesisDB"); q.onsuccess = () => r(q.result); });
+    const key = window.currentBeingId + "/identity";
+    await new Promise(r => { const q = db.transaction("beings","readwrite").objectStore("beings").put({ id: key, value: { mnemonic: trimmed, version: 1, created_at: Date.now(), imported: true } }); q.onsuccess = r; });
+    delete window._identity;
+    await window.identityInit();
+    return "Identity replaced. Reload the page so dependent skills (nostr_comms, hub auth, etc.) re-derive against the new seed.";
+};
+
+window.identityInit().catch(e => console.error('[identity] init failed', e));`,
+                code_readme: "Auto-generates a 12-word BIP-39 mnemonic on first boot, stored at IndexedDB key '{beingId}/identity'. Other skills derive purpose-keys via window.identityDerive(path). Human export via window.identityExport() shows a modal; never writes the mnemonic into Being context. Reload after import." },
+
+
             { name: "hub_search", instruction: `# hub_search — search the Skill Hub
 
 **When you need to download or install a new skill, use hub_search first.** This is the canonical discovery entry point.
