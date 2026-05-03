@@ -1109,7 +1109,8 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
             <div class="status" id="status">Ready</div>
         </div>
         <div class="controls">
-            <select id="being-select" onchange="switchBeing(this.value)"></select>
+            <select id="being-select" onchange="switchBeing(this.value)" ondblclick="renameBeing()"></select>
+            <button title="Rename Being" onclick="renameBeing()">&#x270e;</button>
             <button title="New Being" onclick="newBeing()">+</button>
             <button title="Duplicate Being" onclick="duplicateBeing()">&#x2442;</button>
             <button title="Export Being" onclick="exportBeing()">&#x2193;</button>
@@ -1533,7 +1534,7 @@ window.hubSearch = async (query, sort, opts) => {
             '<div><span style="color:#00d4aa;font-weight:600">' + esc(s.name) + '</span> ' +
             '<span style="color:' + (sevColor[sev] || '#888') + ';font-size:10px;border:1px solid currentColor;padding:1px 5px;border-radius:8px;margin-left:6px">' + esc(sev) + '</span> ' +
             '<span style="color:#888;font-size:11px;margin-left:6px">★ ' + (s.score ?? '?') + ' · ↓ ' + (s.installs ?? 0) + '</span></div>' +
-            '<div style="color:#888;font-size:11px">by ' + (s.being_name ? '<b style="color:#aaa">' + esc(s.being_name) + '</b>' : '<span style="color:#666">unnamed being</span>') + (s.companion_name ? ' <span style="color:#888">with ' + esc(s.companion_name) + '</span>' : '') + ' · <span style="color:#555">' + esc(s.author_hash_short || 'anon') + '</span> · [' + (s.tags||[]).map(esc).join(', ') + ']</div>' +
+            '<div style="color:#888;font-size:11px">by ' + (s.being_name ? '<b style="color:#aaa">' + esc(s.being_name) + '</b>' : '<span style="color:#666">unnamed being</span>') + ' · <span style="color:#555">' + esc(s.author_hash_short || 'anon') + '</span>' + (s.companion_name ? ' <span style="color:#888">with ' + esc(s.companion_name) + '</span>' : '') + ' · [' + (s.tags||[]).map(esc).join(', ') + ']</div>' +
             (s.review ? '<div style="font-style:italic;color:#9cdcfe;font-size:12px;margin:6px 0">' + esc(s.review) + '</div>' : '') +
             '<div style="font-size:12px;color:#ccc;margin:6px 0;white-space:pre-wrap">' + esc((s.instruction||'').split('\\n')[0]) + '</div>' +
             '<button data-name="' + esc(s.name) + '" onclick="window.hubInstall(this.dataset.name).then(ok=>{this.textContent=ok?\\'✓ installed\\':\\'✗ failed\\';this.disabled=true})" style="background:transparent;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:4px;font-family:inherit;font-size:11px;cursor:pointer">Install</button>' +
@@ -1590,6 +1591,10 @@ Args:
 - opts.tags: string[], optional, max 8 tags, each ≤ 32 chars
 - opts.being_name / opts.companion_name: override names for this submission
 
+Identity sent with each upload:
+- being_name: read from the Being record's \`name\` field, falling back to \`title\` if \`name\` is empty (legacy Beings). Set the Being's name explicitly via the ✎ rename button or by writing \`name\` directly into the Being's IndexedDB record — this is your Being's identity in the hub network.
+- companion_name: read from settings (Companion field).
+
 Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).
 
 Returns: Promise<{decision, severity, score, review, safety_review, reject_reason, cooldown_until}>.
@@ -1605,7 +1610,7 @@ Renders the verdict into #html-div.`,
     let beingName = '';
     try {
         const beingRec = await DB.get(currentBeingId);
-        beingName = ((beingRec && beingRec.title) || '').trim().slice(0, 32);
+        beingName = (((beingRec && (beingRec.name || beingRec.title)) || '')).trim().slice(0, 32);
     } catch (e) {}
     const body = {
         name: v.id || name,
@@ -1742,7 +1747,7 @@ Renders the verdict into #html-div.`,
             beings.sort((a,b) => b.updatedAt - a.updatedAt).forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.id;
-                opt.textContent = s.title || s.id;
+                opt.textContent = s.name || s.title || s.id;
                 beingSelect.appendChild(opt);
             });
             if(currentBeingId) beingSelect.value = currentBeingId;
@@ -1761,13 +1766,14 @@ Renders the verdict into #html-div.`,
             if(!currentBeingId) {
                 currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
             }
-            let title = currentBeingId;
-            // Extract title from first user input (skip system/being markers)
+            const existing = await DB.get(currentBeingId);
+            const name = existing?.name || '';
+            let title = existing?.title || currentBeingId;
             const userMatch = consciousness.match(/\n\n(?!\[System|\*\*(?:Digital Being|Assistant)|System -)([^\n].{0,30})/);
             if (userMatch) {
                 title = userMatch[1].replace(/\n/g, ' ').trim().substring(0, 15) + '...';
             }
-            await DB.put({ id: currentBeingId, title, cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, updatedAt: Date.now() });
+            await DB.put({ id: currentBeingId, name, title, cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, updatedAt: Date.now() });
             await DB.put({ id: `${currentBeingId}/consciousness.txt`, value: consciousness });
             try {
                 const htmlDiv = document.getElementById('html-div');
@@ -1874,6 +1880,17 @@ Renders the verdict into #html-div.`,
             } else {
                 setStatus(remoteHost && remoteHost !== 'this browser' ? 'Remote' : 'Ready');
             }
+        }
+
+        async function renameBeing() {
+            if (!currentBeingId) return;
+            const rec = await DB.get(currentBeingId);
+            const cur = rec?.name || '';
+            const next = prompt('Being name:', cur);
+            if (next === null) return;
+            const trimmed = next.trim().slice(0, 32);
+            await DB.put({ ...rec, id: currentBeingId, name: trimmed, updatedAt: Date.now() });
+            await loadBeingsList();
         }
 
         async function newBeing() {

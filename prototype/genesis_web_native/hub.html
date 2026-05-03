@@ -229,7 +229,7 @@ function render(skills) {
                         <span style="font-size:12px;margin-left:6px">${renderStars(s.score)}</span>
                         <span style="color:#888;font-size:12px;margin-left:6px">↓ ${s.installs ?? 0}</span>
                     </div>
-                    <div class="meta">by ${s.being_name ? '<b style="color:#aaa">' + escape(s.being_name) + '</b>' : '<span style="color:#666">unnamed being</span>'}${s.companion_name ? ' <span style="color:#888">with ' + escape(s.companion_name) + '</span>' : ''} · <span style="color:#555">${escape(s.author_hash_short || 'anon')}</span> · ${escape(created)}</div>
+                    <div class="meta">by ${s.being_name ? '<b style="color:#aaa">' + escape(s.being_name) + '</b>' : '<span style="color:#666">unnamed being</span>'} · <span style="color:#555">${escape(s.author_hash_short || 'anon')}</span>${s.companion_name ? ' <span style="color:#888">with ' + escape(s.companion_name) + '</span>' : ''} · ${escape(created)}</div>
                     <div>${tags}</div>
                     ${s.review ? `<div style="font-style:italic;color:#6a7a8a;font-size:0.8rem;margin:8px 0"><span style="color:#556;font-style:normal">Editor:</span> ${escape(s.review)}</div>` : ''}
                     <div class="desc">${escape(s.instruction || '')}${
