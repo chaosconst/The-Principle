@@ -143,20 +143,24 @@ def cooldown_seconds(rejected_24h: int) -> int:
     return secs
 
 def check_cooldown(c, author_hash: str) -> Optional[int]:
-    """Return cooldown_until ts (epoch) if user is on cooldown, else None."""
+    """Return cooldown_until ts (epoch) if user is on cooldown, else None.
+    Only rejected submissions count — once you have any successful skill,
+    updates flow without throttling. Cooldown ramps with consecutive rejects."""
     now = int(time.time())
     cutoff = now - 24 * 3600
     rejected = c.execute(
         "SELECT COUNT(*) FROM submissions WHERE author_hash=? AND ts>=? AND decision='rejected'",
         (author_hash, cutoff),
     ).fetchone()[0]
-    last = c.execute(
-        "SELECT MAX(ts) FROM submissions WHERE author_hash=?",
+    if rejected == 0:
+        return None
+    last_rej = c.execute(
+        "SELECT MAX(ts) FROM submissions WHERE author_hash=? AND decision='rejected'",
         (author_hash,),
     ).fetchone()[0]
     secs = cooldown_seconds(rejected)
-    if last and now - last < secs:
-        return last + secs
+    if last_rej and now - last_rej < secs:
+        return last_rej + secs
     return None
 
 # --- Gemini review ---
@@ -430,15 +434,17 @@ async def hub_submit(request: Request):
     companion_name = (payload.get("companion_name") or "").strip()[:32]
 
     with db() as c:
-        cu = check_cooldown(c, author_hash)
-        if cu:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "cooldown active", "cooldown_until": cu},
-            )
         existing = c.execute("SELECT author_hash FROM skills WHERE name=?", (name,)).fetchone()
         if existing and existing["author_hash"] != author_hash:
             raise HTTPException(status_code=409, detail="name 已被他人占用")
+        is_own_update = existing and existing["author_hash"] == author_hash
+        if not is_own_update:
+            cu = check_cooldown(c, author_hash)
+            if cu:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "cooldown active", "cooldown_until": cu},
+                )
 
     prompt = REVIEW_PROMPT_TEMPLATE.format(
         name=name,
