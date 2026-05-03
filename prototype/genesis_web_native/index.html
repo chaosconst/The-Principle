@@ -1663,6 +1663,7 @@ Renders the verdict into #html-div.`,
             (data.reject_reason ? '<div style="color:#f88;margin-top:8px">' + esc(data.reject_reason) + '</div>' : '') +
             (data.safety_review ? '<details style="margin-top:8px"><summary style="color:#888;font-size:11px;cursor:pointer">Safety analysis</summary><div style="font-size:12px;color:#ccc;white-space:pre-wrap;margin-top:6px">' + esc(data.safety_review) + '</div></details>' : '') +
             (data.detail ? '<div style="color:#888;font-size:11px;margin-top:8px">' + esc(data.detail) + '</div>' : '') +
+            (ok ? (function(){ var u = location.origin + '/genesis/?skills=' + encodeURIComponent(name); return '<div style="margin-top:10px;display:flex;gap:6px"><button onclick="window.open(\\'' + u + '\\',\\'_blank\\')" style="background:transparent;border:1px solid #00d4aa;color:#00d4aa;padding:4px 10px;border-radius:3px;font-family:inherit;font-size:11px;cursor:pointer">Try in new Being</button><button onclick="navigator.clipboard.writeText(\\'' + u + '\\').then(()=>{this.textContent=\\'✓ Link copied\\';setTimeout(()=>this.textContent=\\'Share link\\',1500)})" style="background:transparent;border:1px solid #2a2a2a;color:#888;padding:4px 10px;border-radius:3px;font-family:inherit;font-size:11px;cursor:pointer">Share link</button></div>'; })() : '') +
         '</div>';
     }
     return data;
@@ -1925,7 +1926,15 @@ Renders the verdict into #html-div.`,
             _lastCachedTokens = 0;
             _justReloaded = false;
             await saveBeing();
-            try { await seedDefaultSkills(currentBeingId); } catch (e) { console.error('[newBeing] seed failed', e); }
+            try {
+                await seedDefaultSkills(currentBeingId);
+                const skills = await DB.listSkills(currentBeingId);
+                for (const s of skills) {
+                    if (!s || s.enable !== true || !s.code || typeof s.code !== 'string') continue;
+                    try { (0, eval)(s.code); console.log('[skill] code reloaded:', s.name); }
+                    catch (e) { console.error('[skill] code eval failed:', s.name, e); }
+                }
+            } catch (e) { console.error('[newBeing] skill init failed', e); }
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
             const remoteHost = settings.hostDevice;
@@ -3538,6 +3547,35 @@ Renders the verdict into #html-div.`,
                     }
                 }
             } catch (e) { console.error("[boot] skill init failed", e); }
+            try {
+                const params = new URLSearchParams(location.search);
+                const skillsParam = params.get('skills');
+                if (skillsParam) {
+                    const names = skillsParam.split(',').map(s => s.trim()).filter(Boolean);
+                    if (names.length) {
+                        await newBeing();
+                        const results = [];
+                        for (const n of names) {
+                            try { results.push({ name: n, ok: !!(await window.hubInstall(n)) }); }
+                            catch (e) { results.push({ name: n, ok: false, err: e.message }); }
+                        }
+                        const ok = results.filter(r => r.ok).map(r => r.name);
+                        const bad = results.filter(r => !r.ok).map(r => r.name);
+                        const div = document.getElementById('html-div');
+                        if (div) {
+                            const card = document.createElement('div');
+                            card.style.cssText = "padding:10px 14px;margin-bottom:10px;background:#0a1a14;border:1px solid #1a4d3a;border-radius:6px;font-family:monospace;font-size:12px;color:#9ad9c0";
+                            card.innerHTML = '<b style="color:#00d4aa">Hub experience</b> — fresh Being created' +
+                                (ok.length ? '<div style="margin-top:4px">✓ installed: ' + ok.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '') +
+                                (bad.length ? '<div style="margin-top:4px;color:#f88">✗ failed: ' + bad.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '');
+                            div.insertBefore(card, div.firstChild);
+                        }
+                        const url = new URL(location.href);
+                        url.searchParams.delete('skills');
+                        history.replaceState(null, '', url.toString());
+                    }
+                }
+            } catch (e) { console.error('[boot] ?skills= handling failed', e); }
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();

@@ -239,6 +239,8 @@ function render(skills) {
                     }</div>
                 </div>
                 <div class="actions">
+                    <button onclick="tryNow('${escape(s.name)}')">Try</button>
+                    <button onclick="copyShare('${escape(s.name)}', this)">Share</button>
                     <button onclick="copyMD(${i}, this)">Copy Markdown</button>
                 </div>
             </div>
@@ -269,6 +271,25 @@ function skillToMD(s) {
     if (s.code_readme) lines.push('\n## code_readme\n\n' + s.code_readme);
     if (s.safety_review) lines.push('\n## safety review\n\n' + s.safety_review);
     return lines.join('\n');
+}
+
+function shareUrl(name) {
+    return location.origin + '/genesis/?skills=' + encodeURIComponent(name);
+}
+
+function tryNow(name) {
+    window.open(shareUrl(name), '_blank');
+}
+
+async function copyShare(name, btn) {
+    try {
+        await navigator.clipboard.writeText(shareUrl(name));
+        const orig = btn.textContent;
+        btn.textContent = '✓ Link copied';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    } catch (e) {
+        alert('Copy failed: ' + e.message);
+    }
 }
 
 async function copyMD(i, btn) {
