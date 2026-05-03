@@ -1868,6 +1868,7 @@ Renders the verdict into #html-div.`,
 
         async function switchBeing(id) {
             currentBeingId = id;
+            try { await seedDefaultSkills(id); } catch (e) { console.error('[switchBeing] seed failed', e); }
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
             if (consciousnessRecord) {
@@ -1916,6 +1917,7 @@ Renders the verdict into #html-div.`,
             _lastCachedTokens = 0;
             _justReloaded = false;
             await saveBeing();
+            try { await seedDefaultSkills(currentBeingId); } catch (e) { console.error('[newBeing] seed failed', e); }
             renderHistory();
             // If remote host is online, handoff new being; otherwise auto-infer locally
             const remoteHost = settings.hostDevice;
@@ -1933,6 +1935,7 @@ Renders the verdict into #html-div.`,
             const note = `\n\n[System] Being forked from ${sourceId} → ${currentBeingId} at ${new Date().toLocaleString()}\n\n`;
             consciousness += note;
             await saveBeing();
+            try { await seedDefaultSkills(currentBeingId); } catch (e) { console.error('[duplicateBeing] seed failed', e); }
             renderHistory();
         }
 
