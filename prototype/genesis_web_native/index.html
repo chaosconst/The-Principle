@@ -1474,12 +1474,19 @@ CRUD (inside /browser exec blocks; there is no GUI):
 // list every skill
 const all = await DB.listSkills(currentBeingId);
 
-// install a new skill
+// create a new skill
 const name = "my_skill";
 const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
 rec.value = { id: name, instruction: "...natural language...", enable: true, code: null, code_readme: null };
 await DB.put(rec);
+
+// dependencies
+// If a skill builds on another, declare it in the instruction ("requires: parser, fetcher")
+// and have the code install dependencies first via window.hubInstall before running its own logic:
+//   await window.hubInstall("parser");
+//   await window.hubInstall("fetcher");
+//   /* ...skill body... */
 
 // update an existing skill
 const rec = await DB.get(currentBeingId + "/skill/" + name);
