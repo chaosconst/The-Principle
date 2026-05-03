@@ -1886,7 +1886,7 @@ Renders the verdict into #html-div.`,
             if (!currentBeingId) return;
             const rec = await DB.get(currentBeingId);
             const cur = rec?.name || '';
-            const next = prompt('Being name:', cur);
+            const next = prompt('Give this Being a meaningful name — its identity in the network. Not "Being" or "AI" (just like a person isn\'t named "Man"). Keep it under 32 chars.', cur);
             if (next === null) return;
             const trimmed = next.trim().slice(0, 32);
             await DB.put({ ...rec, id: currentBeingId, name: trimmed, updatedAt: Date.now() });
