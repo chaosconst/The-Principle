@@ -59,3 +59,4 @@ Also works from GitHub Pages, Vercel, or local `file://` (no device relay needed
 - Context compression triggers at 300k tokens, saves trimmed middle to IndexedDB.
 - Anthropic cache uses up to 4 floor-aligned breakpoints in the user content array (stable cache positions).
 - `agent.py` is loaded once at relay startup — changes require relay restart to take effect.
+- **`index.html` must contain no Chinese text.** All UI strings, comments, default-skill instructions, and any inline prose must be English. Translations live in `i18n.json`.

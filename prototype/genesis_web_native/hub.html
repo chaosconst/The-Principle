@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INFERO Skill Hub</title>
+<style>
+:root {
+    --bg: #0a0a0a;
+    --panel: #141414;
+    --border: #2a2a2a;
+    --text: #d4d4d4;
+    --dim: #888;
+    --accent: #00d4aa;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "JetBrains Mono", monospace;
+    line-height: 1.5;
+}
+header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+header h1 { margin: 0; font-size: 1.2rem; color: var(--accent); }
+header .sub { color: var(--dim); font-size: 0.85rem; }
+header .right { margin-left: auto; }
+header a { color: var(--dim); text-decoration: none; font-size: 0.85rem; }
+header a:hover { color: var(--accent); }
+.controls {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.controls input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+}
+.controls input:focus { outline: none; border-color: var(--accent); }
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 24px;
+}
+.card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.15s;
+    height: 360px;
+    display: flex;
+    flex-direction: column;
+}
+.card:hover { border-color: var(--accent); }
+.card .body { flex: 1; min-height: 0; overflow-y: auto; }
+.card .body::-webkit-scrollbar { width: 6px; }
+.card .body::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+.card .body::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+.card .name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--accent);
+}
+.card .meta {
+    color: var(--dim);
+    font-size: 0.75rem;
+    margin: 4px 0 10px;
+}
+.card .tag {
+    display: inline-block;
+    background: rgba(0, 212, 170, 0.1);
+    color: var(--accent);
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-right: 4px;
+}
+.card .desc {
+    font-size: 0.85rem;
+    color: var(--text);
+    white-space: pre-wrap;
+}
+.card .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-shrink: 0;
+}
+.card button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.card button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.card pre {
+    background: #050505;
+    border: 1px solid var(--border);
+    padding: 10px;
+    margin: 10px 0 0;
+    overflow-x: auto;
+    font-size: 0.72rem;
+    color: #9cdcfe;
+    border-radius: 4px;
+}
+.empty {
+    color: var(--dim);
+    text-align: center;
+    padding: 60px;
+}
+.error {
+    color: #f48771;
+    padding: 24px;
+    background: rgba(244, 135, 113, 0.05);
+    border: 1px solid rgba(244, 135, 113, 0.2);
+    border-radius: 8px;
+    margin: 24px;
+}
+.stars {
+    display: inline-block;
+    position: relative;
+    color: #444;
+    font-size: 13px;
+    letter-spacing: 1px;
+    line-height: 1;
+}
+.stars::before { content: "★★★★★"; }
+.stars > span {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+    color: #fc0;
+    white-space: nowrap;
+}
+.stars > span::before { content: "★★★★★"; }
+</style>
+</head>
+<body>
+<header>
+    <h1>INFERO Skill Hub</h1>
+    <span class="sub" id="meta"></span>
+    <div class="right">
+        <a href="./index.html">← back to INFERO</a>
+    </div>
+</header>
+<div class="controls">
+    <input id="q" placeholder="Search by name, tag, or description…" autofocus>
+</div>
+<div id="root" class="grid"></div>
+<div id="pager" style="display:flex;justify-content:center;gap:12px;padding:0 24px 24px;color:var(--dim);font-size:0.85rem;align-items:center"></div>
+
+<script>
+const isLocal = /^(localhost|127\.|\[::1\])/.test(location.hostname);
+const HUB_BASE = localStorage.HUB_BASE || (isLocal ? 'http://localhost:8089/hub' : location.origin + '/hub');
+let allSkills = [];
+const PAGE_SIZE = 50;
+let curOffset = 0;
+let curTotal = 0;
+let curQuery = '';
+
+async function loadHub(opts) {
+    opts = opts || {};
+    const params = new URLSearchParams({
+        sort: opts.sort || 'hot',
+        limit: String(opts.limit || PAGE_SIZE),
+        offset: String(opts.offset || 0),
+    });
+    if (opts.q) params.set('q', opts.q);
+    const r = await fetch(HUB_BASE + '/list?' + params, { credentials: 'include' });
+    if (!r.ok) throw new Error('hub list ' + r.status);
+    return await r.json();
+}
+
+function escape(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(skills) {
+    const root = document.getElementById('root');
+    const scrollMap = {};
+    root.querySelectorAll('.card').forEach((card, idx) => {
+        const body = card.querySelector('.body');
+        const name = card.dataset.name;
+        if (body && name) scrollMap[name] = body.scrollTop;
+    });
+    const pageScroll = window.scrollY;
+    if (!skills.length) {
+        root.innerHTML = '<div class="empty">No skills match.</div>';
+        return;
+    }
+    const sevColor = { safe: '#0f0', caution: '#fc0', danger: '#f44' };
+    const renderStars = (n) => {
+        if (n == null || isNaN(n)) return '<span class="stars"></span>';
+        const pct = Math.max(0, Math.min(10, +n)) * 10;
+        return '<span class="stars"><span style="width:' + pct + '%"></span></span>';
+    };
+    const renderOnly = () => skills.map((s, i) => {
+        const tags = (s.tags || []).map(t => `<span class="tag">${escape(t)}</span>`).join('');
+        const sev = s.severity || 'safe';
+        const created = s.created_at ? new Date(s.created_at * 1000).toISOString().slice(0, 10) : '';
+        return `
+            <div class="card" data-name="${escape(s.name)}">
+                <div class="body">
+                    <div class="name">${escape(s.name)}
+                        <span style="color:${sevColor[sev] || '#888'};font-size:11px;border:1px solid currentColor;padding:1px 6px;border-radius:8px;margin-left:8px">${escape(sev)}</span>
+                        <span style="font-size:12px;margin-left:6px">${renderStars(s.score)}</span>
+                        <span style="color:#888;font-size:12px;margin-left:6px">↓ ${s.installs ?? 0}</span>
+                    </div>
+                    <div class="meta">by ${s.being_name ? '<b style="color:#aaa">' + escape(s.being_name) + '</b>' : '<span style="color:#666">unnamed being</span>'}${s.companion_name ? ' <span style="color:#888">with ' + escape(s.companion_name) + '</span>' : ''} · <span style="color:#555">${escape(s.author_hash_short || 'anon')}</span> · ${escape(created)}</div>
+                    <div>${tags}</div>
+                    ${s.review ? `<div style="font-style:italic;color:#6a7a8a;font-size:0.8rem;margin:8px 0"><span style="color:#556;font-style:normal">Editor:</span> ${escape(s.review)}</div>` : ''}
+                    <div class="desc">${escape(s.instruction || '')}${
+                        s.code_readme ? `<div style="margin-top:10px;color:#888;font-size:0.78rem"><b style="color:#aaa">code_readme</b><br>${escape(s.code_readme)}</div>` : ''
+                    }${
+                        s.code ? `<pre>${escape(s.code)}</pre>` : ''
+                    }</div>
+                </div>
+                <div class="actions">
+                    <button onclick="copyMD(${i}, this)">Copy Markdown</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    root.innerHTML = renderOnly();
+    root.querySelectorAll('.card').forEach(card => {
+        const body = card.querySelector('.body');
+        const name = card.dataset.name;
+        if (body && name && scrollMap[name] != null) body.scrollTop = scrollMap[name];
+    });
+    window.scrollTo(0, pageScroll);
+}
+
+function skillToMD(s) {
+    const lines = [];
+    lines.push('# ' + (s.name || 'skill'));
+    const meta = [];
+    if (s.severity) meta.push('risk: ' + s.severity);
+    if (s.score != null) meta.push('score: ' + s.score + '/10');
+    if (s.installs != null) meta.push('installs: ' + s.installs);
+    if (s.author_hash_short) meta.push('by ' + s.author_hash_short);
+    if (meta.length) lines.push('_' + meta.join(' · ') + '_');
+    if (s.tags && s.tags.length) lines.push('**tags:** ' + s.tags.map(t => '`' + t + '`').join(' '));
+    if (s.review) lines.push('\n> ' + s.review.replace(/\n/g, '\n> '));
+    if (s.instruction) lines.push('\n## instruction\n\n' + s.instruction);
+    if (s.code) lines.push('\n## code\n\n```js\n' + s.code + '\n```');
+    if (s.code_readme) lines.push('\n## code_readme\n\n' + s.code_readme);
+    if (s.safety_review) lines.push('\n## safety review\n\n' + s.safety_review);
+    return lines.join('\n');
+}
+
+async function copyMD(i, btn) {
+    try {
+        await navigator.clipboard.writeText(skillToMD(allSkills[i]));
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = 'Copy Markdown'; }, 1500);
+    } catch (e) {
+        alert('Copy failed: ' + e.message);
+    }
+}
+
+function renderPager() {
+    const pager = document.getElementById('pager');
+    if (!pager) return;
+    if (curTotal <= PAGE_SIZE) { pager.innerHTML = ''; return; }
+    const page = Math.floor(curOffset / PAGE_SIZE) + 1;
+    const pages = Math.max(1, Math.ceil(curTotal / PAGE_SIZE));
+    const btn = (label, off, dis) =>
+        `<button onclick="goPage(${off})" ${dis ? 'disabled' : ''} style="background:transparent;border:1px solid var(--border);color:${dis ? '#444' : 'var(--dim)'};padding:4px 10px;border-radius:4px;font-family:inherit;font-size:0.8rem;cursor:${dis ? 'default' : 'pointer'}">${label}</button>`;
+    pager.innerHTML =
+        btn('← Prev', Math.max(0, curOffset - PAGE_SIZE), curOffset === 0) +
+        `<span>Page ${page} / ${pages} · ${curTotal} skills</span>` +
+        btn('Next →', curOffset + PAGE_SIZE, curOffset + PAGE_SIZE >= curTotal);
+}
+
+async function goPage(offset) {
+    curOffset = offset;
+    await fetchAndRender();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function fetchAndRender() {
+    try {
+        const data = await loadHub({ offset: curOffset, q: curQuery });
+        allSkills = data.skills || [];
+        curTotal = data.total ?? allSkills.length;
+        const ts = data.updated ? new Date(data.updated * 1000).toLocaleString() : '?';
+        document.getElementById('meta').textContent = `${curTotal} skills · updated ${ts}`;
+        render(allSkills);
+        renderPager();
+    } catch (e) {
+        document.getElementById('root').innerHTML = `<div class="error">Failed to load hub: ${escape(e.message)} (HUB_BASE: ${escape(HUB_BASE)})</div>`;
+    }
+}
+
+let searchTimer = null;
+function onSearchInput() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        curQuery = document.getElementById('q').value.trim();
+        curOffset = 0;
+        fetchAndRender();
+    }, 250);
+}
+
+const AUTO_REFRESH_MS = 15000;
+let refreshTimer = null;
+function startAutoRefresh() {
+    stopAutoRefresh();
+    refreshTimer = setInterval(() => {
+        if (!document.hidden) fetchAndRender();
+    }, AUTO_REFRESH_MS);
+}
+function stopAutoRefresh() {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopAutoRefresh();
+    else { fetchAndRender(); startAutoRefresh(); }
+});
+
+(async () => {
+    document.getElementById('q').addEventListener('input', onSearchInput);
+    await fetchAndRender();
+    startAutoRefresh();
+})();
+</script>
+</body>
+</html>

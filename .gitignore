@@ -46,6 +46,8 @@ prototype/device_relay/device_id
 prototype/device_relay/tokens.json
 prototype/pob_server/cache_state.json
 prototype/*/consciousness.txt
+prototype/hub_server/hub.db
+prototype/hub_server/hub.db-*
 
 # Test/debug artifacts
 .playwright-mcp/
