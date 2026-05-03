@@ -289,16 +289,16 @@ def section(text: str, header: str) -> Optional[str]:
     return text[start:end].strip()
 
 def parse_review(md: str) -> dict:
+    def first_word(s: str) -> Optional[str]:
+        m = re.search(r"[a-zA-Z]+", s or "")
+        return m.group().lower() if m else None
     safety = section(md, "Safety Review")
-    severity = (section(md, "Risk") or section(md, "Severity") or "").strip().lower().split()[:1]
-    verdict = (section(md, "Verdict") or "").strip().lower().split()[:1]
+    severity = first_word(section(md, "Risk") or section(md, "Severity") or "")
+    verdict = first_word(section(md, "Verdict") or "")
     review = section(md, "Skill Review")
     score_raw = (section(md, "Score") or "").strip()
     score_match = re.search(r"\d+", score_raw)
     score = int(score_match.group()) if score_match else None
-
-    severity = severity[0] if severity else None
-    verdict = verdict[0] if verdict else None
 
     if severity not in ("safe", "caution", "danger"):
         severity = None
