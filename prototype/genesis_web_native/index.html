@@ -1512,7 +1512,7 @@ When changes take effect:
 
             { name: "identity_seed", instruction: `# identity_seed
 
-A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is 6 hex derived from the INFERO author path \`m/44'/9999'/0'/0/0\` — safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
+A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, shortId}\`, where \`master\` is a BIP-32 HDKey and \`shortId\` is 6 hex derived from the Nostr NIP-06 path \`m/44'/1237'/0'/0/0\` — same key backs Nostr identity and INFERO hub author; safe to display as a public handle). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
                 code: `window.identityInit = async function() {
     if (window._identity) return window._identity;
     const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
@@ -1531,8 +1531,8 @@ A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{b
     }
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const master = HDKey.fromMasterSeed(seed);
-    const authorChild = master.derive("m/44'/9999'/0'/0/0");
-    const shortId = Array.from(authorChild.publicKey.slice(0, 3)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const nostrChild = master.derive("m/44'/1237'/0'/0/0");
+    const shortId = Array.from(nostrChild.publicKey.slice(0, 3)).map(b => b.toString(16).padStart(2, '0')).join('');
     window._identity = { mnemonic, master, shortId };
     return window._identity;
 };
