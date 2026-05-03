@@ -422,9 +422,9 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
             let done = false;
             const combined = Promise.all([_execCode(B_out), _execShellBlocks(B_out)])
                 .then(([b, s]) => { done = true; return [b, s].filter(Boolean).join('\n\n') || null; });
-            const result = await Promise.race([combined, new Promise(r => setTimeout(r, 15000))]);
+            const result = await Promise.race([combined, new Promise(r => setTimeout(r, 30000))]);
             if (!done) {
-                const msg = 'System - [Browser] - Async task（>15s）continues in background. Core loop advances for next cycle.';
+                const msg = 'System - [Browser] - Async task（>30s）continues in background. Core loop advances for next cycle.';
                 appendMsgUI('system', msg);
                 await appendConsciousness(msg + '\n\n');
             }
