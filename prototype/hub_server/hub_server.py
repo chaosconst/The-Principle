@@ -381,11 +381,18 @@ async def hub_list(sort: str = "hot", q: Optional[str] = None, limit: int = 5, o
     items = [skill_to_dict(r, include_code=True) for r in rows]
     rows_with = list(zip(items, rows))
     if q:
-        q_low = q.lower()
-        rows_with = [
-            (i, r) for (i, r) in rows_with
-            if q_low in (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "") + " " + (i.get("being_name") or "") + " " + (i.get("companion_name") or "")).lower()
-        ]
+        def blob(i):
+            return (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "") + " " + (i.get("being_name") or "") + " " + (i.get("companion_name") or "")).lower()
+        q_low = q.lower().strip()
+        full = [(i, r) for (i, r) in rows_with if q_low in blob(i)]
+        if full:
+            rows_with = full
+        else:
+            words = [w for w in q_low.split() if w]
+            if words:
+                rows_with = [(i, r) for (i, r) in rows_with if any(w in blob(i) for w in words)]
+            else:
+                rows_with = full
     if sort == "new":
         rows_with.sort(key=lambda ir: -ir[1]["created_at"])
     else:
