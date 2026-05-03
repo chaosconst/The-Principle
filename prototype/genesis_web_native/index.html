@@ -1868,7 +1868,15 @@ Renders the verdict into #html-div.`,
 
         async function switchBeing(id) {
             currentBeingId = id;
-            try { await seedDefaultSkills(id); } catch (e) { console.error('[switchBeing] seed failed', e); }
+            try {
+                await seedDefaultSkills(id);
+                const skills = await DB.listSkills(id);
+                for (const s of skills) {
+                    if (!s || s.enable !== true || !s.code || typeof s.code !== 'string') continue;
+                    try { (0, eval)(s.code); console.log('[skill] code reloaded:', s.name); }
+                    catch (e) { console.error('[skill] code eval failed:', s.name, e); }
+                }
+            } catch (e) { console.error('[switchBeing] skill init failed', e); }
             const being = await DB.get(id);
             const consciousnessRecord = await DB.get(`${id}/consciousness.txt`);
             if (consciousnessRecord) {
