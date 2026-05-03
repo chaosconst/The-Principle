@@ -1653,7 +1653,39 @@ Renders the verdict into #html-div.`,
     }
     return data;
 };`,
-            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n→ POST to hub_server, Gemini reviews, verdict rendered into #html-div." }
+            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n→ POST to hub_server, Gemini reviews, verdict rendered into #html-div." },
+
+            { name: "hub_delete", instruction: `# hub_delete — take down one of your own skills from the Hub
+
+Call window.hubDelete(name) to remove a skill you previously uploaded.
+Soft delete: status flips to 'removed' so the skill no longer appears in
+search/install, but the name stays reserved to your author hash so nobody
+else can re-claim it.
+
+Only the original author (matching author_hash) can delete. 403 otherwise.
+
+Args:
+- name: the skill's name on the hub.
+
+Returns: Promise<{ok, name?}> on success, or null on network error.`,
+            code: `window.hubDelete = async (name) => {
+    if (!confirm('Remove "' + name + '" from the hub? This is reversible by re-uploading.')) return null;
+    let resp, data;
+    try {
+        resp = await fetch(window.HUB_BASE + '/skill/' + encodeURIComponent(name), {
+            method: 'DELETE', credentials: 'include'
+        });
+        data = await resp.json();
+    } catch (e) { console.error('[hub] delete error:', e); return null; }
+    const div = document.getElementById('html-div');
+    if (div) {
+        const ok = resp.ok && data.ok;
+        div.innerHTML = '<div style="padding:12px;font-family:monospace;color:#d4d4d4;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px">' +
+            '<b style="color:' + (ok ? '#00d4aa' : '#f44') + '">' + (ok ? ('✓ Removed: ' + name) : ('✗ Delete failed: ' + (data.detail || resp.status))) + '</b></div>';
+    }
+    return data;
+};`,
+            code_readme: "await window.hubDelete('my_skill')  // soft-delete from hub; only author can do this" }
         ];
 
         async function seedDefaultSkills(beingId) {

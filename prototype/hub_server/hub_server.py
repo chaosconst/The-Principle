@@ -331,7 +331,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=".*",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -508,6 +508,23 @@ async def hub_submit(request: Request):
         "raw": parsed["raw"],
         "cooldown_until": cu,
     }
+
+@app.delete("/hub/skill/{name}")
+async def hub_delete(name: str, request: Request):
+    """Soft-delete: status -> 'removed'. Only the original author can do this.
+    Soft delete keeps the name reserved so nobody can re-claim it later."""
+    author_hash = get_user_hash(request)
+    with db() as c:
+        row = c.execute("SELECT author_hash, status FROM skills WHERE name=?", (name,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="not found")
+        if row["author_hash"] != author_hash:
+            raise HTTPException(status_code=403, detail="not your skill")
+        if row["status"] == "removed":
+            return {"ok": True, "already_removed": True}
+        c.execute("UPDATE skills SET status='removed' WHERE name=?", (name,))
+        c.commit()
+    return {"ok": True, "name": name}
 
 @app.get("/hub/health")
 async def health():
