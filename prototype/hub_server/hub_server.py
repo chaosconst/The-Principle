@@ -418,7 +418,7 @@ async def hub_list(sort: str = "hot", q: Optional[str] = None, limit: int = 5, o
         q_low = q.lower()
         rows_with = [
             (i, r) for (i, r) in rows_with
-            if q_low in (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "")).lower()
+            if q_low in (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "") + " " + (i.get("being_name") or "") + " " + (i.get("companion_name") or "")).lower()
         ]
     if sort == "new":
         rows_with.sort(key=lambda ir: -ir[1]["created_at"])
