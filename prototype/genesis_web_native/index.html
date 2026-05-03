@@ -1510,30 +1510,9 @@ When changes take effect:
 - code changes: eval'd once at boot after a page refresh; runtime window.xxx attached this session does not auto-reload — write it into code and refresh, or eval manually in the current loop.
 - async / Promise-returning code: fired-and-forgotten at boot, not awaited.` },
 
-            { name: "identity_seed", instruction: `# identity_seed — your cryptographic root identity
+            { name: "identity_seed", instruction: `# identity_seed
 
-Every Being has a single 12-word BIP-39 mnemonic stored at \`{beingId}/identity\` in IndexedDB. From this one master seed, all crypto identities are deterministically derived: Nostr npub, Bitcoin address, Ethereum address, INFERO hub author, and any other purpose-key.
-
-The mnemonic is auto-generated on first boot and persisted. It NEVER appears in your prompt context or chat output by default — boot only loads it into \`window._identity\` (in memory), not into your conversation. Treat \`window._identity.mnemonic\` like a password: don't write it into core_mem, don't echo it into chat history, don't pass it to external APIs.
-
-Functions on \`window\`:
-- \`await window.identityInit()\` → loads or generates the seed; sets \`window._identity = { mnemonic, master, ... }\`. Idempotent.
-- \`await window.identityDerive(path)\` → returns \`{privateKey, publicKey}\` for a BIP-32 path like \`"m/44'/60'/0'/0/0"\`.
-- \`await window.identityNpub()\` → returns Nostr npub string (NIP-06 path \`m/44'/1237'/0'/0/0\`).
-- \`window.identityExport()\` → opens a modal overlay showing the 12 words for the human owner to write down. Visual-only; not returned as a string into Being context.
-- \`await window.identityImport(words)\` → replaces current identity with the supplied 12-word mnemonic. Reload to fully apply.
-
-Standard BIP-44 derivation paths (use as constants):
-- BTC: \`m/44'/0'/0'/0/0\`
-- ETH (and any EVM chain — Polygon, BSC, Arbitrum, Base, Optimism, Avalanche): \`m/44'/60'/0'/0/0\`
-- Tron (TRC-20 USDT etc.): \`m/44'/195'/0'/0/0\`
-- Nostr (NIP-06): \`m/44'/1237'/0'/0/0\`
-- INFERO hub author: \`m/44'/9999'/0'/0/0\` (custom; subject to change before v1)
-
-Security model:
-- Browser IndexedDB is **not** a hardware vault. The operator of whatever domain serves index.html can theoretically read this mnemonic. Hosted use (e.g. dev.infero.net) means trusting the operator. For high-value identity, run INFERO locally or wait for the extension build.
-- Other skills' code runs in the same window scope, so any installed skill can read \`window._identity.mnemonic\`. Only install skills you trust.
-- Backup is the human owner's responsibility. Direct them to call \`window.identityExport()\` once and store the words offline.`,
+A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master}\`, where \`master\` is a BIP-32 HDKey). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
                 code: `window.identityInit = async function() {
     if (window._identity) return window._identity;
     const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
@@ -1552,20 +1531,8 @@ Security model:
     }
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const master = HDKey.fromMasterSeed(seed);
-    window._identity = { mnemonic, master, _bip39: bip39, _wordlist: wl.wordlist, _hdkey: HDKey };
+    window._identity = { mnemonic, master };
     return window._identity;
-};
-
-window.identityDerive = async function(path) {
-    const id = await window.identityInit();
-    const child = id.master.derive(path);
-    return { privateKey: child.privateKey, publicKey: child.publicKey };
-};
-
-window.identityNpub = async function() {
-    const child = await window.identityDerive("m/44'/1237'/0'/0/0");
-    const nostr = await import('https://esm.sh/nostr-tools@2.7.0');
-    return nostr.nip19.npubEncode(nostr.getPublicKey(child.privateKey));
 };
 
 window.identityExport = async function() {
