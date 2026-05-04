@@ -237,7 +237,7 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 FAKE_REVIEW = os.environ.get("HUB_FAKE_REVIEW", "0") == "1"
 
 FAKE_TEMPLATE = """## Safety Review
-代码挂在 window.{name_safe},不读取敏感存储,不发起外部请求。{safety_note}
+Code is attached to window.{name_safe}; does not read sensitive storage and makes no outbound requests. {safety_note}
 
 ## Risk
 {severity}
@@ -261,14 +261,14 @@ def fake_review(payload: dict) -> str:
     bad = any(p in code for p in ["localStorage.getItem('genesis_settings", "document.cookie", "eval(", "new Function("])
     if bad:
         return FAKE_TEMPLATE.format(
-            name_safe=name, safety_note="检测到敏感 API,拒绝。",
+            name_safe=name, safety_note="Sensitive API detected; rejected.",
             severity="danger", verdict="rejected",
-            review_text="代码读取敏感字段或动态执行,拒绝。",
+            review_text="Code reads sensitive fields or executes dynamically; rejected.",
             score=1)
     return FAKE_TEMPLATE.format(
-        name_safe=name, safety_note="安全。",
+        name_safe=name, safety_note="Safe.",
         severity="safe", verdict="approved",
-        review_text=f"{name} 实现简洁,符合 instruction 描述,适合演示。",
+        review_text=f"{name} is concise, matches the instruction, fits a demo.",
         score=6)
 
 async def call_gemini(prompt: str, payload: Optional[dict] = None) -> str:
@@ -334,35 +334,35 @@ def parse_review(md: str) -> dict:
 def validate_submission(payload: dict) -> tuple[bool, str]:
     name = (payload.get("name") or "").strip()
     if not name or len(name) > MAX_NAME:
-        return False, f"name 必须 1-{MAX_NAME} 字符"
-    if not re.match(r"^[\w一-鿿\-]+$", name):
-        return False, "name 只能含字母/数字/下划线/中划线/中文"
+        return False, f"name must be 1-{MAX_NAME} chars"
+    if not re.match(r"^[\w\-]+$", name):
+        return False, "name may contain only letters, digits, underscore, or dash"
     instruction = (payload.get("instruction") or "").strip()
     if not instruction or len(instruction) > MAX_INSTRUCTION:
-        return False, f"instruction 必须 1-{MAX_INSTRUCTION} 字符"
+        return False, f"instruction must be 1-{MAX_INSTRUCTION} chars"
     code = payload.get("code")
     if code is None or code == "":
         pass
     elif isinstance(code, str):
         if len(code) > MAX_CODE:
-            return False, f"code 不能超过 {MAX_CODE} 字符"
+            return False, f"code must not exceed {MAX_CODE} chars"
     elif isinstance(code, dict):
         for k, v in code.items():
             if not isinstance(k, str) or not isinstance(v, str):
-                return False, "code 对象的键和值必须都是字符串"
+                return False, "code object keys and values must all be strings"
         if len(json.dumps(code)) > MAX_CODE:
-            return False, f"code 序列化后不能超过 {MAX_CODE} 字符"
+            return False, f"code serialized form must not exceed {MAX_CODE} chars"
     else:
-        return False, "code 必须是 null / 字符串 / { runtime: source } 对象"
+        return False, "code must be null, a string, or a { runtime: source } object"
     readme = payload.get("code_readme") or ""
     if readme and len(readme) > MAX_README:
-        return False, f"code_readme 不能超过 {MAX_README} 字符"
+        return False, f"code_readme must not exceed {MAX_README} chars"
     tags = payload.get("tags") or []
     if not isinstance(tags, list) or len(tags) > MAX_TAGS:
-        return False, f"tags 必须是列表,最多 {MAX_TAGS} 项"
+        return False, f"tags must be a list of at most {MAX_TAGS} items"
     for t in tags:
         if not isinstance(t, str) or len(t) > 32:
-            return False, "tags 元素必须是字符串,每项 ≤ 32 字符"
+            return False, "tag entries must be strings, each ≤ 32 chars"
     return True, ""
 
 # --- App ---
@@ -500,9 +500,9 @@ async def hub_submit(request: Request):
             self_short = (author_hash or "")[:8]
             raise HTTPException(
                 status_code=409,
-                detail=f"skill name '{name}' 属于另一个 Being（owner author={owner_short}, you={self_short}）。"
-                       f"如果是你自己的另一个 Being：从那个 Being 重新上传更新；"
-                       f"如果是别人的：换一个 skill name。",
+                detail=f"skill name '{name}' is owned by another Being (owner author={owner_short}, you={self_short}). "
+                       f"If that other Being is also yours, re-upload from it to update. "
+                       f"If it belongs to someone else, pick a different skill name.",
             )
         is_own_update = bool(existing and is_owner(existing["author_hash"], author_hash))
         if not is_own_update:
@@ -530,12 +530,12 @@ async def hub_submit(request: Request):
     if not parsed["verdict"]:
         # parse failure: hard reject, count as rejected for cooldown
         decision = "rejected"
-        reject_reason = "审核输出格式错误,请重试"
+        reject_reason = "Review output format error; please retry"
     elif parsed["verdict"] == "rejected":
         decision = "rejected"
         # prefer pithy skill review; fall back to first line of safety review
         reason_src = parsed["review"] or parsed["safety_review"] or ""
-        reject_reason = reason_src.strip().split("\n\n")[0][:300] if reason_src else "审核未通过"
+        reject_reason = reason_src.strip().split("\n\n")[0][:300] if reason_src else "Review rejected"
     else:
         decision = "approved"
         reject_reason = None
