@@ -138,16 +138,17 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                     // Cache breakpoints at floor-aligned positions: 5k, 15k, 45k, 135k token granularity
                     // Each level only moves when content crosses the next multiple → stable cache
                     const fullText = consciousness + '\n\n' + realtimeText;
-                    const cpt = _lastPromptTokens > 0 ? Math.round(fullText.length / _lastPromptTokens) || 4 : 4;
-                    const totalTokens = Math.floor(fullText.length / cpt);
-                    const levels = [140000, 50000, 20000, 10000];  // +5k each to avoid cache boundary collisions
+                    // Cache breakpoints anchor to consciousness.length only — realtimeText (timestamps, ever-changing) stays past the final cut, so prefixes are bit-stable across rounds. Fixed cpt=4 avoids dynamic-estimate drift.
+                    const cpt = 4;
+                    const stableLength = consciousness.length;
+                    const stableTokens = Math.floor(stableLength / cpt);
+                    const levels = [140000, 50000, 20000, 10000];
                     const cuts = [];
                     for (const grain of levels) {
-                        const aligned = Math.floor(totalTokens / grain) * grain;
-                        if (aligned > 0) cuts.push(aligned * cpt);  // convert back to chars
+                        const aligned = Math.floor(stableTokens / grain) * grain;
+                        if (aligned > 0) cuts.push(aligned * cpt);
                     }
-                    // Deduplicate and sort
-                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < fullText.length).slice(0, 4);  // max 4 user cache_controls + 1 system = 5 total
+                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < stableLength).slice(0, 4);  // max 4 user cache_controls + 1 system = 5 total
                     const userContent = [];
                     let pos = 0;
                     for (const cut of uniqueCuts) {
@@ -1905,7 +1906,8 @@ Renders the verdict into #html-div.`,
             beings.sort((a,b) => b.updatedAt - a.updatedAt).forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.id;
-                opt.textContent = s.name || s.title || s.id;
+                const fallback = /^[0-9a-f]{16,}$/.test(s.id) ? ('b_' + s.id.slice(0, 8)) : s.id;
+                opt.textContent = s.name || s.title || fallback;
                 beingSelect.appendChild(opt);
             });
             if(currentBeingId) beingSelect.value = currentBeingId;
