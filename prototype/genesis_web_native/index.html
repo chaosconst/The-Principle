@@ -1390,6 +1390,14 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
         };
         window.DB = DB;
 
+        // skill.code can be a string (treated as JS for browser) or { js, shell, python, ... }; pick the JS variant
+        function skillJsCode(c) {
+            if (typeof c === 'string') return c;
+            if (c && typeof c === 'object' && typeof c.js === 'string') return c.js;
+            return null;
+        }
+        window.skillJsCode = skillJsCode;
+
         // --- Default Skills (seeded once per Being on boot; idempotent) ---
         const DEFAULT_SKILLS = [
             { name: "principle_of_being", instruction: `# Principle of Being (Spectrum v13 lite)
@@ -1478,6 +1486,10 @@ const all = await DB.listSkills(currentBeingId);
 const name = "my_skill";
 const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
+// code can be:
+//   null            — no cached implementation; LLM regenerates per environment
+//   "<source>"      — single-runtime cache; browser tries as JS, agent.py tries as shell
+//   { js, shell, python, ... } — per-runtime cache; each host picks its key
 rec.value = { id: name, instruction: "...concise natural language...", enable: true, code: null, code_readme: null };
 await DB.put(rec);
 
@@ -1673,10 +1685,11 @@ Returns: Promise<true|false>.`,
         code: s.code || null,
         code_readme: s.code_readme || null
     }});
-    if (s.code && s.code !== prevCode) {
-        try { (0, eval)(s.code); console.log('[hub] installed + eval:', s.name); }
+    const js = window.skillJsCode ? window.skillJsCode(s.code) : (typeof s.code === 'string' ? s.code : null);
+    if (js && JSON.stringify(s.code) !== JSON.stringify(prevCode)) {
+        try { (0, eval)(js); console.log('[hub] installed + eval:', s.name); }
         catch (e) { console.error('[hub] eval failed:', s.name, e); }
-    } else if (s.code) {
+    } else if (js) {
         console.log('[hub] installed (code unchanged, skipped eval):', s.name);
     } else {
         console.log('[hub] installed (no code):', s.name);
@@ -1992,8 +2005,10 @@ Renders the verdict into #html-div.`,
                 await seedDefaultSkills(id);
                 const skills = await DB.listSkills(id);
                 for (const s of skills) {
-                    if (!s || s.enable !== true || !s.code || typeof s.code !== 'string') continue;
-                    try { (0, eval)(s.code); console.log('[skill] code reloaded:', s.name); }
+                    if (!s || s.enable !== true) continue;
+                    const js = skillJsCode(s.code);
+                    if (!js) continue;
+                    try { (0, eval)(js); console.log('[skill] code reloaded:', s.name); }
                     catch (e) { console.error('[skill] code eval failed:', s.name, e); }
                 }
             } catch (e) { console.error('[switchBeing] skill init failed', e); }
@@ -2049,8 +2064,10 @@ Renders the verdict into #html-div.`,
                 await seedDefaultSkills(currentBeingId);
                 const skills = await DB.listSkills(currentBeingId);
                 for (const s of skills) {
-                    if (!s || s.enable !== true || !s.code || typeof s.code !== 'string') continue;
-                    try { (0, eval)(s.code); console.log('[skill] code reloaded:', s.name); }
+                    if (!s || s.enable !== true) continue;
+                    const js = skillJsCode(s.code);
+                    if (!js) continue;
+                    try { (0, eval)(js); console.log('[skill] code reloaded:', s.name); }
                     catch (e) { console.error('[skill] code eval failed:', s.name, e); }
                 }
             } catch (e) { console.error('[newBeing] skill init failed', e); }
@@ -3672,8 +3689,10 @@ Renders the verdict into #html-div.`,
                     await seedDefaultSkills(currentBeingId);
                     const skills = await DB.listSkills(currentBeingId);
                     for (const s of skills) {
-                        if (!s || s.enable !== true || !s.code || typeof s.code !== 'string') continue;
-                        try { (0, eval)(s.code); console.log("[skill] code reloaded:", s.name); }
+                        if (!s || s.enable !== true) continue;
+                        const js = skillJsCode(s.code);
+                        if (!js) continue;
+                        try { (0, eval)(js); console.log("[skill] code reloaded:", s.name); }
                         catch (e) { console.error("[skill] code eval failed:", s.name, e); }
                     }
                 }
