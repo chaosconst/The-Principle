@@ -1475,11 +1475,7 @@ CRUD (inside /browser exec blocks; there is no GUI):
 // list every skill
 const all = await DB.listSkills(currentBeingId);
 
-// create a new skill
-// IMPORTANT: instruction is injected into [CORE MEMORY] every loop while enable=true.
-// Keep it tight — distill the *what* and *when to use*, not a tutorial. A few short
-// paragraphs at most. Long-form details, example transcripts, full API docs belong
-// in code_readme (read on demand) or in code itself, not in instruction.
+// create a new skill (instruction enters core ctx every loop — keep it terse; long docs go in code_readme)
 const name = "my_skill";
 const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
