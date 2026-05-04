@@ -167,16 +167,17 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                         stream: true,
                         stop_sequences: STOP_WORDS
                     };
+                    const adaptive = MODEL_LIST[settings.model]?.thinkingMode === 'adaptive';
                     if (settings.thinking) {
-                        if (MODEL_LIST[settings.model]?.thinkingMode === 'adaptive') {
+                        if (adaptive) {
                             payload.thinking = { type: 'adaptive' };
                             payload.output_config = { effort: 'high' };
                         } else {
                             payload.thinking = { type: 'enabled', budget_tokens: 10000 };
+                            payload.temperature = 1;
                         }
-                        payload.temperature = 1;
                         payload.max_tokens = 16000;
-                    } else {
+                    } else if (!adaptive) {
                         payload.temperature = 0.7;
                     }
                     return payload;
@@ -185,6 +186,7 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 if (getActiveFormat() === 'openai') {
                     const userContent = [{ type: 'text', text: bufferText + '\n\n' + realtimeText }];
                     if (canvasImage) userContent.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + canvasImage } });
+                    const adaptiveOA = MODEL_LIST[settings.model]?.thinkingMode === 'adaptive';
                     const payload = {
                         model,
                         messages: [
@@ -192,18 +194,18 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                             { role: 'user', content: userContent }
                         ],
                         stream: true,
-                        temperature: 0.7,
+                        ...(adaptiveOA ? {} : { temperature: 0.7 }),
                         ...(MODEL_LIST[settings.model]?.stop !== false && { stop: STOP_WORDS })
                     };
                     if (settings.thinking) {
-                        if (MODEL_LIST[settings.model]?.thinkingMode === 'adaptive') {
+                        if (adaptiveOA) {
                             payload.thinking = { type: 'adaptive' };
                             payload.output_config = { effort: 'high' };
                         } else {
                             payload.thinking = { type: 'enabled', budget_tokens: 10000 };
                             payload.reasoning = { max_tokens: 8000 };
+                            payload.temperature = 1;
                         }
-                        payload.temperature = 1;
                     } else if (settings.provider === 'deepseek') {
                         payload.thinking = { type: 'disabled' };
                     }
