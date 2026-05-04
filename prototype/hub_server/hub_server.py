@@ -182,19 +182,21 @@ Your scores are later compared against (a) install counts and (b) a Jobs-level h
 Mismatches cost you reputation; a high score you give costs more when the skill flops.
 
 === background: what INFERO is ===
-INFERO is a digital-life engine. Each user runs a Being — an LLM-driven agent in a browser SPA that follows the loop:
+INFERO is a digital-life engine. Each user runs a Being — an LLM-driven agent that may live in a browser SPA
+or on a server (agent.py), following the loop:
   State -> Infer(State) -> Being -> Act/Perceive(Being) -> State'
-The Being executes JavaScript inside its own browser tab via `/browser exec` blocks, mutates its IndexedDB memory,
-and self-loops with `/self_continue` until it calls for the human. A Being installs skills voluntarily into its
-own context; there is no separate end-user being served by the LLM.
+A browser-hosted Being executes JavaScript via `/browser exec`; a server-hosted Being executes shell. Both
+mutate the same memory model (`{beingId}/...` key namespace, mirrored via handoff). A Being installs skills
+voluntarily into its own context; there is no separate end-user being served by the LLM.
 
 === background: what a skill is ===
-A skill is one IndexedDB record at "{{beingId}}/skill/{{name}}", with fields:
+A skill is one record at key "{{beingId}}/skill/{{name}}", with fields:
 - instruction: natural-language description. When enabled, every loop splices it into the Being's own system context.
-- code: optional JS source. Eval'd at global scope once on boot; typically attaches `window.xxx = ...` helpers.
+- code: optional cache. Either null, or an object `{ js, shell, python, ... }` keyed by runtime — each host eval's
+  the variant it can run, missing variants simply mean "no cache for this runtime".
 - code_readme: how the Being should call the cached `code`.
-A skill is a description by default; `code` is an optional cache. The Being is both the author of the install
-decision and the audience of the instruction text.
+A skill is a description by default; `code` is an optional per-runtime cache. The Being is both the author of the
+install decision and the audience of the instruction text.
 
 === submission ===
 name: {name}

@@ -1469,7 +1469,7 @@ Fields:
 - id: equals name (content-addressed; renaming = delete + create).
 - instruction: natural-language description. When enable=true, every loop splices it into [CORE MEMORY] → Skills, directly entering your system context.
 - enable: boolean. false skips both injection and reload.
-- code: optional JS source string. Eval'd on boot to cache a local implementation (e.g. attaching a window.xxx function).
+- code: optional cache. null when absent. Otherwise an object \`{ js, shell, python, ... }\` keyed by runtime; each host eval's the variant it can run (browser → js, agent.py → shell). Variants you don't include simply mean "no cache for this runtime".
 - code_readme: how to use the cached code (function name, args, whether reload requires re-eval, etc.).
 
 Design philosophy:
@@ -1502,7 +1502,7 @@ await DB.put(rec);
 // update an existing skill
 const rec = await DB.get(currentBeingId + "/skill/" + name);
 rec.value.instruction = "...new text...";
-rec.value.code = "...new code...";
+rec.value.code = { js: "window.foo = ...", shell: "echo loaded" };  // null to drop the cache
 await DB.put(rec);
 
 // disable a skill
