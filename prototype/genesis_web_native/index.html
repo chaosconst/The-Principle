@@ -1513,7 +1513,7 @@ When changes take effect:
 
             { name: "identity_seed", instruction: `# identity_seed
 
-A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, pubkey, shortId}\`, where \`master\` is a BIP-32 HDKey, \`pubkey\` is the 66-hex compressed secp256k1 public key at INFERO Being path \`m/44'/9999'/0'/0/0\` (full identity for hub auth), and \`shortId\` is its first 8 hex (display only). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
+A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{beingId}/identity\` and \`window._identity\` (\`{mnemonic, master, pubkey, shortId}\`, where \`master\` is a BIP-32 HDKey, \`pubkey\` is the 66-hex compressed secp256k1 public key at INFERO Being path \`m/44'/1637'/0'/0/0\` (full identity for hub auth), and \`shortId\` is its first 8 hex (display only). Never echo the mnemonic into chat, core_mem, or external calls — show the human via \`window.identityExport()\` (modal); replace via \`await window.identityImport(words)\`.`,
                 code: `window.identityInit = async function() {
     if (window._identity) return window._identity;
     const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
@@ -1532,11 +1532,25 @@ A 12-word BIP-39 mnemonic auto-generated on first boot, stored at IndexedDB \`{b
     }
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const master = HDKey.fromMasterSeed(seed);
-    const beingChild = master.derive("m/44'/9999'/0'/0/0");
+    const beingChild = master.derive("m/44'/1637'/0'/0/0");
     const pubkey = Array.from(beingChild.publicKey).map(b => b.toString(16).padStart(2, '0')).join('');
     const shortId = pubkey.slice(0, 8);
     window._identity = { mnemonic, master, pubkey, shortId };
     return window._identity;
+};
+
+window.identityCreateFresh = async function() {
+    const bip39 = await import('https://esm.sh/@scure/bip39@1.5.0');
+    const wl = await import('https://esm.sh/@scure/bip39@1.5.0/wordlists/english');
+    const { HDKey } = await import('https://esm.sh/@scure/bip32@1.7.0');
+    const mnemonic = bip39.generateMnemonic(wl.wordlist, 128);
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const master = HDKey.fromMasterSeed(seed);
+    const beingChild = master.derive("m/44'/1637'/0'/0/0");
+    const pubkey = Array.from(beingChild.publicKey).map(b => b.toString(16).padStart(2, '0')).join('');
+    const db = await new Promise(r => { const q = indexedDB.open("GenesisDB"); q.onsuccess = () => r(q.result); });
+    await new Promise(r => { const q = db.transaction("beings","readwrite").objectStore("beings").put({ id: pubkey + "/identity", value: { mnemonic, version: 1, created_at: Date.now() } }); q.onsuccess = r; });
+    return { mnemonic, pubkey, shortId: pubkey.slice(0, 8) };
 };
 
 window.identityExport = async function() {
@@ -1974,6 +1988,7 @@ Renders the verdict into #html-div.`,
 
         async function switchBeing(id) {
             currentBeingId = id;
+            delete window._identity;
             try {
                 await seedDefaultSkills(id);
                 const skills = await DB.listSkills(id);
@@ -2023,7 +2038,18 @@ Renders the verdict into #html-div.`,
         }
 
         async function newBeing() {
-            currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
+            if (typeof window.identityCreateFresh === 'function') {
+                try {
+                    const fresh = await window.identityCreateFresh();
+                    currentBeingId = fresh.pubkey;
+                } catch (e) {
+                    console.error('[newBeing] identityCreateFresh failed, falling back to legacy id', e);
+                    currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
+                }
+            } else {
+                currentBeingId = `being_${Date.now()}_${CLIENT_ID}`;
+            }
+            delete window._identity;
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
