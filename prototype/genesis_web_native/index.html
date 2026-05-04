@@ -1724,7 +1724,12 @@ Renders the verdict into #html-div.`,
     opts = opts || {};
     const key = currentBeingId + '/skill/' + name;
     const rec = await DB.get(key);
-    if (!rec || !rec.value) { console.error('[hub] local skill not found:', name); return null; }
+    if (!rec || !rec.value) {
+        const all = await DB.listSkills(currentBeingId);
+        const known = all.map(s => s.name);
+        console.error('[hub] local skill not found:', name);
+        return { error: 'local skill not found: ' + name, hint: 'Create the skill locally first (DB.put with key "' + key + '") or pick from existing.', existing_skills: known };
+    }
     const v = rec.value;
     let companionName = '';
     try { companionName = (JSON.parse(localStorage.getItem('genesis_settings') || '{}').companion_name || '').trim().slice(0, 32); } catch (e) {}
@@ -1753,7 +1758,7 @@ Renders the verdict into #html-div.`,
         data = await resp.json();
     } catch (e) {
         console.error('[hub] upload network error:', e);
-        return null;
+        return { error: 'network error: ' + (e && e.message || String(e)) };
     }
     const div = document.getElementById('html-div');
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
