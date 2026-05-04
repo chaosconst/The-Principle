@@ -272,6 +272,26 @@ class GenesisWorker:
             cm_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'core_mem.md')
             os.makedirs(os.path.dirname(cm_path), exist_ok=True)
             with open(cm_path, 'w', encoding='utf-8') as f: f.write(core_mem)
+        # Sync skills: browser's {beingId}/skill/* → {INFERO_DIR}/beings/{beingId}/skill/{name}.json
+        skills = data.get('skills') or []
+        if self.being_id and skills:
+            skill_dir = os.path.join(INFERO_DIR, 'beings', self.being_id, 'skill')
+            os.makedirs(skill_dir, exist_ok=True)
+            for s in skills:
+                name = s.get('name') or (s.get('value') or {}).get('id')
+                if not name: continue
+                with open(os.path.join(skill_dir, name + '.json'), 'w', encoding='utf-8') as f:
+                    json.dump(s.get('value') or {}, f, ensure_ascii=False)
+            self._log(f"[{ts()}] [infero] synced {len(skills)} skills to {skill_dir}")
+        # Sync identity (mnemonic etc.) — write only if not already present locally
+        identity = data.get('identity')
+        if self.being_id and identity:
+            id_path = os.path.join(INFERO_DIR, 'beings', self.being_id, 'identity.json')
+            os.makedirs(os.path.dirname(id_path), exist_ok=True)
+            if not os.path.exists(id_path):
+                with open(id_path, 'w', encoding='utf-8') as f:
+                    json.dump(identity, f, ensure_ascii=False)
+                self._log(f"[{ts()}] [infero] identity synced to {id_path}")
         self.llm_settings = data.get('settings', {})
         self.devices = data.get('devices', {})
         self.hidden_devices = set(data.get('hiddenDevices', []))
@@ -558,6 +578,27 @@ class GenesisWorker:
         self.consciousness += f"**Digital Being - [{time_str}]**\n{clean_ai}\n\n"
         return ai_text
 
+    def _read_skills(self):
+        """Read enabled skills for the current being. Returns list of dicts with at least name + instruction."""
+        if not self.being_id:
+            return []
+        skill_dir = os.path.join(INFERO_DIR, 'beings', self.being_id, 'skill')
+        if not os.path.isdir(skill_dir):
+            return []
+        out = []
+        for fn in sorted(os.listdir(skill_dir)):
+            if not fn.endswith('.json'): continue
+            try:
+                with open(os.path.join(skill_dir, fn), 'r', encoding='utf-8') as f:
+                    v = json.load(f)
+            except Exception:
+                continue
+            if not v or v.get('enable') is not True: continue
+            instruction = v.get('instruction') or ''
+            if not instruction: continue
+            out.append({'name': v.get('id') or fn[:-5], 'instruction': instruction})
+        return out
+
     def _build_payload(self, fmt, model, system_prompt, thinking):
         # Inject [Realtime] dynamically into the prompt (not persisted)
         realtime = getattr(self, '_last_realtime', '')
@@ -568,8 +609,16 @@ class GenesisWorker:
                          "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in maybeCompressConsciousness() when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n"
                          "core_mem.md is always in context. Treat it like a living notebook — update it when you learn something worth remembering forever.\n"
                          "===================\n\n") if cm else ""
+        skills = self._read_skills()
+        skills_text = ""
+        if skills:
+            skill_dir = os.path.join(INFERO_DIR, 'beings', self.being_id, 'skill')
+            skills_text = f"=== SKILLS (filesystem: {skill_dir}/<name>.json; mirrored from browser IndexedDB key '{self.being_id}/skill/<name>') ===\n"
+            for s in skills:
+                skills_text += f"\n### Skill: {s['name']}\n{s['instruction']}\n"
+            skills_text += "\n[Note] skills are descriptions; cached `code` (when present) is browser-side JS. See skill `skills_mechanism` for CRUD.\n===================\n\n"
         being_prefix = f"**Digital Being - [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]**\n"
-        consciousness = self.consciousness + core_mem_text + (realtime + '\n\n' if realtime else '') + being_prefix
+        consciousness = self.consciousness + core_mem_text + skills_text + (realtime + '\n\n' if realtime else '') + being_prefix
         stop = ['\nSystem - [', '\n[System Environment]']
 
         if fmt == 'anthropic':

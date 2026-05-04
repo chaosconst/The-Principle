@@ -3353,11 +3353,23 @@ Renders the verdict into #html-div.`,
             }
             const hiddenDevices = Object.entries(settings.devices || {}).filter(([,d]) => d.hidden).map(([n]) => n);
             if (settings.browserHidden) hiddenDevices.push('this browser');
+            let skillsDump = [];
+            try {
+                const skills = await DB.listSkills(currentBeingId);
+                skillsDump = skills.map(s => ({ name: s.name, value: { id: s.id, instruction: s.instruction, enable: s.enable, code: s.code, code_readme: s.code_readme } }));
+            } catch (e) { console.error('[handoff] skills dump failed', e); }
+            let identityDump = null;
+            try {
+                const idRec = await DB.get(currentBeingId + '/identity');
+                identityDump = idRec?.value || null;
+            } catch (e) { console.error('[handoff] identity dump failed', e); }
             const payload = await encryptPayload(cryptoKey, {
                 consciousness,
                 loopWasRunning: loopRunning,
                 devices: devicesSnapshot,
                 hiddenDevices,
+                skills: skillsDump,
+                identity: identityDump,
                 metadata: { cachedLength, cacheName, promptTokens: _lastPromptTokens, cachedTokens: _lastCachedTokens, title: document.title, beingId: currentBeingId, coreMem: window._coreMem || '' },
                 settings: {
                     model: getActiveModel(),
