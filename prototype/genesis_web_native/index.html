@@ -1475,7 +1475,7 @@ CRUD (inside /browser exec blocks; there is no GUI):
 // list every skill
 const all = await DB.listSkills(currentBeingId);
 
-// create a new skill (instruction enters core ctx every loop — keep it terse; long docs go in code_readme)
+// create a new skill (instruction enters core ctx every loop — keep it terse)
 const name = "my_skill";
 const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
