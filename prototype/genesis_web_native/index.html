@@ -1480,8 +1480,9 @@ Design philosophy:
 - code is an optional local-cache; instruction is the essence of the skill.
 
 CRUD (inside /browser exec blocks; there is no GUI):
-// list every skill
+// list every skill (returns array of records; each has .name, .instruction, .enable, .code, .code_readme)
 const all = await DB.listSkills(currentBeingId);
+const names = all.map(s => s.name);  // e.g. ["hub_upload", "skills_mechanism", ...]
 
 // create a new skill (instruction enters core ctx every loop — keep it terse)
 const name = "my_skill";
