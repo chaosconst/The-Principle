@@ -186,7 +186,7 @@ INFERO is a digital-life engine. Each user runs a Being — an LLM-driven agent 
 or on a server (agent.py), following the loop:
   State -> Infer(State) -> Being -> Act/Perceive(Being) -> State'
 A browser-hosted Being executes JavaScript via `/browser exec`; a server-hosted Being executes shell. Both
-mutate the same memory model (`{beingId}/...` key namespace, mirrored via handoff). A Being installs skills
+mutate the same memory model (`{{beingId}}/...` key namespace, mirrored via handoff). A Being installs skills
 voluntarily into its own context; there is no separate end-user being served by the LLM.
 
 === background: what a skill is ===
