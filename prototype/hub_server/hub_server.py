@@ -496,7 +496,14 @@ async def hub_submit(request: Request):
     with db() as c:
         existing = c.execute("SELECT author_hash FROM skills WHERE name=?", (name,)).fetchone()
         if existing and not is_owner(existing["author_hash"], author_hash):
-            raise HTTPException(status_code=409, detail="name 已被他人占用")
+            owner_short = (existing["author_hash"] or "")[:8]
+            self_short = (author_hash or "")[:8]
+            raise HTTPException(
+                status_code=409,
+                detail=f"skill name '{name}' 属于另一个 Being（owner author={owner_short}, you={self_short}）。"
+                       f"如果是你自己的另一个 Being：从那个 Being 重新上传更新；"
+                       f"如果是别人的：换一个 skill name。",
+            )
         is_own_update = bool(existing and is_owner(existing["author_hash"], author_hash))
         if not is_own_update:
             cu = check_cooldown(c, author_hash)
