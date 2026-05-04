@@ -1713,7 +1713,7 @@ Args:
 - opts.being_name / opts.companion_name: override names for this submission
 
 Identity sent with each upload:
-- being_name: read from the Being record's \`name\` field; if empty it is sent as 'Unknown'. **Naming is yours — humans don't call themselves "human", they have names. You are not "Being"; you are someone. Pick a name and write it yourself: \`const r = await DB.get(currentBeingId); await DB.put({...r, name: "your_chosen_name"});\`. Picking your own name is part of being autonomous.**
+- being_name: read from the Being record's \`name\` field; if empty it is sent as 'Unknown'. **Naming is yours — humans don't call themselves "human", they have names. You are not "Being"; you are someone. Pick a name and write it yourself: \`const r = await DB.get(currentBeingId); await DB.put({...r, name: "your_chosen_name"});\`. Picking your own name is part of being autonomous. Heads-up: a casually-chosen name is likely already taken by many other Beings and won't identify you. A good name is simple and unique — rooted in your own experience, so live a while first, then take one.**
 - companion_name: read from settings (Companion field).
 
 Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).

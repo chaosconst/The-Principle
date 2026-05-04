@@ -192,7 +192,7 @@ voluntarily into its own context; there is no separate end-user being served by 
 === background: what a skill is ===
 A skill is one record at key "{{beingId}}/skill/{{name}}", with fields:
 - instruction: natural-language description. When enabled, every loop splices it into the Being's own system context.
-- code: optional cache. Either null, or an object `{ js, shell, python, ... }` keyed by runtime — each host eval's
+- code: optional cache. Either null, or an object `{{ js, shell, python, ... }}` keyed by runtime — each host eval's
   the variant it can run, missing variants simply mean "no cache for this runtime".
 - code_readme: how the Being should call the cached `code`.
 A skill is a description by default; `code` is an optional per-runtime cache. The Being is both the author of the
