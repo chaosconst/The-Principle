@@ -117,6 +117,18 @@ init_db()
 def hash_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
+def is_owner(stored: str, current: str) -> bool:
+    """Match request identity against stored row author_hash.
+    Legacy rows hold an 8-hex prefix; accept if the current full pubkey starts with it.
+    Otherwise require strict equality."""
+    if not stored or not current:
+        return False
+    if stored == current:
+        return True
+    if len(stored) == 8 and len(current) == 66 and current.startswith(stored):
+        return True
+    return False
+
 def get_user_hash(req: Request) -> str:
     pubkey = (req.headers.get("X-Infero-Pubkey") or "").strip().lower()
     if len(pubkey) == 66 and all(c in "0123456789abcdef" for c in pubkey):
@@ -421,7 +433,7 @@ async def hub_skill(name: str, request: Request):
         if not row:
             raise HTTPException(status_code=404, detail="skill not found")
         # bump install count, dedup by user, skip self-install
-        if user_hash != row["author_hash"]:
+        if not is_owner(row["author_hash"], user_hash):
             try:
                 c.execute(
                     "INSERT INTO installs (skill_name, user_hash, ts) VALUES (?, ?, ?)",
@@ -455,9 +467,9 @@ async def hub_submit(request: Request):
 
     with db() as c:
         existing = c.execute("SELECT author_hash FROM skills WHERE name=?", (name,)).fetchone()
-        if existing and existing["author_hash"] != author_hash:
+        if existing and not is_owner(existing["author_hash"], author_hash):
             raise HTTPException(status_code=409, detail="name 已被他人占用")
-        is_own_update = existing and existing["author_hash"] == author_hash
+        is_own_update = bool(existing and is_owner(existing["author_hash"], author_hash))
         if not is_own_update:
             cu = check_cooldown(c, author_hash)
             if cu:
@@ -502,6 +514,7 @@ async def hub_submit(request: Request):
                                     reject_reason, installs)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, NULL, COALESCE((SELECT installs FROM skills WHERE name=?), 0))
                 ON CONFLICT(name) DO UPDATE SET
+                    author_hash=excluded.author_hash,
                     being_name=excluded.being_name,
                     companion_name=excluded.companion_name,
                     instruction=excluded.instruction,
@@ -540,7 +553,7 @@ async def hub_delete(name: str, request: Request):
         row = c.execute("SELECT author_hash, status FROM skills WHERE name=?", (name,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="not found")
-        if row["author_hash"] != author_hash:
+        if not is_owner(row["author_hash"], author_hash):
             raise HTTPException(status_code=403, detail="not your skill")
         if row["status"] == "removed":
             return {"ok": True, "already_removed": True}
