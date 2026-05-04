@@ -1488,7 +1488,6 @@ const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
 // code can be:
 //   null            — no cached implementation; LLM regenerates per environment
-//   "<source>"      — single-runtime cache; browser tries as JS, agent.py tries as shell
 //   { js, shell, python, ... } — per-runtime cache; each host picks its key
 rec.value = { id: name, instruction: "...concise natural language...", enable: true, code: null, code_readme: null };
 await DB.put(rec);
@@ -1782,7 +1781,15 @@ Renders the verdict into #html-div.`,
                 if (meta.length) mdLines.push('_' + meta.join(' · ') + '_');
                 if (data.review) mdLines.push('\\n> ' + String(data.review).replace(/\\n/g, '\\n> '));
                 if (v.instruction) mdLines.push('\\n## instruction\\n\\n' + v.instruction);
-                if (v.code) mdLines.push('\\n## code\\n\\n\\u0060\\u0060\\u0060js\\n' + v.code + '\\n\\u0060\\u0060\\u0060');
+                if (v.code) {
+                    if (typeof v.code === 'object') {
+                        for (const [rt, src] of Object.entries(v.code)) {
+                            mdLines.push('\\n## code · ' + rt + '\\n\\n\\u0060\\u0060\\u0060' + rt + '\\n' + src + '\\n\\u0060\\u0060\\u0060');
+                        }
+                    } else {
+                        mdLines.push('\\n## code\\n\\n\\u0060\\u0060\\u0060\\n' + v.code + '\\n\\u0060\\u0060\\u0060');
+                    }
+                }
                 if (v.code_readme) mdLines.push('\\n## code_readme\\n\\n' + v.code_readme);
                 mdLines.push('\\n[Try it](' + u + ')');
                 var md = mdLines.join('\\n');

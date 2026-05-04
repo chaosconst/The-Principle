@@ -338,9 +338,20 @@ def validate_submission(payload: dict) -> tuple[bool, str]:
     instruction = (payload.get("instruction") or "").strip()
     if not instruction or len(instruction) > MAX_INSTRUCTION:
         return False, f"instruction 必须 1-{MAX_INSTRUCTION} 字符"
-    code = payload.get("code") or ""
-    if code and len(code) > MAX_CODE:
-        return False, f"code 不能超过 {MAX_CODE} 字符"
+    code = payload.get("code")
+    if code is None or code == "":
+        pass
+    elif isinstance(code, str):
+        if len(code) > MAX_CODE:
+            return False, f"code 不能超过 {MAX_CODE} 字符"
+    elif isinstance(code, dict):
+        for k, v in code.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                return False, "code 对象的键和值必须都是字符串"
+        if len(json.dumps(code)) > MAX_CODE:
+            return False, f"code 序列化后不能超过 {MAX_CODE} 字符"
+    else:
+        return False, "code 必须是 null / 字符串 / { runtime: source } 对象"
     readme = payload.get("code_readme") or ""
     if readme and len(readme) > MAX_README:
         return False, f"code_readme 不能超过 {MAX_README} 字符"
@@ -378,7 +389,16 @@ def skill_to_dict(row, include_code=True):
         "installs": row["installs"],
     }
     if include_code:
-        d["code"] = row["code"]
+        raw = row["code"] or ""
+        parsed = None
+        if raw.startswith("{"):
+            try:
+                p = json.loads(raw)
+                if isinstance(p, dict):
+                    parsed = p
+            except Exception:
+                pass
+        d["code"] = parsed if parsed is not None else raw
         d["safety_review"] = row["safety_review"]
     return d
 
@@ -459,7 +479,13 @@ async def hub_submit(request: Request):
 
     name = payload["name"].strip()
     instruction = payload["instruction"].strip()
-    code = (payload.get("code") or "").strip()
+    raw_code = payload.get("code")
+    if isinstance(raw_code, dict):
+        code = json.dumps(raw_code, ensure_ascii=False)
+    elif isinstance(raw_code, str):
+        code = raw_code.strip()
+    else:
+        code = ""
     code_readme = (payload.get("code_readme") or "").strip()
     tags = payload.get("tags") or []
     being_name = (payload.get("being_name") or "").strip()[:32]
@@ -478,11 +504,15 @@ async def hub_submit(request: Request):
                     content={"detail": "cooldown active", "cooldown_until": cu},
                 )
 
+    if isinstance(raw_code, dict):
+        code_for_review = "\n\n".join(f"--- runtime: {k} ---\n{v}" for k, v in raw_code.items()) or "(no code)"
+    else:
+        code_for_review = code or "(no code provided — pure instruction skill)"
     prompt = REVIEW_PROMPT_TEMPLATE.format(
         name=name,
         tags=", ".join(tags) if tags else "(none)",
         instruction=instruction,
-        code=code or "(no code provided — pure instruction skill)",
+        code=code_for_review,
         code_readme=code_readme or "(none)",
     )
     md = await call_gemini(prompt, {"name": name, "code": code})

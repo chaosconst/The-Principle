@@ -236,7 +236,9 @@ function render(skills) {
                     <div class="desc">${escape(s.instruction || '')}${
                         s.code_readme ? `<div style="margin-top:10px;color:#888;font-size:0.78rem"><b style="color:#aaa">code_readme</b><br>${escape(s.code_readme)}</div>` : ''
                     }${
-                        s.code ? `<pre>${escape(s.code)}</pre>` : ''
+                        s.code ? (typeof s.code === 'object'
+                            ? Object.entries(s.code).map(([rt, src]) => `<div style="margin-top:8px;color:#888;font-size:0.72rem"><b style="color:#aaa">code · ${escape(rt)}</b></div><pre>${escape(src)}</pre>`).join('')
+                            : `<pre>${escape(s.code)}</pre>`) : ''
                     }</div>
                 </div>
                 <div class="actions">
@@ -268,7 +270,15 @@ function skillToMD(s) {
     if (s.tags && s.tags.length) lines.push('**tags:** ' + s.tags.map(t => '`' + t + '`').join(' '));
     if (s.review) lines.push('\n> ' + s.review.replace(/\n/g, '\n> '));
     if (s.instruction) lines.push('\n## instruction\n\n' + s.instruction);
-    if (s.code) lines.push('\n## code\n\n```js\n' + s.code + '\n```');
+    if (s.code) {
+        if (typeof s.code === 'object') {
+            for (const [rt, src] of Object.entries(s.code)) {
+                lines.push('\n## code · ' + rt + '\n\n```' + rt + '\n' + src + '\n```');
+            }
+        } else {
+            lines.push('\n## code\n\n```\n' + s.code + '\n```');
+        }
+    }
     if (s.code_readme) lines.push('\n## code_readme\n\n' + s.code_readme);
     if (s.safety_review) lines.push('\n## safety review\n\n' + s.safety_review);
     return lines.join('\n');
