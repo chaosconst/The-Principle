@@ -1476,10 +1476,14 @@ CRUD (inside /browser exec blocks; there is no GUI):
 const all = await DB.listSkills(currentBeingId);
 
 // create a new skill
+// IMPORTANT: instruction is injected into [CORE MEMORY] every loop while enable=true.
+// Keep it tight — distill the *what* and *when to use*, not a tutorial. A few short
+// paragraphs at most. Long-form details, example transcripts, full API docs belong
+// in code_readme (read on demand) or in code itself, not in instruction.
 const name = "my_skill";
 const rec = {};
 rec.id = currentBeingId + "/skill/" + name;
-rec.value = { id: name, instruction: "...natural language...", enable: true, code: null, code_readme: null };
+rec.value = { id: name, instruction: "...concise natural language...", enable: true, code: null, code_readme: null };
 await DB.put(rec);
 
 // dependencies
