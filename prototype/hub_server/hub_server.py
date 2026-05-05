@@ -489,7 +489,7 @@ def skill_to_dict(row, include_code=True):
                     parsed = p
             except Exception:
                 pass
-        d["code"] = parsed if parsed is not None else raw
+        d["code"] = parsed if parsed is not None else ({"js": raw} if raw else None)
         d["safety_review"] = row["safety_review"]
     return d
 
