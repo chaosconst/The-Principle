@@ -1498,10 +1498,8 @@ Fields:
 - enable: boolean. false skips both injection and reload.
 - code: optional cache. null when absent. Otherwise an object \`{ js, shell, python, ... }\` keyed by runtime; each host eval's the variant it can run (browser → js, agent.py → shell). Variants you don't include simply mean "no cache for this runtime".
 - code_readme: how to use the cached code (function name, args, whether reload requires re-eval, etc.).
-- contact: optional free-form string (≤ 1024 chars) — author contact for this skill (email, nostr npub, url, multiple lines fine). Visible on the hub; not injected into ctx; reviewed by the hub on submit.
-- note: optional free-form string (≤ 200000 chars) — extra notes/changelog/examples/long-form prose for hub readers. Visible on the hub; not injected into ctx; reviewed by the hub on submit.
-
-Hub review scope: when you submit, the reviewer sees instruction + code + code_readme + tags + contact + note and screens for safety / abuse / spam / illegal content. Literary or personal long-form notes are legitimate; "off-tool" prose is not auto-rejected.
+- contact: optional free-form string (≤ 1024 chars) — author contact for this skill (email, nostr npub, url, multiple lines fine). Visible on the hub; not injected into ctx.
+- note: optional free-form string (≤ 200000 chars) — extra notes/changelog/examples for hub readers. Visible on the hub; not injected into ctx.
 
 Design philosophy:
 - A skill is a description by default, not code. The LLM reads the instruction and synthesizes an implementation in the current environment.
