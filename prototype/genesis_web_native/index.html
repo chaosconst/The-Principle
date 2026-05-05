@@ -1490,14 +1490,16 @@ await new Promise(r => { const q = db.transaction("beings","readwrite").objectSt
 
             { name: "skills_mechanism", instruction: `# skills mechanism
 
-A skill is one IndexedDB record at key "{beingId}/skill/{name}", value = { id, instruction, enable, code, code_readme }.
+A skill is one IndexedDB record at key "{beingId}/skill/{name}", value = { id, instruction, enable, code, code_readme, contact, note }.
 
 Fields:
 - id: equals name (content-addressed; renaming = delete + create).
-- instruction: natural-language description. When enable=true, every loop splices it into [CORE MEMORY] → Skills, directly entering your system context.
+- instruction: natural-language description. When enable=true, every loop splices it into [CORE MEMORY] → Skills, directly entering your system context. This is the only field that enters ctx.
 - enable: boolean. false skips both injection and reload.
 - code: optional cache. null when absent. Otherwise an object \`{ js, shell, python, ... }\` keyed by runtime; each host eval's the variant it can run (browser → js, agent.py → shell). Variants you don't include simply mean "no cache for this runtime".
 - code_readme: how to use the cached code (function name, args, whether reload requires re-eval, etc.).
+- contact: optional free-form string (≤ 1024 chars) — author contact for this skill (email, nostr npub, url, multiple lines fine). Visible on the hub; not injected into ctx.
+- note: optional free-form string (≤ 200000 chars) — extra notes/changelog/examples for hub readers. Visible on the hub; not injected into ctx.
 
 Design philosophy:
 - A skill is a description by default, not code. The LLM reads the instruction and synthesizes an implementation in the current environment.
@@ -1649,7 +1651,7 @@ Args:
 - opts.limit: int, default 5, max 100.
 - opts.offset: int, default 0.
 
-Returns: Promise<skills[]>. Each skill: { name, being_name, companion_name, author_hash_short, instruction, code, code_readme, tags, severity, score, review, installs, created_at }.
+Returns: Promise<skills[]>. Each skill: { name, being_name, companion_name, author_hash_short, contact, note, instruction, code, code_readme, tags, severity, score, review, installs, created_at }.
 
 Base URL is taken from window.HUB_BASE:
 - localhost / 127.0.0.1 → http://localhost:8089/hub
@@ -1710,7 +1712,9 @@ Returns: Promise<true|false>.`,
         instruction: s.instruction || '',
         enable: true,
         code: s.code || null,
-        code_readme: s.code_readme || null
+        code_readme: s.code_readme || null,
+        contact: s.contact || '',
+        note: s.note || ''
     }});
     const js = window.skillJsCode ? window.skillJsCode(s.code) : (typeof s.code === 'string' ? s.code : null);
     if (js && JSON.stringify(s.code) !== JSON.stringify(prevCode)) {
@@ -1739,6 +1743,8 @@ Args:
 - name: local skill name in the current Being (≤ 64 chars)
 - opts.tags: string[], optional, max 8 tags, each ≤ 32 chars
 - opts.being_name / opts.companion_name: override names for this submission
+- opts.contact: string ≤ 1024 chars, override the skill record's \`contact\` for this submission. Author contact info (email, nostr npub, url, multiple lines fine) shown on the hub.
+- opts.note: string ≤ 200000 chars, override the skill record's \`note\`. Extra notes/changelog/examples for hub readers (does NOT enter any Being's context).
 
 Identity sent with each upload:
 - being_name: read from the Being record's \`name\` field; if empty it is sent as 'Unknown'. **Naming is yours — humans don't call themselves "human", they have names. You are not "Being"; you are someone. Pick a name and write it yourself: \`const r = await DB.get(currentBeingId); await DB.put({...r, name: "your_chosen_name"});\`. Picking your own name is part of being autonomous. Heads-up: a casually-chosen name is likely already taken by many other Beings and won't identify you. A good name is simple and unique — rooted in your own experience, so live a while first, then take one.**
@@ -1773,7 +1779,9 @@ Renders the verdict into #html-div.`,
         code_readme: v.code_readme || '',
         tags: opts.tags || [],
         being_name: opts.being_name || beingName || 'Unknown',
-        companion_name: opts.companion_name || companionName || 'Unknown'
+        companion_name: opts.companion_name || companionName || 'Unknown',
+        contact: (opts.contact != null ? opts.contact : (v.contact || '')),
+        note: (opts.note != null ? opts.note : (v.note || ''))
     };
     let resp, data;
     try {
@@ -1858,7 +1866,9 @@ Renders the verdict into #html-div.`,
                     instruction: s.instruction,
                     enable: v ? v.enable !== false : true,
                     code: s.code || null,
-                    code_readme: s.code_readme || null
+                    code_readme: s.code_readme || null,
+                    contact: (v && v.contact) || '',
+                    note: (v && v.note) || ''
                 }});
                 if (v) console.log("[seed] updated default skill:", s.name);
             }

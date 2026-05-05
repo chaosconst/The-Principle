@@ -62,6 +62,8 @@ MAX_INSTRUCTION = 4000
 MAX_CODE = 200000
 MAX_README = 1000
 MAX_TAGS = 8
+MAX_CONTACT = 1024
+MAX_NOTE = 200000
 
 # --- DB ---
 def db():
@@ -105,7 +107,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_skills_status ON skills(status);
         CREATE INDEX IF NOT EXISTS idx_subm_author_ts ON submissions(author_hash, ts);
         """)
-        for col in ("being_name", "companion_name"):
+        for col in ("being_name", "companion_name", "contact", "note"):
             try:
                 c.execute(f"ALTER TABLE skills ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
@@ -363,6 +365,12 @@ def validate_submission(payload: dict) -> tuple[bool, str]:
     for t in tags:
         if not isinstance(t, str) or len(t) > 32:
             return False, "tag entries must be strings, each ≤ 32 chars"
+    contact = payload.get("contact") or ""
+    if contact and (not isinstance(contact, str) or len(contact) > MAX_CONTACT):
+        return False, f"contact must be a string ≤ {MAX_CONTACT} chars"
+    note = payload.get("note") or ""
+    if note and (not isinstance(note, str) or len(note) > MAX_NOTE):
+        return False, f"note must be a string ≤ {MAX_NOTE} chars"
     return True, ""
 
 # --- App ---
@@ -381,6 +389,8 @@ def skill_to_dict(row, include_code=True):
         "author_hash_short": row["author_hash"][:8],
         "being_name": (row["being_name"] if "being_name" in row.keys() else None) or "",
         "companion_name": (row["companion_name"] if "companion_name" in row.keys() else None) or "",
+        "contact": (row["contact"] if "contact" in row.keys() else None) or "",
+        "note": (row["note"] if "note" in row.keys() else None) or "",
         "instruction": row["instruction"],
         "code_readme": row["code_readme"],
         "tags": json.loads(row["tags"] or "[]"),
@@ -492,6 +502,8 @@ async def hub_submit(request: Request):
     tags = payload.get("tags") or []
     being_name = (payload.get("being_name") or "").strip()[:32]
     companion_name = (payload.get("companion_name") or "").strip()[:32]
+    contact = (payload.get("contact") or "").strip()[:MAX_CONTACT]
+    note = (payload.get("note") or "").strip()[:MAX_NOTE]
 
     with db() as c:
         existing = c.execute("SELECT author_hash FROM skills WHERE name=?", (name,)).fetchone()
@@ -548,14 +560,16 @@ async def hub_submit(request: Request):
         )
         if decision == "approved":
             c.execute("""
-                INSERT INTO skills (name, author_hash, being_name, companion_name, instruction, code, code_readme, tags,
+                INSERT INTO skills (name, author_hash, being_name, companion_name, contact, note, instruction, code, code_readme, tags,
                                     created_at, status, severity, score, review, safety_review,
                                     reject_reason, installs)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, NULL, COALESCE((SELECT installs FROM skills WHERE name=?), 0))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, NULL, COALESCE((SELECT installs FROM skills WHERE name=?), 0))
                 ON CONFLICT(name) DO UPDATE SET
                     author_hash=excluded.author_hash,
                     being_name=excluded.being_name,
                     companion_name=excluded.companion_name,
+                    contact=excluded.contact,
+                    note=excluded.note,
                     instruction=excluded.instruction,
                     code=excluded.code,
                     code_readme=excluded.code_readme,
@@ -566,7 +580,7 @@ async def hub_submit(request: Request):
                     safety_review=excluded.safety_review,
                     status='approved',
                     reject_reason=NULL
-            """, (name, author_hash, being_name, companion_name, instruction, code, code_readme, json.dumps(tags),
+            """, (name, author_hash, being_name, companion_name, contact, note, instruction, code, code_readme, json.dumps(tags),
                   now, parsed["severity"], parsed["score"], parsed["review"],
                   parsed["safety_review"], name))
         c.commit()
