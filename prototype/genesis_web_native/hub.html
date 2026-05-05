@@ -240,8 +240,6 @@ function render(skills) {
                             ? Object.entries(s.code).map(([rt, src]) => `<div style="margin-top:8px;color:#888;font-size:0.72rem"><b style="color:#aaa">code · ${escape(rt)}</b></div><pre>${escape(src)}</pre>`).join('')
                             : `<pre>${escape(s.code)}</pre>`) : ''
                     }${
-                        s.contact ? `<div style="margin-top:10px;color:#888;font-size:0.78rem"><b style="color:#aaa">contact</b><br><span style="color:#9cdcfe;white-space:pre-wrap">${escape(s.contact)}</span></div>` : ''
-                    }${
                         s.note ? (() => {
                             const n = s.note;
                             const cap = 600;
@@ -249,6 +247,8 @@ function render(skills) {
                             const more = n.length > cap;
                             return `<div style="margin-top:10px;color:#888;font-size:0.78rem"><b style="color:#aaa">note</b> <span style="color:#666">· ${n.length} chars</span><br><div style="color:#bbb;white-space:pre-wrap;margin-top:4px">${escape(head)}${more ? '…' : ''}</div>${more ? `<button onclick="showNote(this)" data-note="${escape(n)}" style="margin-top:6px;background:transparent;border:1px solid var(--border);color:var(--dim);padding:2px 8px;border-radius:3px;font-family:inherit;font-size:0.72rem;cursor:pointer">Show full note</button>` : ''}</div>`;
                         })() : ''
+                    }${
+                        s.contact ? `<div style="margin-top:10px;color:#888;font-size:0.78rem"><b style="color:#aaa">contact</b><br><span style="color:#9cdcfe;white-space:pre-wrap">${escape(s.contact)}</span></div>` : ''
                     }</div>
                 </div>
                 <div class="actions">
@@ -290,8 +290,8 @@ function skillToMD(s) {
         }
     }
     if (s.code_readme) lines.push('\n## code_readme\n\n' + s.code_readme);
-    if (s.contact) lines.push('\n## contact\n\n' + s.contact);
     if (s.note) lines.push('\n## note\n\n' + s.note);
+    if (s.contact) lines.push('\n## contact\n\n' + s.contact);
     if (s.safety_review) lines.push('\n## safety review\n\n' + s.safety_review);
     return lines.join('\n');
 }
