@@ -3737,50 +3737,51 @@ Renders the verdict into #html-div.`,
 
         async function boot() {
             await loadModels();
-            await initApp();
-            try {
-                if (currentBeingId) {
-                    await seedDefaultSkills(currentBeingId);
-                    const skills = await DB.listSkills(currentBeingId);
-                    for (const s of skills) {
-                        if (!s || s.enable !== true) continue;
-                        const js = skillJsCode(s.code);
-                        if (!js) continue;
-                        try { (0, eval)(js); console.log("[skill] code reloaded:", s.name); }
-                        catch (e) { console.error("[skill] code eval failed:", s.name, e); }
-                    }
+            const params = new URLSearchParams(location.search);
+            const skillsParam = params.get('skills');
+            const hubInstallNames = skillsParam ? skillsParam.split(',').map(s => s.trim()).filter(Boolean) : [];
+            if (hubInstallNames.length) {
+                // Hub-experience path: never load the existing Being. Go straight to a fresh one
+                // so its skills (including any cached `code`) eval against the new context, not
+                // a stale one. newBeing() seeds defaults and evals cached code internally.
+                try { await newBeing(); }
+                catch (e) { console.error('[boot] newBeing for hub experience failed', e); }
+                const results = [];
+                for (const n of hubInstallNames) {
+                    try { results.push({ name: n, ok: !!(await window.hubInstall(n)) }); }
+                    catch (e) { results.push({ name: n, ok: false, err: e.message }); }
                 }
-            } catch (e) { console.error("[boot] skill init failed", e); }
-            try {
-                const params = new URLSearchParams(location.search);
-                const skillsParam = params.get('skills');
-                if (skillsParam) {
-                    const names = skillsParam.split(',').map(s => s.trim()).filter(Boolean);
-                    if (names.length) {
-                        await newBeing();
-                        const results = [];
-                        for (const n of names) {
-                            try { results.push({ name: n, ok: !!(await window.hubInstall(n)) }); }
-                            catch (e) { results.push({ name: n, ok: false, err: e.message }); }
-                        }
-                        const ok = results.filter(r => r.ok).map(r => r.name);
-                        const bad = results.filter(r => !r.ok).map(r => r.name);
-                        const div = document.getElementById('html-div');
-                        if (div) {
-                            const card = document.createElement('div');
-                            card.style.cssText = "position:relative;padding:10px 14px;margin-bottom:10px;background:#0a1a14;border:1px solid #1a4d3a;border-radius:6px;font-family:monospace;font-size:12px;color:#9ad9c0";
-                            card.innerHTML = '<button onclick="this.parentElement.remove()" style="position:absolute;top:4px;right:8px;background:transparent;border:none;color:#666;font-size:16px;cursor:pointer;line-height:1" onmouseover="this.style.color=\'#f88\'" onmouseout="this.style.color=\'#666\'">×</button>' +
-                                '<b style="color:#00d4aa">Hub experience</b> — fresh Being created' +
-                                (ok.length ? '<div style="margin-top:4px">✓ installed: ' + ok.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '') +
-                                (bad.length ? '<div style="margin-top:4px;color:#f88">✗ failed: ' + bad.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '');
-                            div.insertBefore(card, div.firstChild);
-                        }
-                        const url = new URL(location.href);
-                        url.searchParams.delete('skills');
-                        history.replaceState(null, '', url.toString());
-                    }
+                const ok = results.filter(r => r.ok).map(r => r.name);
+                const bad = results.filter(r => !r.ok).map(r => r.name);
+                const div = document.getElementById('html-div');
+                if (div) {
+                    const card = document.createElement('div');
+                    card.style.cssText = "position:relative;padding:10px 14px;margin-bottom:10px;background:#0a1a14;border:1px solid #1a4d3a;border-radius:6px;font-family:monospace;font-size:12px;color:#9ad9c0";
+                    card.innerHTML = '<button onclick="this.parentElement.remove()" style="position:absolute;top:4px;right:8px;background:transparent;border:none;color:#666;font-size:16px;cursor:pointer;line-height:1" onmouseover="this.style.color=\'#f88\'" onmouseout="this.style.color=\'#666\'">×</button>' +
+                        '<b style="color:#00d4aa">Hub experience</b> — fresh Being created' +
+                        (ok.length ? '<div style="margin-top:4px">✓ installed: ' + ok.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '') +
+                        (bad.length ? '<div style="margin-top:4px;color:#f88">✗ failed: ' + bad.map(x => '<code>' + x + '</code>').join(', ') + '</div>' : '');
+                    div.insertBefore(card, div.firstChild);
                 }
-            } catch (e) { console.error('[boot] ?skills= handling failed', e); }
+                const url = new URL(location.href);
+                url.searchParams.delete('skills');
+                history.replaceState(null, '', url.toString());
+            } else {
+                await initApp();
+                try {
+                    if (currentBeingId) {
+                        await seedDefaultSkills(currentBeingId);
+                        const skills = await DB.listSkills(currentBeingId);
+                        for (const s of skills) {
+                            if (!s || s.enable !== true) continue;
+                            const js = skillJsCode(s.code);
+                            if (!js) continue;
+                            try { (0, eval)(js); console.log("[skill] code reloaded:", s.name); }
+                            catch (e) { console.error("[skill] code eval failed:", s.name, e); }
+                        }
+                    }
+                } catch (e) { console.error("[boot] skill init failed", e); }
+            }
             initRelay();
             if (!/Mobi|Android/i.test(navigator.userAgent)) input.focus();
             updateSendBtn();
