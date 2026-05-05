@@ -437,7 +437,7 @@ async def hub_list(sort: str = "hot", q: Optional[str] = None, limit: int = 5, o
     rows_with = list(zip(items, rows))
     if q:
         def blob(i):
-            return (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "") + " " + (i.get("being_name") or "") + " " + (i.get("companion_name") or "")).lower()
+            return (i["name"] + " " + " ".join(i["tags"]) + " " + (i["instruction"] or "") + " " + (i.get("being_name") or "") + " " + (i.get("companion_name") or "") + " " + (i.get("contact") or "") + " " + (i.get("note") or "")).lower()
         q_low = q.lower().strip()
         full = [(i, r) for (i, r) in rows_with if q_low in blob(i)]
         if full:
