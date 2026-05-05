@@ -125,7 +125,7 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                         for (const s of enabled) {
                             skillsText += "\n### Skill: " + s.name + "\n" + s.instruction + "\n";
                             if (s.code && typeof s.code_readme === 'string' && s.code_readme.length > 0) {
-                                skillsText += "\n_call_:\n" + s.code_readme + "\n";
+                                skillsText += "\n_call_ (code_readme):\n" + s.code_readme + "\n";
                             }
                         }
                         const disabled = skills.filter(s => s && s.enable !== true).map(s => s.name);
