@@ -154,32 +154,23 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 const model = getActiveModel();
 
                 if (getActiveFormat() === 'anthropic') {
-                    // Merged-group segmentation: every GROUP_SIZE turns merge into one frozen block,
-                    // current incomplete group stays as `partial`. cache_control on stableHead, last frozen
-                    // full group, and partial. Anthropic's 20-block lookback per breakpoint walks back
-                    // through frozen group blocks to reach historical writes (verified up to 60 turns).
-                    const GROUP_SIZE = 19;
+                    // Rolling-history segmentation:
+                    //   [stableHead 🚩] [history = all-but-latest turn] [latest turn 🚩] [tail]
+                    // Each round: history block's right boundary hash matches the prior round's
+                    // latest-turn cc write → lookback hit; new entry written for the new latest turn.
+                    // 2 cache_control breakpoints, unbounded conversation length.
+                    // Lookbehind `(?<=^|\n)` anchors splits at line start (without it the lookahead
+                    // would match many sub-positions inside each turn header).
+                    const turnRe = /(?<=^|\n)(?=\*{0,2}[A-Za-z][\w\s]{0,29}\*{0,2}\s*[-–—]\s*\[[^\]\n]*\d[^\]\n]*\]\*{0,2}\n)/g;
+                    const turns = consciousness.length > 0 ? consciousness.split(turnRe).filter(t => t.length > 0) : [];
+                    const history = turns.slice(0, -1).join('');
+                    const latest = turns.length > 0 ? turns[turns.length - 1] : '';
                     const userContent = [];
                     if (stableHead.length > 0) {
                         userContent.push({ type: 'text', text: stableHead, cache_control: { type: 'ephemeral' } });
                     }
-                    const turnRe = /(?=\*{0,2}[A-Za-z][\w\s]{0,29}\*{0,2}\s*[-–—]\s*\[[^\]\n]*\d[^\]\n]*\]\*{0,2}\n)/g;
-                    const turns = consciousness.length > 0 ? consciousness.split(turnRe).filter(t => t.length > 0) : [];
-                    const fullGroups = Math.floor(turns.length / GROUP_SIZE);
-                    let lastFullIdx = -1;
-                    for (let g = 0; g < fullGroups; g++) {
-                        const merged = turns.slice(g * GROUP_SIZE, (g + 1) * GROUP_SIZE).join('');
-                        userContent.push({ type: 'text', text: merged });
-                        lastFullIdx = userContent.length - 1;
-                    }
-                    const partialText = turns.slice(fullGroups * GROUP_SIZE).join('');
-                    let partialIdx = -1;
-                    if (partialText.length > 0) {
-                        userContent.push({ type: 'text', text: partialText });
-                        partialIdx = userContent.length - 1;
-                    }
-                    if (lastFullIdx >= 0) userContent[lastFullIdx].cache_control = { type: 'ephemeral' };
-                    if (partialIdx >= 0) userContent[partialIdx].cache_control = { type: 'ephemeral' };
+                    if (history) userContent.push({ type: 'text', text: history });
+                    if (latest)  userContent.push({ type: 'text', text: latest, cache_control: { type: 'ephemeral' } });
                     userContent.push({ type: 'text', text: '\n\n' + volatileTail });  // volatile, no cache
                     if (canvasImage) userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: canvasImage } });
                     const payload = {
