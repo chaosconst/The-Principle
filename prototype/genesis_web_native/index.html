@@ -154,31 +154,23 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 const model = getActiveModel();
 
                 if (getActiveFormat() === 'anthropic') {
-                    // Cache breakpoints sit inside the unified fullText. First breakpoint at stableHead boundary so stable header alone is cached even when consciousness is tiny.
-                    const fullText = stableHead + consciousness + '\n\n' + volatileTail;
-                    const cpt = 4;
-                    const stableLength = stableHead.length + consciousness.length;
-                    const stableTokens = Math.floor(stableLength / cpt);
-                    const levels = [140000, 50000, 20000, 10000];
-                    const cuts = [];
-                    if (stableHead.length > 0) cuts.push(stableHead.length);
-                    for (const grain of levels) {
-                        const aligned = Math.floor(stableTokens / grain) * grain;
-                        if (aligned > 0) {
-                            const cut = aligned * cpt;
-                            if (cut > stableHead.length) cuts.push(cut);
-                        }
-                    }
-                    const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < stableLength).slice(0, 4);  // max 4 user cache_controls + 1 system = 5 total
+                    // Per-turn segmentation: stableHead block + one block per turn + volatileTail block.
+                    // cache_control on (1) stableHead boundary and (2) last turn end. Anthropic walks backward
+                    // up to 20 blocks per breakpoint, so consciousness up to ~19 turns is fully covered.
+                    // TODO: when turns.length > 19, insert leapfrog cache_controls (e.g. floor-aligned by turn
+                    // index) so older turns stay reachable from some breakpoint's 20-block window.
                     const userContent = [];
-                    let pos = 0;
-                    for (const cut of uniqueCuts) {
-                        if (cut > pos) {
-                            userContent.push({ type: 'text', text: fullText.slice(pos, cut), cache_control: { type: 'ephemeral' } });
-                            pos = cut;
-                        }
+                    if (stableHead.length > 0) {
+                        userContent.push({ type: 'text', text: stableHead, cache_control: { type: 'ephemeral' } });
                     }
-                    userContent.push({ type: 'text', text: fullText.slice(pos) });  // buffer after last breakpoint, no cache
+                    const turnRe = /(?=\*{0,2}[A-Za-z][\w\s]{0,29}\*{0,2}\s*[-–—]\s*\[[^\]\n]*\d[^\]\n]*\]\*{0,2}\n)/g;
+                    const turns = consciousness.length > 0 ? consciousness.split(turnRe).filter(t => t.length > 0) : [];
+                    for (let i = 0; i < turns.length; i++) {
+                        const block = { type: 'text', text: turns[i] };
+                        if (i === turns.length - 1) block.cache_control = { type: 'ephemeral' };
+                        userContent.push(block);
+                    }
+                    userContent.push({ type: 'text', text: '\n\n' + volatileTail });  // volatile, no cache
                     if (canvasImage) userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: canvasImage } });
                     const payload = {
                         model,
