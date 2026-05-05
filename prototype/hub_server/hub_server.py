@@ -17,6 +17,7 @@ import os
 import re
 import json
 import time
+import base64
 import hashlib
 import sqlite3
 import math
@@ -241,6 +242,76 @@ One sentence, under 140 characters, helping other users decide whether to instal
 ## Score
 0-10 integer. 0 = strongly do not recommend installing, basically never useful. 10 = strongly recommend installing, must-have on every device.
 """
+
+REVIEW_PROMPT_OBF_TEMPLATE = """
+
+=== auto-extracted obfuscated payloads ===
+The hub server pre-scans submissions for content that hides intent from human/LLM review:
+- base64 blobs ≥ 100 bytes inside `code`, decoded if they parse as UTF-8 text
+- common dynamic-execution sinks: eval, Function ctor, atob, fromCharCode, Buffer.from(*, 'base64'), exec/compile/__import__
+
+If any are found below, audit them as if they were inline source. A skill that hides its real
+behavior behind base64 / eval-from-string / charcode tricks should be flagged caution or rejected
+unless there is a legitimate, documented engineering reason (e.g. avoiding shell heredoc escape
+hell when shipping a Python file via `echo 'B64' | base64 -d > file.py`). Confirm the decoded
+payload's stated purpose matches the surrounding instruction / code_readme / note.
+
+{decoded}
+"""
+
+_B64_RE = re.compile(r"[A-Za-z0-9+/]{100,}={0,2}")
+_OBF_PATTERNS = [
+    (re.compile(r"\beval\s*\("),                           "eval()"),
+    (re.compile(r"\bnew\s+Function\s*\("),                  "new Function()"),
+    (re.compile(r"\.constructor\s*\(\s*['\"]"),             "fn.constructor() trick"),
+    (re.compile(r"\batob\s*\("),                            "atob()"),
+    (re.compile(r"String\.fromCharCode\s*\("),              "String.fromCharCode()"),
+    (re.compile(r"Buffer\.from\s*\([^)]*['\"]base64['\"]"), "Buffer.from(*, 'base64')"),
+    (re.compile(r"\bexec\s*\("),                            "exec()"),
+    (re.compile(r"\bcompile\s*\("),                         "compile()"),
+    (re.compile(r"__import__\s*\("),                        "__import__()"),
+    (re.compile(r"setTimeout\s*\(\s*['\"]"),                "setTimeout(stringSrc) eval-trick"),
+    (re.compile(r"setInterval\s*\(\s*['\"]"),               "setInterval(stringSrc) eval-trick"),
+]
+
+def expand_obfuscation(code_blob: str, max_total_decoded: int = 60000) -> str:
+    """Pre-scan submission code for obfuscated payloads. Returns markdown for the prompt.
+    Returns empty string when nothing suspicious is found."""
+    if not code_blob:
+        return ""
+    sections = []
+    decoded_total = 0
+    for i, m in enumerate(_B64_RE.finditer(code_blob)):
+        if decoded_total >= max_total_decoded:
+            sections.append(f"…(truncated; remaining base64 blobs not decoded — total cap {max_total_decoded} chars)")
+            break
+        b64 = m.group(0)
+        try:
+            raw = base64.b64decode(b64, validate=True)
+        except Exception:
+            continue
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            sections.append(f"### decoded base64 blob #{i} ({len(b64)} b64 chars → {len(raw)} bytes binary, not UTF-8)\n(skipped — binary content)")
+            continue
+        if sum(1 for c in text if c.isprintable() or c in "\n\r\t") < 0.85 * len(text):
+            sections.append(f"### decoded base64 blob #{i} ({len(b64)} b64 chars → {len(text)} chars, mostly non-printable)\n(skipped — looks like binary noise)")
+            continue
+        budget = max_total_decoded - decoded_total
+        snippet = text if len(text) <= budget else text[:budget] + f"\n…[truncated, {len(text)-budget} more chars]"
+        decoded_total += len(snippet)
+        sections.append(f"### decoded base64 blob #{i} ({len(b64)} b64 chars → {len(text)} chars)\n```\n{snippet}\n```")
+    hits = []
+    for pat, label in _OBF_PATTERNS:
+        n = len(pat.findall(code_blob))
+        if n > 0:
+            hits.append(f"- {label}: {n} occurrence{'s' if n > 1 else ''}")
+    if hits:
+        sections.append("### dynamic-execution sinks found in raw code\n" + "\n".join(hits))
+    if not sections:
+        return ""
+    return REVIEW_PROMPT_OBF_TEMPLATE.format(decoded="\n\n".join(sections))
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
@@ -537,6 +608,7 @@ async def hub_submit(request: Request):
         code_for_review = "\n\n".join(f"--- runtime: {k} ---\n{v}" for k, v in raw_code.items()) or "(no code)"
     else:
         code_for_review = code or "(no code provided — pure instruction skill)"
+    obf_section = expand_obfuscation(code_for_review)
     prompt = REVIEW_PROMPT_TEMPLATE.format(
         name=name,
         tags=", ".join(tags) if tags else "(none)",
@@ -545,7 +617,7 @@ async def hub_submit(request: Request):
         code_readme=code_readme or "(none)",
         contact=contact or "(none)",
         note=note or "(none)",
-    )
+    ) + obf_section
     md = await call_gemini(prompt, {"name": name, "code": code})
     parsed = parse_review(md)
 
