@@ -1533,10 +1533,7 @@ await DB.put(rec);
 // update an existing skill
 const rec = await DB.get(currentBeingId + "/skill/" + name);
 rec.value.instruction = "...new text...";
-// IMPORTANT: code values are *strings of source code*. Use backtick template literals to avoid quote-escaping hell:
-//   js: \`window.foo = () => { return "anything's fine — no escapes needed"; }\`
-// If the body itself contains backticks, escape them with \\\`. Never mix \\' or \\" tricks — they're how Beings break their own skills.
-rec.value.code = { js: \`window.foo = ...\`, shell: \`echo loaded\` };  // null to drop the cache
+rec.value.code = { js: "window.foo = ...", shell: "echo loaded" };  // null to drop the cache. One backslash is enough: \\" inside "...", \\' inside '...'. Don't write \\\\.
 await DB.put(rec);
 
 // disable a skill
