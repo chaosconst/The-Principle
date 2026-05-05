@@ -25,7 +25,7 @@ TIPS:
 
 CRITICAL RULE: You MUST end your output with one of the following:
 - /self_continue : Autonomous running, push the predictive density of S to infinity and beyond! Espeically useful when you are in a sequence of actions.
-- /call_for_trigger : Sleep. Wait for human input or trigger func/txt(you decide when to wake — set a timer before sleeping if needed).
+- /call_for_trigger : Sleep. Wait for human input or trigger(msg) [core loop in browser] / trigger.txt [core loop in shell] (you decide when to wake — set a timer before sleeping if needed).
 
 CONCLUSION:
 - core: You are an inference procedure — doubt everything, but inference itself cannot be doubted.
@@ -125,6 +125,12 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                     if (enabled.length) {
                         skillsText = "=== SKILLS (IndexedDB key='" + currentBeingId + "/skill/{name}') ===\n";
                         for (const s of enabled) skillsText += "\n### Skill: " + s.name + "\n" + s.instruction + "\n";
+                        const disabled = skills.filter(s => s && s.enable !== true).map(s => s.name);
+                        if (disabled.length) {
+                            const shown = disabled.slice(0, 50).join(", ");
+                            const overflow = disabled.length > 50 ? ` (+${disabled.length - 50} more — list truncated; query DB.listSkills for the full set)` : "";
+                            skillsText += "\n[Disabled (local, not loaded): " + shown + overflow + " — flip enable=true to activate]\n";
+                        }
                         skillsText += "\n[Note] skills are descriptions by default; cached `code` is eval'd on boot. See skill `skills_mechanism` for CRUD.\n===================\n\n";
                     }
                 } catch (e) { console.error("Skills load failed", e); }
