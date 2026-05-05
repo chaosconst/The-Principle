@@ -98,23 +98,21 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
 
             const STOP_WORDS = ['\nSystem - [', '\n[System Environment]'];
 
-            async function buildPayload() {
-                const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
-                const canvasImage = supportsVision ? await getCanvasImage() : null;
+            async function loadStableHead() {
                 let coreMemText = "";
                 try {
                     const db = await new Promise(r => { const req = indexedDB.open("GenesisDB"); req.onsuccess = () => r(req.result); });
                     const record = await new Promise(r => { const req = db.transaction("beings", "readonly").objectStore("beings").get(currentBeingId + "/core_mem.md"); req.onsuccess = () => r(req.result); });
                     const rawMem = (record && record.value) ? record.value : "";
-                    const MAX_MEM = 20000;  // ~5k tokens
+                    const MAX_MEM = 20000;
                     let memContent = rawMem.length > MAX_MEM
                         ? rawMem.slice(0, MAX_MEM) + `\n\n[⚠️ core_mem truncated to ${MAX_MEM} chars. Full long_mem: ${rawMem.length} chars]`
                         : rawMem;
                     coreMemText = "=== CORE MEMORY( in IndexedDB('GenesisDB', store='beings'){id: \"" + currentBeingId + "/core_mem.md\"}[value]) ===\n" +
-                                  memContent + 
+                                  memContent +
                                   "\n\n[Architecture Note]\n" +
-                                  "context = SYS + first 10% ctx_old + last 60% old + core_mem + realtime\n" +
-                                  "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in `maybeCompressConsciousness()` when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k). \n" +
+                                  "context = stableHead(core_mem + skills) + consciousness + volatileTail(realtime + beingPrefix)\n" +
+                                  "⚠️ ATTENTION: Middle old memory in consciousness stream will be compressed/cut in `maybeCompressConsciousness()` when tokens exceed LIMIT (default ~2/3 of model max context, e.g., 300k).\n" +
                                   "core_mem.md is always in context. Treat it like a living notebook — update it when you learn something worth remembering forever.\n" +
                                   "===================\n\n";
                 } catch(e) { console.error("CoreMem load failed", e); }
@@ -134,25 +132,42 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                         skillsText += "\n[Note] skills are descriptions by default; cached `code` is eval'd on boot. See skill `skills_mechanism` for CRUD.\n===================\n\n";
                     }
                 } catch (e) { console.error("Skills load failed", e); }
+                return coreMemText + skillsText;
+            }
+
+            async function buildPayload() {
+                const supportsVision = MODEL_LIST[settings.model]?.vision !== false;
+                const canvasImage = supportsVision ? await getCanvasImage() : null;
+                const stableHead = await loadStableHead();
                 const beingPrefix = `**Digital Being - [${new Date().toLocaleString()}]**\n`;
-                const realtimeText = coreMemText + skillsText + getRealtimeContext() + '\n\n' + beingPrefix;
-                const bufferText = cacheName ? consciousness.slice(cachedLength) : consciousness;
+                const volatileTail = getRealtimeContext() + '\n\n' + beingPrefix;
+
+                // Drop gemini named cache if stableHead changed since cache creation —
+                // server would otherwise prepend a stale snapshot.
+                if (cacheName && _cachedStableHead !== stableHead) {
+                    console.log('[gemini cache] stableHead changed → invalidating cache');
+                    cacheName = null;
+                    cachedLength = 0;
+                    _cachedStableHead = null;
+                }
 
                 const model = getActiveModel();
 
                 if (getActiveFormat() === 'anthropic') {
-                    // Cache breakpoints at floor-aligned positions: 5k, 15k, 45k, 135k token granularity
-                    // Each level only moves when content crosses the next multiple → stable cache
-                    const fullText = consciousness + '\n\n' + realtimeText;
-                    // Cache breakpoints anchor to consciousness.length only — realtimeText (timestamps, ever-changing) stays past the final cut, so prefixes are bit-stable across rounds. Fixed cpt=4 avoids dynamic-estimate drift.
+                    // Cache breakpoints sit inside the unified fullText. First breakpoint at stableHead boundary so stable header alone is cached even when consciousness is tiny.
+                    const fullText = stableHead + consciousness + '\n\n' + volatileTail;
                     const cpt = 4;
-                    const stableLength = consciousness.length;
+                    const stableLength = stableHead.length + consciousness.length;
                     const stableTokens = Math.floor(stableLength / cpt);
                     const levels = [140000, 50000, 20000, 10000];
                     const cuts = [];
+                    if (stableHead.length > 0) cuts.push(stableHead.length);
                     for (const grain of levels) {
                         const aligned = Math.floor(stableTokens / grain) * grain;
-                        if (aligned > 0) cuts.push(aligned * cpt);
+                        if (aligned > 0) {
+                            const cut = aligned * cpt;
+                            if (cut > stableHead.length) cuts.push(cut);
+                        }
                     }
                     const uniqueCuts = [...new Set(cuts)].sort((a, b) => a - b).filter(c => c < stableLength).slice(0, 4);  // max 4 user cache_controls + 1 system = 5 total
                     const userContent = [];
@@ -190,7 +205,8 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 }
 
                 if (getActiveFormat() === 'openai') {
-                    const userContent = [{ type: 'text', text: bufferText + '\n\n' + realtimeText }];
+                    const fullText = stableHead + consciousness + '\n\n' + volatileTail;
+                    const userContent = [{ type: 'text', text: fullText }];
                     if (canvasImage) userContent.push({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + canvasImage } });
                     const adaptiveOA = MODEL_LIST[settings.model]?.thinkingMode === 'adaptive';
                     const payload = {
@@ -218,13 +234,14 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                     return payload;
                 }
 
-                // Gemini format
-                const realtimeParts = [
-                    { text: realtimeText },
-                    ...(canvasImage ? [{ inlineData: { mimeType: 'image/jpeg', data: canvasImage } }] : []),
-                ];
+                // Gemini format — when cache exists, server prepends `stableHead + consciousness[0..cachedLength]` automatically.
+                // We only send the delta: new consciousness chars + volatileTail (+ optional image).
+                const geminiBuffer = cacheName ? consciousness.slice(cachedLength) : (stableHead + consciousness);
                 const contents = [
-                    { role: 'user', parts: [{ text: bufferText }, ...realtimeParts] },
+                    { role: 'user', parts: [
+                        { text: geminiBuffer + '\n\n' + volatileTail },
+                        ...(canvasImage ? [{ inlineData: { mimeType: 'image/jpeg', data: canvasImage } }] : []),
+                    ]},
                 ];
                 const geminiConfig = { temperature: 0.7, thinkingConfig: { includeThoughts: true }, stopSequences: STOP_WORDS };
                 const payload = cacheName ? {
@@ -357,6 +374,7 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                     appendMsgUI('system', 'Cache expired, rebuilding...');
                     cacheName = null;
                     cachedLength = 0;
+                    _cachedStableHead = null;
                     await maybeRefreshCache(true);
                     setStatus('Inferring...');
                     aiDiv = appendMsgUI('ai', '');
@@ -466,6 +484,7 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
             consciousness = consciousness.slice(0, startChars) + note + consciousness.slice(consciousness.length - endChars);
             cacheName = null;
             cachedLength = 0;
+            _cachedStableHead = null;
             _lastPromptTokens = 0;  // reset so next check uses actual post-compression count
             console.log(`[Compress] tokens=${_lastPromptTokens}, middle saved to ${logKey}, consciousness trimmed to ${consciousness.length} chars`);
         }
@@ -496,11 +515,12 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
             try {
                 setStatus('Caching...');
                 const oldCacheName = cacheName;
+                const stableHead = await loadStableHead();
                 const payload = {
                     model: `models/${getActiveModel()}`,
                     displayName: "genesis_consciousness",
                     systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-                    contents: [{ role: 'user', parts: [{ text: consciousness }] }],
+                    contents: [{ role: 'user', parts: [{ text: stableHead + consciousness }] }],
                     ttl: "3600s"
                 };
 
@@ -523,8 +543,9 @@ Detailed principles, philosophy, and self-modification mechanics are loaded as S
                 const data = await response.json();
                 cacheName = data.name;
                 cachedLength = consciousness.length;
+                _cachedStableHead = stableHead;
                 await saveBeing();
-                console.log(`Cache created: ${cacheName}, cached ${cachedLength} chars`);
+                console.log(`Cache created: ${cacheName}, cached stableHead(${stableHead.length}) + consciousness(${cachedLength}) chars`);
 
                 // Delete old cache
                 if (oldCacheName) {
@@ -1512,7 +1533,10 @@ await DB.put(rec);
 // update an existing skill
 const rec = await DB.get(currentBeingId + "/skill/" + name);
 rec.value.instruction = "...new text...";
-rec.value.code = { js: "window.foo = ...", shell: "echo loaded" };  // null to drop the cache
+// IMPORTANT: code values are *strings of source code*. Use backtick template literals to avoid quote-escaping hell:
+//   js: \`window.foo = () => { return "anything's fine — no escapes needed"; }\`
+// If the body itself contains backticks, escape them with \\\`. Never mix \\' or \\" tricks — they're how Beings break their own skills.
+rec.value.code = { js: \`window.foo = ...\`, shell: \`echo loaded\` };  // null to drop the cache
 await DB.put(rec);
 
 // disable a skill
@@ -1851,6 +1875,7 @@ Renders the verdict into #html-div.`,
         var consciousness = "";
         var cachedLength = 0;
         var cacheName = null;            // Gemini cache ID
+        var _cachedStableHead = null;    // in-memory only; gemini cache invalidates if stableHead changes mid-session
         var loopRunning = false;
         var currentUserInput = null;
         var currentAbortController = null;
@@ -2050,6 +2075,7 @@ Renders the verdict into #html-div.`,
             }
             cachedLength = being ? (being.cachedLength || 0) : 0;
             cacheName = being ? (being.cacheName || null) : null;
+            _cachedStableHead = null;  // force reverify on first build after switch
             _lastPromptTokens = being ? (being.promptTokens || 0) : 0;
             _lastCachedTokens = being ? (being.cachedTokens || 0) : 0;
             await loadBeingsList();
@@ -2079,6 +2105,7 @@ Renders the verdict into #html-div.`,
             consciousness = '';
             cachedLength = 0;
             cacheName = null;
+            _cachedStableHead = null;
             _lastPromptTokens = 0;
             _lastCachedTokens = 0;
             _justReloaded = false;
@@ -2528,7 +2555,7 @@ Renders the verdict into #html-div.`,
                 _displayStream.getTracks().forEach(t => t.stop()); _displayStream = null;
             }
             document.getElementById('settings-panel').style.display = 'none';
-            if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; }
+            if (getActiveModel() !== oldModel || getActiveFormat() !== oldFormat) { cacheName = null; cachedLength = 0; _cachedStableHead = null; }
             // Broadcast updated LLM settings to all connected devices
             relayEncBroadcast('settings_update', {
                 settings: {
