@@ -1679,7 +1679,11 @@ window.hubSearch = async (query, sort, opts) => {
     if (!div) { console.log('[hub]', skills.length, 'results'); return skills; }
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
     const sevColor = { safe: '#0f0', caution: '#fc0', danger: '#f44' };
-    div.innerHTML = '<div style="position:relative;padding:12px;font-family:monospace;color:#d4d4d4;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px"><button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:10px;background:transparent;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1" onmouseover="this.style.color=\\\'#f88\\\'" onmouseout="this.style.color=\\\'#666\\\'">×</button><b style="color:#00d4aa">Skill Hub — ' + skills.length + ' results' + (query ? ' for "' + esc(query) + '"' : '') + '</b>' + skills.map(s => {
+    const prev = document.getElementById('hub-overlay-search'); if (prev) prev.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'hub-overlay-search';
+    overlay.style.cssText = 'position:absolute;top:10px;right:10px;width:min(520px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;z-index:9999;padding:12px;font-family:monospace;color:#d4d4d4;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+    overlay.innerHTML = '<button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:10px;background:transparent;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1" onmouseover="this.style.color=\\\'#f88\\\'" onmouseout="this.style.color=\\\'#666\\\'">×</button><b style="color:#00d4aa">Skill Hub — ' + skills.length + ' results' + (query ? ' for "' + esc(query) + '"' : '') + '</b>' + skills.map(s => {
         const sev = s.severity || 'safe';
         return '<div style="border:1px solid #2a2a2a;padding:10px;margin:8px 0;border-radius:6px">' +
             '<div><span style="color:#00d4aa;font-weight:600">' + esc(s.name) + '</span> ' +
@@ -1690,7 +1694,8 @@ window.hubSearch = async (query, sort, opts) => {
             '<div style="font-size:12px;color:#ccc;margin:6px 0;white-space:pre-wrap">' + esc((s.instruction||'').split('\\n')[0]) + '</div>' +
             '<button data-name="' + esc(s.name) + '" onclick="window.hubInstall(this.dataset.name).then(ok=>{this.textContent=ok?\\'✓ installed\\':\\'✗ failed\\';this.disabled=true})" style="background:transparent;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:4px;font-family:inherit;font-size:11px;cursor:pointer">Install</button>' +
         '</div>';
-    }).join('') + '</div>';
+    }).join('');
+    div.appendChild(overlay);
     return skills;
 };`,
             code_readme: "await window.hubSearch();                              // top 5 hot\nawait window.hubSearch('echo');                        // fuzzy match\nawait window.hubSearch(null, 'new', { limit: 20 });    // newest 20\nawait window.hubSearch(null, 'hot', { limit: 50, offset: 50 })  // page 2" },
@@ -1758,7 +1763,7 @@ Identity sent with each upload:
 Server limits: instruction ≤ 4000 chars; code/code_readme have soft limits (rejected if abusive).
 
 Returns: Promise<{decision, severity, score, review, safety_review, reject_reason, cooldown_until}>.
-Renders the verdict into #html-div.`,
+Renders the verdict as a floating overlay.`,
             code: `window.hubUpload = async (name, opts) => {
     opts = opts || {};
     const key = currentBeingId + '/skill/' + name;
@@ -1807,8 +1812,11 @@ Renders the verdict into #html-div.`,
         const sevColor = { safe: '#0f0', caution: '#fc0', danger: '#f44' };
         const ok = resp.ok && data.decision === 'approved';
         const cooldownTxt = data.cooldown_until ? ('cooldown until ' + new Date(data.cooldown_until * 1000).toLocaleTimeString()) : '';
-        div.innerHTML = '<div style="position:relative;padding:12px;font-family:monospace;color:#d4d4d4;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px">' +
-            '<button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:10px;background:transparent;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1" onmouseover="this.style.color=\\\'#f88\\\'" onmouseout="this.style.color=\\\'#666\\\'">×</button>' +
+        const prev = document.getElementById('hub-overlay-upload'); if (prev) prev.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'hub-overlay-upload';
+        overlay.style.cssText = 'position:absolute;top:10px;right:10px;width:min(520px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;z-index:9999;padding:12px;font-family:monospace;color:#d4d4d4;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+        overlay.innerHTML = '<button onclick="this.parentElement.remove()" style="position:absolute;top:6px;right:10px;background:transparent;border:none;color:#666;font-size:18px;cursor:pointer;line-height:1" onmouseover="this.style.color=\\\'#f88\\\'" onmouseout="this.style.color=\\\'#666\\\'">×</button>' +
             '<b style="color:' + (ok ? '#00d4aa' : '#f44') + '">' + (ok ? '✓ Approved' : (resp.status === 429 ? '⏱ Rate limited' : '✗ Rejected')) + '</b> ' +
             (data.severity ? '<span style="color:' + (sevColor[data.severity]||'#888') + ';font-size:11px;border:1px solid currentColor;padding:1px 6px;border-radius:8px;margin-left:8px">' + esc(data.severity) + '</span>' : '') +
             (data.score != null ? '<span style="color:#888;font-size:11px;margin-left:8px">★ ' + data.score + '</span>' : '') +
@@ -1847,12 +1855,12 @@ Renders the verdict into #html-div.`,
                     btn('Copy URL', '#888', u, '✓ URL copied') +
                     btn('Copy Markdown', '#888', md, '✓ MD copied') +
                 '</div>';
-            })() : '') +
-        '</div>';
+            })() : '') + '';
+        div.appendChild(overlay);
     }
     return data;
 };`,
-            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n→ POST to hub_server, Gemini reviews, verdict rendered into #html-div." }
+            code_readme: "await window.hubUpload('my_skill', { tags: ['util'] })\n→ POST to hub_server, Gemini reviews, verdict rendered as a floating overlay." }
         ];
 
         async function seedDefaultSkills(beingId) {
